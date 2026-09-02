@@ -13,7 +13,7 @@ import { BorrowRecord, isRecordOverdue } from '../../models/borrow-record'
 import { DeviceOperation, DeviceOperationAction } from '../../models/device-operation'
 import { Key } from '../../models/key'
 
-function formatTime(timestamp: number): string {
+function formatTime(timestamp?: number): string {
   if (!timestamp) return '--:--'
   const date = new Date(timestamp)
   const h = date.getHours().toString().padStart(2, '0')
@@ -26,6 +26,10 @@ export interface ReservationViewModel extends Reservation {
   roomNo: string
   pickupWindowStartText: string
   pickupWindowEndText: string
+  statusLabel: string
+  statusTone: string
+  canPickup: boolean
+  canCancel: boolean
 }
 
 export interface BorrowViewModel extends BorrowRecord {
@@ -33,13 +37,19 @@ export interface BorrowViewModel extends BorrowRecord {
   roomNo: string
   isOverdue: boolean
   expectedReturnText: string
+  borrowedAtText: string
+  statusLabel: string
+  statusTone: string
+  canReturn: boolean
 }
 
 Page({
   data: {
-    deviceName: '一号钥匙柜',
-    deviceLabel: '检测中',
-    tone: 'gray',
+    deviceName: '1号钥匙柜 (信息楼)',
+    deviceLabel: '在线正常',
+    tone: 'green',
+    availableSlotCount: 7,
+    totalSlotCount: 10,
     activeOperation: null as DeviceOperation | null,
     activeOperationKey: null as Key | null,
     activeReservations: [] as ReservationViewModel[],
@@ -102,25 +112,38 @@ Page({
               roomNo: key?.roomNo || '',
               pickupWindowStartText: formatTime(r.pickupWindowStart),
               pickupWindowEndText: formatTime(r.pickupWindowEnd),
+              statusLabel: r.status === ReservationStatus.APPROVED ? '已审批通过' : '待现场取钥',
+              statusTone: 'blue',
+              canPickup: true,
+              canCancel: true,
             }
           })
 
         // 处理借用记录
         const currentBorrows: BorrowViewModel[] = borrows.map(b => {
           const key = keyMap.get(b.keyId)
+          const overdue = isRecordOverdue(b)
           return {
             ...b,
             keyName: key?.name || b.keyId,
             roomNo: key?.roomNo || '',
-            isOverdue: isRecordOverdue(b),
+            isOverdue: overdue,
             expectedReturnText: formatTime(b.expectedReturnAt),
+            borrowedAtText: formatTime(b.borrowedAt),
+            statusLabel: overdue ? '已逾期' : '借用中',
+            statusTone: overdue ? 'red' : 'green',
+            canReturn: true,
           }
         })
 
+        const availableSlotCount = allKeys.filter(k => k.status === 'AVAILABLE').length
+
         this.setData({
-          deviceName: device.name,
+          deviceName: device.name || '1号钥匙柜 (信息楼)',
           deviceLabel: DEVICE_STATUS_LABEL[device.status],
           tone,
+          availableSlotCount: availableSlotCount || 7,
+          totalSlotCount: allKeys.length || 10,
           activeOperation: activeOp,
           activeOperationKey: activeOpKey,
           activeReservations,
@@ -129,7 +152,7 @@ Page({
         })
       } else {
         this.setData({
-          deviceName: device.name,
+          deviceName: device.name || '1号钥匙柜 (信息楼)',
           deviceLabel: DEVICE_STATUS_LABEL[device.status],
           tone,
           activeOperation: activeOp,
@@ -152,10 +175,9 @@ Page({
     }
   },
 
-  // 点击预约卡片上的“发起取钥”
-  async startPickupFromReservation(e: any) {
-    const rsvId = e.currentTarget.dataset.id
-    const keyId = e.currentTarget.dataset.keyid
+  // 处理预约卡片事件
+  async onReservationCardPickup(e: any) {
+    const { id: rsvId, keyId } = e.detail
     try {
       const user = await userService.getCurrentUser()
       if (!user) return
@@ -163,7 +185,7 @@ Page({
       const key = await keyService.getKeyById(keyId)
       if (!key) return
 
-      wx.showLoading({ title: '准备就绪，正在连接...' })
+      wx.showLoading({ title: '正在建立会话...' })
       const op = await operationService.startOperation({
         action: DeviceOperationAction.PICKUP,
         userId: user.id,
@@ -183,10 +205,28 @@ Page({
     }
   },
 
-  // 点击借用卡片上的“发起归还”
-  async startReturnFromBorrow(e: any) {
-    const borrowId = e.currentTarget.dataset.id
-    const keyId = e.currentTarget.dataset.keyid
+  async onReservationCardCancel(e: any) {
+    const { id: rsvId } = e.detail
+    wx.showModal({
+      title: '取消预约',
+      content: '确定要取消该笔钥匙预约吗？',
+      success: async res => {
+        if (res.confirm) {
+          try {
+            await reservationService.cancelReservation(rsvId)
+            wx.showToast({ title: '已取消预约', icon: 'success' })
+            this.loadData()
+          } catch (err: any) {
+            wx.showToast({ title: err.message || '取消失败', icon: 'none' })
+          }
+        }
+      },
+    })
+  },
+
+  // 处理借用卡片事件
+  async onBorrowCardReturn(e: any) {
+    const { id: borrowId, keyId } = e.detail
     try {
       const user = await userService.getCurrentUser()
       if (!user) return
@@ -194,7 +234,7 @@ Page({
       const key = await keyService.getKeyById(keyId)
       if (!key) return
 
-      wx.showLoading({ title: '正在开启归还通道...' })
+      wx.showLoading({ title: '正在开启归还口...' })
       const op = await operationService.startOperation({
         action: DeviceOperationAction.RETURN,
         userId: user.id,
@@ -214,15 +254,23 @@ Page({
     }
   },
 
-  goScan() {
-    wx.navigateTo({ url: '/pages/scan/scan' })
-  },
-
   goKeys() {
     wx.switchTab({ url: '/pages/keys/keys' })
   },
 
+  goMyReservations() {
+    // 存储标记，供 records 页面进入时定位到 RESERVATIONS Tab
+    try {
+      wx.setStorageSync('kcab_records_initial_tab', 'RESERVATIONS')
+    } catch (e) {}
+    wx.switchTab({ url: '/pages/records/records' })
+  },
+
   goRecords() {
     wx.switchTab({ url: '/pages/records/records' })
+  },
+
+  goHelp() {
+    wx.switchTab({ url: '/pages/profile/profile' })
   },
 })
