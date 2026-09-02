@@ -14,7 +14,7 @@
 
       <view class="info-row">
         <text class="muted">位置</text>
-        <text>{{key.deviceId}}</text>
+        <text>{{key.deviceId === 'CAB001' ? '一号钥匙柜（信息楼）' : key.deviceId}}</text>
       </view>
     </view>
 
@@ -43,10 +43,10 @@
     <view class="card">
       <view class="card-title">注意事项</view>
       <view class="muted">
-        1. 预约成功后请在有效期内取钥<br/>
-        2. 请按时归还钥匙<br/>
-        3. 禁止私自转借<br/>
-        4. 如需取消预约，请在"记录"页面操作
+        <view>1. 预约成功后请在有效期内取钥</view>
+        <view>2. 请按时归还钥匙</view>
+        <view>3. 禁止私自转借</view>
+        <view>4. 如需取消预约，请在"借还记录"页面操作</view>
       </view>
     </view>
 

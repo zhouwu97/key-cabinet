@@ -13,6 +13,28 @@ import { BorrowRecord, isRecordOverdue } from '../../models/borrow-record'
 import { DeviceOperation, DeviceOperationAction } from '../../models/device-operation'
 import { Key } from '../../models/key'
 
+function formatTime(timestamp: number): string {
+  if (!timestamp) return '--:--'
+  const date = new Date(timestamp)
+  const h = date.getHours().toString().padStart(2, '0')
+  const m = date.getMinutes().toString().padStart(2, '0')
+  return `${h}:${m}`
+}
+
+export interface ReservationViewModel extends Reservation {
+  keyName: string
+  roomNo: string
+  pickupWindowStartText: string
+  pickupWindowEndText: string
+}
+
+export interface BorrowViewModel extends BorrowRecord {
+  keyName: string
+  roomNo: string
+  isOverdue: boolean
+  expectedReturnText: string
+}
+
 Page({
   data: {
     deviceName: '一号钥匙柜',
@@ -20,8 +42,8 @@ Page({
     tone: 'gray',
     activeOperation: null as DeviceOperation | null,
     activeOperationKey: null as Key | null,
-    activeReservations: [] as Array<Reservation & { keyName?: string; roomNo?: string }>,
-    currentBorrows: [] as Array<BorrowRecord & { keyName?: string; roomNo?: string; isOverdue?: boolean }>,
+    activeReservations: [] as ReservationViewModel[],
+    currentBorrows: [] as BorrowViewModel[],
     loading: true,
   },
 
@@ -66,7 +88,7 @@ Page({
         allKeys.forEach(k => keyMap.set(k.id, k))
 
         // 筛选可取钥的预约 (ACTIVE / APPROVED)
-        const activeReservations = reservations
+        const activeReservations: ReservationViewModel[] = reservations
           .filter(
             r =>
               r.status === ReservationStatus.ACTIVE ||
@@ -78,17 +100,20 @@ Page({
               ...r,
               keyName: key?.name || r.keyId,
               roomNo: key?.roomNo || '',
+              pickupWindowStartText: formatTime(r.pickupWindowStart),
+              pickupWindowEndText: formatTime(r.pickupWindowEnd),
             }
           })
 
         // 处理借用记录
-        const currentBorrows = borrows.map(b => {
+        const currentBorrows: BorrowViewModel[] = borrows.map(b => {
           const key = keyMap.get(b.keyId)
           return {
             ...b,
             keyName: key?.name || b.keyId,
             roomNo: key?.roomNo || '',
             isOverdue: isRecordOverdue(b),
+            expectedReturnText: formatTime(b.expectedReturnAt),
           }
         })
 
@@ -199,12 +224,5 @@ Page({
 
   goRecords() {
     wx.switchTab({ url: '/pages/records/records' })
-  },
-
-  formatTime(timestamp: number): string {
-    const date = new Date(timestamp)
-    const h = date.getHours().toString().padStart(2, '0')
-    const m = date.getMinutes().toString().padStart(2, '0')
-    return `${h}:${m}`
   },
 })

@@ -38,18 +38,18 @@
     </view>
     <view wx:for="{{currentBorrows}}" wx:key="id" class="card record-card">
       <view class="row-between">
-        <view class="record-title">{{getKeyName(item.keyId)}}</view>
-        <view class="badge badge-orange">
-          ● 借用中
+        <view class="record-title">{{item.keyName}}</view>
+        <view class="badge badge-{{item.statusTone}}">
+          ● {{item.statusLabel}}
         </view>
       </view>
       <view class="info-row">
         <text class="muted">借出时间</text>
-        <text>{{item.borrowedAt ? formatDateTime(item.borrowedAt) : '-'}}</text>
+        <text>{{item.borrowedAtText}}</text>
       </view>
       <view class="info-row">
         <text class="muted">应还时间</text>
-        <text>{{formatDateTime(item.expectedReturnAt)}}</text>
+        <text>{{item.expectedReturnText}}</text>
       </view>
       <view wx:if="{{item.purpose}}" class="info-row">
         <text class="muted">用途说明</text>
@@ -75,18 +75,18 @@
     </view>
     <view wx:for="{{reservations}}" wx:key="id" class="card record-card">
       <view class="row-between">
-        <view class="record-title">{{getKeyName(item.keyId)}}</view>
-        <view class="badge badge-{{getReservationTone(item.status)}}">
-          {{getReservationStatusLabel(item.status)}}
+        <view class="record-title">{{item.keyName}}</view>
+        <view class="badge badge-{{item.statusTone}}">
+          {{item.statusLabel}}
         </view>
       </view>
       <view class="info-row">
         <text class="muted">取钥时间窗口</text>
-        <text>{{formatDateTime(item.pickupWindowStart)}} - {{formatTime(item.pickupWindowEnd)}}</text>
+        <text>{{item.pickupWindowText}}</text>
       </view>
       <view class="info-row">
         <text class="muted">预计归还时间</text>
-        <text>{{formatDateTime(item.expectedReturnAt)}}</text>
+        <text>{{item.expectedReturnText}}</text>
       </view>
       <view wx:if="{{item.purpose}}" class="info-row">
         <text class="muted">借用用途</text>
@@ -119,16 +119,16 @@
     </view>
     <view wx:for="{{historyBorrows}}" wx:key="id" class="card record-card">
       <view class="row-between">
-        <view class="record-title">{{getKeyName(item.keyId)}}</view>
+        <view class="record-title">{{item.keyName}}</view>
         <view class="badge badge-green">✓ 已归还</view>
       </view>
       <view class="info-row">
         <text class="muted">借出时间</text>
-        <text>{{item.borrowedAt ? formatDateTime(item.borrowedAt) : '-'}}</text>
+        <text>{{item.borrowedAtText}}</text>
       </view>
       <view class="info-row">
         <text class="muted">归还时间</text>
-        <text>{{item.returnedAt ? formatDateTime(item.returnedAt) : '-'}}</text>
+        <text>{{item.returnedAtText}}</text>
       </view>
     </view>
   </view>
@@ -140,12 +140,12 @@
     </view>
     <view wx:for="{{exceptionBorrows}}" wx:key="id" class="card record-card error-card">
       <view class="row-between">
-        <view class="record-title">{{getKeyName(item.keyId)}}</view>
+        <view class="record-title">{{item.keyName}}</view>
         <view class="badge badge-red">● 逾期/异常</view>
       </view>
       <view class="info-row">
         <text class="muted">应还时间</text>
-        <text class="tone-red">{{formatDateTime(item.expectedReturnAt)}}</text>
+        <text class="tone-red">{{item.expectedReturnText}}</text>
       </view>
       <view wx:if="{{item.notes}}" class="info-row">
         <text class="muted">异常说明</text>

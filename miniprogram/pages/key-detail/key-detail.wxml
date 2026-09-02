@@ -14,8 +14,8 @@
 
       <view class="info-row">
         <text class="muted">业务状态</text>
-        <text class="tone-{{getStatusTone(key.status)}}">
-          ● {{getStatusLabel(key.status)}}
+        <text class="tone-{{statusTone}}">
+          ● {{statusLabel}}
         </text>
       </view>
 
@@ -46,9 +46,9 @@
     <view class="card">
       <view class="card-title">自助借用说明</view>
       <view class="muted">
-        1. 手机提交预约后即可在有效窗口期内前往钥匙柜取钥。<br/>
-        2. 使用完毕后请在规定时间内将钥匙放入归还口完成 RFID 结算。<br/>
-        3. 严禁私自转借或带离校园。
+        <view>1. 手机提交预约后即可在有效窗口期内前往钥匙柜取钥。</view>
+        <view>2. 使用完毕后请在规定时间内将钥匙放入归还口完成 RFID 结算。</view>
+        <view>3. 严禁私自转借或带离校园。</view>
       </view>
     </view>
 
@@ -70,7 +70,7 @@
       <view class="info-row">
         <text class="muted">槽位物理在位检测</text>
         <text class="{{slot && slot.presence === 'PRESENT' ? 'tone-green' : 'tone-orange'}}">
-          {{slot ? getPresenceLabel(slot.presence) : '未知'}}
+          {{presenceLabel}}
         </text>
       </view>
       <view class="info-row">
@@ -96,7 +96,7 @@
       wx:else
       class="btn-disabled center mt-16"
     >
-      当前不可预约（{{getStatusLabel(key.status)}}）
+      当前不可预约（{{statusLabel}}）
     </view>
   </view>
 </view>

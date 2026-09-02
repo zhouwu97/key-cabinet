@@ -5,7 +5,7 @@ import {
   keyService,
   operationService,
 } from '../../services'
-import { Reservation, ReservationStatus } from '../../models/reservation'
+import { Reservation } from '../../models/reservation'
 import { BorrowRecord, BorrowRecordStatus, isRecordOverdue } from '../../models/borrow-record'
 import { Key } from '../../models/key'
 import {
@@ -17,13 +17,48 @@ import { DeviceOperationAction } from '../../models/device-operation'
 
 type TabType = 'CURRENT' | 'RESERVATIONS' | 'HISTORY' | 'EXCEPTION'
 
+function formatDateTime(timestamp?: number): string {
+  if (!timestamp) return '-'
+  const date = new Date(timestamp)
+  const m = (date.getMonth() + 1).toString().padStart(2, '0')
+  const d = date.getDate().toString().padStart(2, '0')
+  const h = date.getHours().toString().padStart(2, '0')
+  const min = date.getMinutes().toString().padStart(2, '0')
+  return `${m}-${d} ${h}:${min}`
+}
+
+function formatTime(timestamp?: number): string {
+  if (!timestamp) return '--:--'
+  const date = new Date(timestamp)
+  const h = date.getHours().toString().padStart(2, '0')
+  const min = date.getMinutes().toString().padStart(2, '0')
+  return `${h}:${min}`
+}
+
+export interface ReservationViewModel extends Reservation {
+  keyName: string
+  pickupWindowText: string
+  expectedReturnText: string
+  statusLabel: string
+  statusTone: string
+}
+
+export interface BorrowViewModel extends BorrowRecord {
+  keyName: string
+  borrowedAtText: string
+  expectedReturnText: string
+  returnedAtText: string
+  statusLabel: string
+  statusTone: string
+}
+
 Page({
   data: {
     activeTab: 'CURRENT' as TabType,
-    reservations: [] as Reservation[],
-    currentBorrows: [] as BorrowRecord[],
-    historyBorrows: [] as BorrowRecord[],
-    exceptionBorrows: [] as BorrowRecord[],
+    reservations: [] as ReservationViewModel[],
+    currentBorrows: [] as BorrowViewModel[],
+    historyBorrows: [] as BorrowViewModel[],
+    exceptionBorrows: [] as BorrowViewModel[],
     keyMap: {} as Record<string, Key>,
     loading: true,
   },
@@ -46,7 +81,7 @@ Page({
         return
       }
 
-      const [reservations, borrowRecords, keys] = await Promise.all([
+      const [rawReservations, rawBorrowRecords, keys] = await Promise.all([
         reservationService.getUserReservations(user.id),
         borrowService.getUserBorrowRecords(user.id),
         keyService.getKeys(),
@@ -58,21 +93,52 @@ Page({
         keyMap[key.id] = key
       })
 
+      const getKeyName = (keyId: string) => {
+        const key = keyMap[keyId]
+        return key ? `${key.roomNo} ${key.name}` : keyId
+      }
+
+      // 格式化预约 ViewModel
+      const reservations: ReservationViewModel[] = rawReservations.map(r => ({
+        ...r,
+        keyName: getKeyName(r.keyId),
+        pickupWindowText: `${formatDateTime(r.pickupWindowStart)} - ${formatTime(r.pickupWindowEnd)}`,
+        expectedReturnText: formatDateTime(r.expectedReturnAt),
+        statusLabel: RESERVATION_STATUS_LABEL[r.status] || '未知',
+        statusTone: RESERVATION_STATUS_TONE[r.status] || 'gray',
+      }))
+
+      // 格式化借还 ViewModel
+      const mapBorrowViewModel = (b: BorrowRecord): BorrowViewModel => {
+        const statusInfo = getBorrowRecordDisplayStatus(b)
+        return {
+          ...b,
+          keyName: getKeyName(b.keyId),
+          borrowedAtText: formatDateTime(b.borrowedAt),
+          expectedReturnText: formatDateTime(b.expectedReturnAt),
+          returnedAtText: formatDateTime(b.returnedAt),
+          statusLabel: statusInfo.label,
+          statusTone: statusInfo.tone,
+        }
+      }
+
       // 分类借还记录
-      const currentBorrows = borrowRecords.filter(
-        r =>
-          r.status === BorrowRecordStatus.BORROWED ||
-          r.status === BorrowRecordStatus.BORROWING ||
-          r.status === BorrowRecordStatus.RETURNING,
-      )
+      const currentBorrows: BorrowViewModel[] = rawBorrowRecords
+        .filter(
+          r =>
+            r.status === BorrowRecordStatus.BORROWED ||
+            r.status === BorrowRecordStatus.BORROWING ||
+            r.status === BorrowRecordStatus.RETURNING,
+        )
+        .map(mapBorrowViewModel)
 
-      const historyBorrows = borrowRecords.filter(
-        r => r.status === BorrowRecordStatus.COMPLETED,
-      )
+      const historyBorrows: BorrowViewModel[] = rawBorrowRecords
+        .filter(r => r.status === BorrowRecordStatus.COMPLETED)
+        .map(mapBorrowViewModel)
 
-      const exceptionBorrows = borrowRecords.filter(
-        r => isRecordOverdue(r) || r.status === BorrowRecordStatus.EXCEPTION,
-      )
+      const exceptionBorrows: BorrowViewModel[] = rawBorrowRecords
+        .filter(r => isRecordOverdue(r) || r.status === BorrowRecordStatus.EXCEPTION)
+        .map(mapBorrowViewModel)
 
       this.setData({
         reservations,
@@ -168,40 +234,5 @@ Page({
       console.error('取消预约失败', e)
       wx.showToast({ title: '取消失败', icon: 'none' })
     }
-  },
-
-  formatDate(timestamp: number): string {
-    const date = new Date(timestamp)
-    const m = (date.getMonth() + 1).toString().padStart(2, '0')
-    const d = date.getDate().toString().padStart(2, '0')
-    return `${m}-${d}`
-  },
-
-  formatTime(timestamp: number): string {
-    const date = new Date(timestamp)
-    const h = date.getHours().toString().padStart(2, '0')
-    const min = date.getMinutes().toString().padStart(2, '0')
-    return `${h}:${min}`
-  },
-
-  formatDateTime(timestamp: number): string {
-    return `${this.formatDate(timestamp)} ${this.formatTime(timestamp)}`
-  },
-
-  getKeyName(keyId: string): string {
-    const key = this.data.keyMap[keyId]
-    return key ? `${key.roomNo} ${key.name}` : keyId
-  },
-
-  getReservationStatusLabel(status: ReservationStatus): string {
-    return RESERVATION_STATUS_LABEL[status] || '未知'
-  },
-
-  getReservationTone(status: ReservationStatus): string {
-    return RESERVATION_STATUS_TONE[status] || 'gray'
-  },
-
-  getBorrowStatusInfo(record: BorrowRecord) {
-    return getBorrowRecordDisplayStatus(record)
   },
 })

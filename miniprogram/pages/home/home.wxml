@@ -38,7 +38,7 @@
       <view class="item-main">
         <view class="item-title">{{item.roomNo}} {{item.keyName}}</view>
         <view class="item-sub muted">
-          预计归还: {{formatTime(item.expectedReturnAt)}}
+          预计归还: {{item.expectedReturnText}}
           <text wx:if="{{item.isOverdue}}" class="tone-red ml-8">● 已逾期</text>
         </view>
         <view wx:if="{{item.purpose}}" class="item-note muted small">用途: {{item.purpose}}</view>
@@ -65,7 +65,7 @@
       <view class="item-main">
         <view class="item-title">{{item.roomNo}} {{item.keyName}}</view>
         <view class="item-sub muted">
-          取钥窗口: {{formatTime(item.pickupWindowStart)}} - {{formatTime(item.pickupWindowEnd)}}
+          取钥窗口: {{item.pickupWindowStartText}} - {{item.pickupWindowEndText}}
         </view>
         <view wx:if="{{item.purpose}}" class="item-note muted small">用途: {{item.purpose}}</view>
       </view>

@@ -1,14 +1,16 @@
 import { keyService, reservationService, userService } from '../../services'
-import { Key, KeyStatus } from '../../models/key'
+import { Key } from '../../models/key'
 import { KeySlot } from '../../models/key-slot'
 import { KEY_STATUS_LABEL, KEY_STATUS_TONE, KEY_PRESENCE_LABEL } from '../../constants/labels'
-import { KeyPresenceState } from '../../models/key-presence'
 
 Page({
   data: {
     keyId: '',
     key: null as Key | null,
     slot: null as KeySlot | null,
+    statusLabel: '',
+    statusTone: 'gray',
+    presenceLabel: '未知',
     loading: true,
     canReserve: false,
     isAdminOrDev: false,
@@ -43,9 +45,16 @@ Page({
       const canReserve = await reservationService.canReserveKey(keyId)
       const isAdminOrDev = user?.role === 'ADMIN'
 
+      const statusLabel = KEY_STATUS_LABEL[key.status] || '未知'
+      const statusTone = KEY_STATUS_TONE[key.status] || 'gray'
+      const presenceLabel = slot ? (KEY_PRESENCE_LABEL[slot.presence] || '未知') : '未知'
+
       this.setData({
         key,
         slot,
+        statusLabel,
+        statusTone,
+        presenceLabel,
         canReserve,
         isAdminOrDev,
         loading: false,
@@ -73,17 +82,5 @@ Page({
     wx.navigateTo({
       url: `/pages/reservation-create/reservation-create?keyId=${key.id}`,
     })
-  },
-
-  getStatusLabel(status: KeyStatus): string {
-    return KEY_STATUS_LABEL[status] || '未知'
-  },
-
-  getStatusTone(status: KeyStatus): string {
-    return KEY_STATUS_TONE[status] || 'gray'
-  },
-
-  getPresenceLabel(presence: KeyPresenceState): string {
-    return KEY_PRESENCE_LABEL[presence] || '未知'
   },
 })

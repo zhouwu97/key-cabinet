@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { dirname, resolve, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -23,9 +23,50 @@ for (const tab of tabs) {
 }
 if (new Set(tabs).size !== tabs.length) problems.push('tabBar 页面重复')
 
+// 扫描所有 WXML 模板并进行运行时兼容性静态检查
+function scanWxmlFiles(dir) {
+  const files = []
+  const list = readdirSync(dir)
+  for (const item of list) {
+    const full = join(dir, item)
+    const stat = statSync(full)
+    if (stat.isDirectory()) {
+      files.push(...scanWxmlFiles(full))
+    } else if (item.endsWith('.wxml')) {
+      files.push(full)
+    }
+  }
+  return files
+}
+
+const wxmlFiles = scanWxmlFiles(resolve(root, 'miniprogram'))
+const fnCallRegex = /\{\{[^}]*?\b[a-zA-Z0-9_$]+\s*\([^}]*?\)[^}]*?\}\}/g
+const htmlTagRegex = /<\/?(br|hr|div|span|p|table|tr|td)\b[^>]*>/gi
+
+for (const wxmlPath of wxmlFiles) {
+  const content = readFileSync(wxmlPath, 'utf8')
+  const relativePath = wxmlPath.replace(root, '')
+
+  // 1. 检查是否存在直接调用 Page 函数的非法语法
+  const fnMatches = content.match(fnCallRegex)
+  if (fnMatches) {
+    for (const match of fnMatches) {
+      problems.push(`WXML 表达式禁止直接调用函数 [${relativePath}]: ${match}`)
+    }
+  }
+
+  // 2. 检查非法 HTML 标签
+  const tagMatches = content.match(htmlTagRegex)
+  if (tagMatches) {
+    for (const match of tagMatches) {
+      problems.push(`WXML 禁止使用非小程序 HTML 标签 [${relativePath}]: ${match}`)
+    }
+  }
+}
+
 if (problems.length > 0) {
   console.error(problems.map(p => `FAIL: ${p}`).join('\n'))
   process.exit(1)
 }
 
-console.log(`OK: ${pages.length} 个页面注册完整，${tabs.length} 个 tabBar 页面`)
+console.log(`OK: ${pages.length} 个页面注册完整，${tabs.length} 个 tabBar 页面，${wxmlFiles.length} 个 WXML 模板语法与兼容性校验全部通过！`)

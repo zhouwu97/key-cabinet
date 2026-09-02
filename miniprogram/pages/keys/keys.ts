@@ -1,12 +1,18 @@
 import { keyService } from '../../services'
 import { Key, KeyStatus } from '../../models/key'
+import { KEY_STATUS_LABEL, KEY_STATUS_TONE } from '../../constants/labels'
 
 type FilterType = 'ALL' | 'AVAILABLE' | 'BORROWED' | 'MY'
 
+export interface KeyViewModel extends Key {
+  statusLabel: string
+  statusTone: string
+}
+
 Page({
   data: {
-    keys: [] as Key[],
-    filteredKeys: [] as Key[],
+    keys: [] as KeyViewModel[],
+    filteredKeys: [] as KeyViewModel[],
     searchKeyword: '',
     activeFilter: 'ALL' as FilterType,
     loading: true,
@@ -17,19 +23,24 @@ Page({
   },
 
   onShow() {
-    // 每次显示时刷新数据
     this.loadKeys()
   },
 
   async loadKeys() {
     try {
       this.setData({ loading: true })
-      const keys = await keyService.getKeys()
+      const rawKeys = await keyService.getKeys()
+      const keys: KeyViewModel[] = rawKeys.map(k => ({
+        ...k,
+        statusLabel: KEY_STATUS_LABEL[k.status] || '未知',
+        statusTone: KEY_STATUS_TONE[k.status] || 'gray',
+      }))
+
       this.setData({
         keys,
-        filteredKeys: keys,
         loading: false,
       })
+      this.applyFilter()
     } catch (e) {
       console.error('加载钥匙列表失败', e)
       this.setData({ loading: false })
@@ -73,7 +84,6 @@ Page({
           key.status === KeyStatus.BORROWED || key.status === KeyStatus.OVERDUE,
       )
     } else if (activeFilter === 'MY') {
-      // TODO: 过滤当前用户借用的钥匙
       results = results.filter(
         key =>
           key.status === KeyStatus.BORROWED || key.status === KeyStatus.OVERDUE,
@@ -86,29 +96,5 @@ Page({
   goDetail(e: any) {
     const keyId = e.currentTarget.dataset.id
     wx.navigateTo({ url: `/pages/key-detail/key-detail?keyId=${keyId}` })
-  },
-
-  getStatusLabel(status: KeyStatus): string {
-    const labels: Record<KeyStatus, string> = {
-      [KeyStatus.AVAILABLE]: '可借',
-      [KeyStatus.RESERVED]: '已预约',
-      [KeyStatus.BORROWED]: '借出',
-      [KeyStatus.OVERDUE]: '逾期',
-      [KeyStatus.MAINTENANCE]: '维护',
-      [KeyStatus.DISABLED]: '停用',
-    }
-    return labels[status] || '未知'
-  },
-
-  getStatusTone(status: KeyStatus): string {
-    const tones: Record<KeyStatus, string> = {
-      [KeyStatus.AVAILABLE]: 'green',
-      [KeyStatus.RESERVED]: 'blue',
-      [KeyStatus.BORROWED]: 'orange',
-      [KeyStatus.OVERDUE]: 'red',
-      [KeyStatus.MAINTENANCE]: 'gray',
-      [KeyStatus.DISABLED]: 'gray',
-    }
-    return tones[status] || 'gray'
   },
 })
