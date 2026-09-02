@@ -1,115 +1,88 @@
 <view class="page">
   <!-- 加载状态 -->
   <view wx:if="{{loading}}" class="card center-loading">
-    <text class="muted">正在建立设备会话...</text>
+    <view class="loading-spinner"></view>
+    <view class="loading-text">正在建立设备安全会话...</view>
   </view>
 
-  <!-- 错误状态（未找到操作） -->
-  <view wx:elif="{{hasError && !operation}}" class="card error-card">
-    <view class="card-title tone-red">操作异常</view>
-    <view class="muted">{{errorMessage || '未找到当前执行中的设备操作'}}</view>
-    <view class="btn-primary center mt-16" bindtap="goHome">返回首页</view>
+  <!-- 错误且无操作实体状态 -->
+  <view wx:elif="{{hasError && !operation}}" class="card">
+    <error-state
+      title="未找到待执行的操作"
+      message="{{errorMessage || '该设备操作会话可能已结束或无效'}}"
+      retryText="返回系统首页"
+      bindretry="goHome"
+    />
   </view>
 
-  <!-- 主操作流程界面 -->
+  <!-- 核心展示操作面板 -->
   <view wx:else>
-    <!-- 头部卡片：钥匙与设备信息 -->
-    <view class="card">
-      <view class="row-between">
-        <view class="card-title">{{key ? key.roomNo + ' ' + key.name : '智能钥匙柜操作'}}</view>
-        <view class="badge badge-{{statusTone}}">
-          {{operation.action === 'PICKUP' ? '取钥流程' : '归还流程'}}
-        </view>
-      </view>
-      <view class="info-row">
-        <text class="muted">执行设备</text>
-        <text>{{device ? device.name : operation.deviceId}}</text>
-      </view>
-      <view class="info-row">
-        <text class="muted">操作单号</text>
-        <text class="small-mono">{{operation.id}}</text>
-      </view>
-    </view>
-
-    <!-- 实时状态引导横幅 -->
-    <view class="card status-banner status-{{statusTone}}">
-      <view class="status-title">{{statusText}}</view>
-      <view wx:if="{{latestEvent}}" class="status-sub">
-        <text class="dot-indicator"></text>
-        {{latestEvent}}
-      </view>
-    </view>
-
-    <!-- 步骤进度可视化 -->
-    <view class="card">
-      <view class="card-title">执行步骤</view>
-      <view class="steps-container">
-        <view
-          wx:for="{{steps}}"
-          wx:key="key"
-          class="step-item step-{{item.status}}"
-        >
-          <view class="step-indicator">
-            <view class="step-icon">
-              <text wx:if="{{item.status === 'finish'}}">✓</text>
-              <text wx:elif="{{item.status === 'error'}}">✕</text>
-              <text wx:elif="{{item.status === 'process'}}">●</text>
-              <text wx:else>{{index + 1}}</text>
-            </view>
-            <view wx:if="{{index < steps.length - 1}}" class="step-line"></view>
+    <!-- 头部操作卡片 -->
+    <view class="card hero-op-card">
+      <view class="op-header-row">
+        <view class="op-title-wrap">
+          <view class="op-action-tag">
+            <status-badge
+              text="{{operation.action === 'PICKUP' ? '取钥中' : '归还中'}}"
+              tone="{{isFinished ? 'green' : (hasError ? 'red' : 'blue')}}"
+              dot="{{true}}"
+            />
           </view>
-          <view class="step-content">
-            <view class="step-title-text">{{item.title}}</view>
-            <view class="step-desc-text">{{item.desc}}</view>
+          <view class="op-target-name">
+            {{key ? key.roomNo + ' · ' + key.name : '智能钥匙柜操作'}}
           </view>
         </view>
       </view>
-    </view>
 
-    <!-- 实时设备通信事件流 -->
-    <view wx:if="{{eventLogs.length > 0}}" class="card log-card">
-      <view class="card-title">设备通信事件 (MQTT/ESP32 协议模拟)</view>
-      <view class="log-list">
-        <view wx:for="{{eventLogs}}" wx:key="seq" class="log-item">
-          <text class="log-time">{{item.time}}</text>
-          <text class="log-text">seq#{{item.seq}} · {{item.text}}</text>
-        </view>
+      <view class="op-info-row">
+        <text class="op-label">执行设备</text>
+        <text class="op-value">{{deviceName}}</text>
       </view>
     </view>
 
-    <!-- 结束动作按钮 -->
-    <view wx:if="{{isFinished}}" class="action-buttons">
-      <view class="btn-primary center" bindtap="goRecords">查看借还记录</view>
-      <view class="btn-secondary center mt-12" bindtap="goHome">返回系统首页</view>
-    </view>
-
-    <view wx:elif="{{hasError}}" class="action-buttons">
-      <view class="btn-primary center" bindtap="goHome">返回首页重新发起</view>
-    </view>
-
-    <!-- 调试与故障注入面板 -->
-    <view class="card debug-card">
-      <view class="card-title">开发与答辩调试：故障场景注入</view>
-      <picker
-        range="{{scenarios}}"
-        range-key="label"
-        value="{{scenarioIndex}}"
-        bindchange="onScenarioChange"
-      >
-        <view class="picker-box">
-          <text class="muted">当前故障注入模式：</text>
-          <text class="picker-value">{{scenarios[scenarioIndex].label}}</text>
-        </view>
-      </picker>
-
-      <view class="grid-2 mt-12">
-        <view class="btn-secondary center small-btn" bindtap="triggerDemoPickup">
-          测试取钥 103
-        </view>
-        <view class="btn-secondary center small-btn" bindtap="triggerDemoReturn">
-          测试归还 104
-        </view>
+    <!-- 动态行动指引横幅 (当前发生什么 / 下一步我需要做什么) -->
+    <view class="guidance-banner {{isFinished ? 'guidance-finish' : (hasError ? 'guidance-error' : 'guidance-active')}}">
+      <view class="guidance-icon">
+        <text wx:if="{{isFinished}}">🎉</text>
+        <text wx:elif="{{hasError}}">⚠️</text>
+        <text wx:else>💡</text>
       </view>
+      <view class="guidance-content">
+        <view class="guidance-main">{{userPromptTitle}}</view>
+        <view class="guidance-sub">{{userPromptDesc}}</view>
+      </view>
+    </view>
+
+    <!-- 竖向旗舰级步骤步进器 (Operation Stepper) -->
+    <view class="stepper-section">
+      <operation-stepper
+        steps="{{steps}}"
+        currentStep="{{currentStepNumber}}"
+        totalSteps="6"
+        actionTitle="{{operation.action === 'PICKUP' ? '取钥流转时序' : '归还流转时序'}}"
+      />
+    </view>
+
+    <!-- 成功结算卡片 (完成态) -->
+    <view wx:if="{{isFinished}}" class="card finish-card">
+      <view class="finish-title-row">
+        <text class="finish-icon">✓</text>
+        <text class="finish-title">{{operation.action === 'PICKUP' ? '钥匙已成功取出' : '钥匙已成功归还'}}</text>
+      </view>
+      <view class="finish-desc">
+        {{operation.action === 'PICKUP' ? '借用计时已开始生效，使用完毕后请在应还时间前放入归还口。' : 'RFID 芯片核验通过，借还单已自动结算完毕。'}}
+      </view>
+      <view class="action-buttons">
+        <view class="btn-primary" bindtap="goRecords">查看借还记录</view>
+        <view class="btn-ghost mt-12" bindtap="goHome">返回系统首页</view>
+      </view>
+    </view>
+
+    <!-- 失败重试/返回按钮 -->
+    <view wx:elif="{{hasError}}" class="card error-op-card">
+      <view class="error-action-title">操作未成功完成</view>
+      <view class="error-action-desc">{{errorMessage || '设备响应异常，请重新发起或联系现场管理员'}}</view>
+      <view class="btn-primary mt-16" bindtap="goHome">返回首页重新发起</view>
     </view>
   </view>
 </view>

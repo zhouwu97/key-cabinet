@@ -1,4 +1,9 @@
 {
-  "navigationBarTitleText": "设备操作",
-  "usingComponents": {}
+  "navigationBarTitleText": "钥匙柜存取操作",
+  "usingComponents": {
+    "operation-stepper": "../../components/operation-stepper/operation-stepper",
+    "status-badge": "../../components/status-badge/status-badge",
+    "error-state": "../../components/error-state/error-state",
+    "empty-state": "../../components/empty-state/empty-state"
+  }
 }
