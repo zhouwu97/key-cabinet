@@ -1,10 +1,11 @@
 {
   "name": "key-cabinet-miniprogram",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "智能钥匙借还微信小程序",
   "scripts": {
     "check": "tsc --noEmit && node scripts/check-pages.mjs",
-    "test": "node scripts/run-stage2-tests.mjs"
+    "test": "node scripts/run-stage2-tests.mjs",
+    "checklist": "node scripts/run-stage3-checklist.mjs"
   },
   "keywords": [],
   "author": "",

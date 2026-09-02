@@ -1,3 +1,10 @@
+.page {
+  padding: 24rpx;
+  background-color: #f5f6f8;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
 .picker-box {
   background-color: #f8fafc;
   border: 1rpx solid #cbd5e1;
@@ -9,12 +16,29 @@
 }
 
 .picker-value {
-  color: #2563eb;
+  color: #2f6bff;
   font-weight: 600;
 }
 
 .mt-8 {
   margin-top: 16rpx;
+}
+
+.mt-16 {
+  margin-top: 24rpx;
+}
+
+.test-btn-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+}
+
+.small-btn {
+  padding: 16rpx 0;
+  font-size: 26rpx;
+  margin: 0;
+  border-radius: 12rpx;
 }
 
 .slot-grid {
@@ -32,21 +56,21 @@
 }
 
 .slot-present {
-  background-color: #f0fdf4;
-  border-color: #86efac;
-  color: #166534;
+  background-color: #e6f8f1;
+  border-color: #00b578;
+  color: #00b578;
 }
 
 .slot-absent {
-  background-color: #fff7ed;
-  border-color: #fdba74;
-  color: #9a3412;
+  background-color: #fff4e8;
+  border-color: #ff8f1f;
+  color: #ff8f1f;
 }
 
 .slot-disabled {
-  background-color: #f1f5f9;
-  border-color: #cbd5e1;
-  color: #94a3b8;
+  background-color: #f0f1f3;
+  border-color: #c9cdd4;
+  color: #8a919f;
 }
 
 .slot-num {

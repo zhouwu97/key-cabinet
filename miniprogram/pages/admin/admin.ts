@@ -1,12 +1,15 @@
 import {
   deviceService,
   keyService,
+  userService,
+  operationService,
 } from '../../services'
 import { KeySlot } from '../../models/key-slot'
 import { Key } from '../../models/key'
 import { MockScenario, MOCK_SCENARIO_LABEL } from '../../mocks/mock-scenarios'
 import { KEY_PRESENCE_LABEL } from '../../constants/labels'
 import { KeyPresenceState } from '../../models/key-presence'
+import { DeviceOperationAction } from '../../models/device-operation'
 import {
   MOCK_KEYS,
   MOCK_KEY_SLOTS,
@@ -66,26 +69,82 @@ Page({
     }
   },
 
+  async triggerDemoPickup() {
+    try {
+      const user = await userService.getCurrentUser()
+      if (!user) return
+
+      wx.showLoading({ title: '正在发起取钥...' })
+      const op = await operationService.startOperation(
+        {
+          action: DeviceOperationAction.PICKUP,
+          userId: user.id,
+          keyId: 'KEY103',
+          deviceId: 'CAB001',
+          slotId: 'SLOT03',
+        },
+        this.data.currentScenario,
+      )
+      wx.hideLoading()
+
+      wx.navigateTo({
+        url: `/pages/operation/operation?operationId=${op.id}`,
+      })
+    } catch (e: any) {
+      wx.hideLoading()
+      wx.showToast({ title: e.message || '发起取钥失败', icon: 'none' })
+    }
+  },
+
+  async triggerDemoReturn() {
+    try {
+      const user = await userService.getCurrentUser()
+      if (!user) return
+
+      wx.showLoading({ title: '正在发起归还...' })
+      const op = await operationService.startOperation(
+        {
+          action: DeviceOperationAction.RETURN,
+          userId: user.id,
+          keyId: 'KEY104',
+          deviceId: 'CAB001',
+          slotId: 'SLOT04',
+        },
+        this.data.currentScenario,
+      )
+      wx.hideLoading()
+
+      wx.navigateTo({
+        url: `/pages/operation/operation?operationId=${op.id}`,
+      })
+    } catch (e: any) {
+      wx.hideLoading()
+      wx.showToast({ title: e.message || '发起归还失败', icon: 'none' })
+    }
+  },
+
   async resetMockData() {
     try {
-      await wx.showModal({
+      const res = await wx.showModal({
         title: '重置 Mock 数据',
         content: '确定重置所有钥匙、槽位、预约与借还记录到初始测试状态吗？',
       })
 
-      wx.setStorageSync(STORAGE_KEYS.KEYS, [...MOCK_KEYS])
-      wx.setStorageSync(STORAGE_KEYS.KEY_SLOTS, [...MOCK_KEY_SLOTS])
-      wx.setStorageSync(STORAGE_KEYS.RESERVATIONS, [...MOCK_RESERVATIONS])
-      wx.setStorageSync(STORAGE_KEYS.BORROW_RECORDS, [...MOCK_BORROW_RECORDS])
-      wx.setStorageSync(STORAGE_KEYS.OPERATIONS, [])
-      wx.removeStorageSync(STORAGE_KEYS.ACTIVE_OPERATION_ID)
+      if (res.confirm) {
+        wx.setStorageSync(STORAGE_KEYS.KEYS, [...MOCK_KEYS])
+        wx.setStorageSync(STORAGE_KEYS.KEY_SLOTS, [...MOCK_KEY_SLOTS])
+        wx.setStorageSync(STORAGE_KEYS.RESERVATIONS, [...MOCK_RESERVATIONS])
+        wx.setStorageSync(STORAGE_KEYS.BORROW_RECORDS, [...MOCK_BORROW_RECORDS])
+        wx.setStorageSync(STORAGE_KEYS.OPERATIONS, [])
+        wx.removeStorageSync(STORAGE_KEYS.ACTIVE_OPERATION_ID)
 
-      deviceService.setGlobalScenario(MockScenario.SUCCESS)
+        deviceService.setGlobalScenario(MockScenario.SUCCESS)
 
-      wx.showToast({ title: '数据已重置', icon: 'success' })
-      this.loadAdminData()
-    } catch {
-      // 用户取消
+        wx.showToast({ title: '数据已重置', icon: 'success' })
+        this.loadAdminData()
+      }
+    } catch (e) {
+      console.error('重置失败', e)
     }
   },
 

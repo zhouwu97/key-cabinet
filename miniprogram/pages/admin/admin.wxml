@@ -1,8 +1,8 @@
 <view class="page">
   <view class="card">
-    <view class="card-title">设备与协议调试控制台</view>
+    <view class="card-title">硬件诊断与协议调试控制台</view>
     <view class="muted">
-      用于开发期模拟硬件故障、协议时序与检查 10 物理槽位在位状态。
+      用于开发、答辩与现场联调：模拟硬件故障注入、协议时序流转及 10 物理槽位在位实时监控。
     </view>
   </view>
 
@@ -23,11 +23,20 @@
     <view class="muted small mt-8">
       切换后，小程序发起的所有取钥/归还操作将按照该异常时序执行。
     </view>
+
+    <view class="test-btn-grid mt-16">
+      <view class="btn-primary small-btn" bindtap="triggerDemoPickup">
+        ▶ 发起测试取钥 (103)
+      </view>
+      <view class="btn-primary small-btn" bindtap="triggerDemoReturn">
+        ▶ 发起测试归还 (104)
+      </view>
+    </view>
   </view>
 
   <!-- 槽位在位监控 -->
   <view class="card">
-    <view class="card-title">一号钥匙柜 (CAB001) 物理槽位监控</view>
+    <view class="card-title">一号钥匙柜 (CAB001) 10 物理槽位监控</view>
     <view class="slot-grid">
       <view
         wx:for="{{slots}}"
@@ -43,7 +52,7 @@
     </view>
   </view>
 
-  <view class="btn-secondary center" bindtap="resetMockData">
+  <view class="btn-ghost center mt-16" bindtap="resetMockData">
     重置所有 Mock 数据为初始状态
   </view>
 </view>

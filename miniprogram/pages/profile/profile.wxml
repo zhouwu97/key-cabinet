@@ -1,21 +1,91 @@
 <view class="page">
-  <view class="card">
-    <view class="card-title">张三</view>
-    <view class="muted">学号：2023xxxx · 信息科学与工程学院</view>
+  <!-- 用户身份卡片 -->
+  <view class="user-hero-card">
+    <view class="user-avatar-wrap">
+      <view class="user-avatar">👤</view>
+    </view>
+    <view class="user-info">
+      <view class="user-name-row">
+        <text class="user-name">{{user.name || '张三'}}</text>
+        <status-badge
+          text="{{user.role === 'ADMIN' ? '系统管理员' : '认证师生'}}"
+          tone="{{user.role === 'ADMIN' ? 'blue' : 'green'}}"
+          dot="{{true}}"
+        />
+      </view>
+      <view class="user-meta">{{user.studentId || '20230001'}} · {{user.department || '信息科学与工程学院'}}</view>
+    </view>
   </view>
 
-  <view class="card">
-    <view class="menu-item">身份认证</view>
-    <view class="menu-item">消息通知</view>
-    <view class="menu-item">我的申请</view>
-    <view class="menu-item">故障反馈</view>
-    <view class="menu-item">使用帮助</view>
+  <!-- 用户借用与履约统计看板 -->
+  <view class="stats-card">
+    <view class="stats-item" bindtap="goCurrentBorrows">
+      <view class="stats-value {{currentBorrowCount > 0 ? 'tone-blue' : ''}}">{{currentBorrowCount}}</view>
+      <view class="stats-label">当前借用中</view>
+    </view>
+    <view class="stats-divider"></view>
+    <view class="stats-item" bindtap="goReservations">
+      <view class="stats-value {{activeReservationCount > 0 ? 'tone-orange' : ''}}">{{activeReservationCount}}</view>
+      <view class="stats-label">待履约预约</view>
+    </view>
+    <view class="stats-divider"></view>
+    <view class="stats-item" bindtap="goHistory">
+      <view class="stats-value">{{totalBorrowCount}}</view>
+      <view class="stats-label">累计借用次数</view>
+    </view>
+    <view class="stats-divider"></view>
+    <view class="stats-item">
+      <view class="stats-value tone-green">100%</view>
+      <view class="stats-label">准时归还率</view>
+    </view>
   </view>
 
-  <view class="card">
-    <view class="menu-item" bindtap="goAdmin">管理员入口</view>
-    <view class="menu-item">关于系统</view>
+  <!-- 常见服务与指南 -->
+  <view class="menu-section card">
+    <view class="menu-item" bindtap="showHelpModal">
+      <view class="menu-item-left">
+        <text class="menu-icon">💡</text>
+        <text class="menu-text">借还流程与常见问题</text>
+      </view>
+      <text class="menu-arrow">›</text>
+    </view>
+
+    <view class="menu-item" bindtap="showLocationsModal">
+      <view class="menu-item-left">
+        <text class="menu-icon">🏢</text>
+        <text class="menu-text">钥匙柜分布与位置</text>
+      </view>
+      <text class="menu-arrow">›</text>
+    </view>
+
+    <view class="menu-item" bindtap="showRulesModal">
+      <view class="menu-item-left">
+        <text class="menu-icon">📜</text>
+        <text class="menu-text">实验室钥匙使用守则</text>
+      </view>
+      <text class="menu-arrow">›</text>
+    </view>
   </view>
 
-  <view class="placeholder-note">骨架占位 · role=ADMIN 时才显示管理员入口</view>
+  <!-- 管理员与系统控制台 -->
+  <view class="menu-section card">
+    <view class="menu-item" bindtap="goAdmin">
+      <view class="menu-item-left">
+        <text class="menu-icon">🛠️</text>
+        <text class="menu-text">硬件诊断与协议调试控制台</text>
+      </view>
+      <view class="menu-item-right">
+        <text class="tag-dev">诊断模式</text>
+        <text class="menu-arrow">›</text>
+      </view>
+    </view>
+
+    <view class="menu-item" bindtap="showAbout">
+      <view class="menu-item-left">
+        <text class="menu-icon">ℹ️</text>
+        <text class="menu-text">关于系统 (v0.3.0)</text>
+      </view>
+      <text class="menu-arrow">›</text>
+    </view>
+  </view>
 </view>
