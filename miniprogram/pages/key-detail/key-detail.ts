@@ -8,6 +8,7 @@ Page({
     keyId: '',
     key: null as Key | null,
     slot: null as KeySlot | null,
+    deviceName: '1号钥匙柜 (信息楼一楼大厅)',
     statusLabel: '',
     statusTone: 'gray',
     presenceLabel: '未知',
@@ -36,22 +37,23 @@ Page({
       ])
 
       if (!key) {
-        wx.showToast({ title: '钥匙不存在', icon: 'none' })
-        setTimeout(() => wx.navigateBack(), 1500)
+        this.setData({ key: null, loading: false })
         return
       }
 
-      const slot = await keyService.getKeySlot(key.slotId || key.id)
-      const canReserve = await reservationService.canReserveKey(keyId)
+      const slot = await keyService.getKeySlot(key.slotId || key.id).catch(() => null)
+      const canReserve = await reservationService.canReserveKey(keyId).catch(() => false)
       const isAdminOrDev = user?.role === 'ADMIN'
 
       const statusLabel = KEY_STATUS_LABEL[key.status] || '未知'
       const statusTone = KEY_STATUS_TONE[key.status] || 'gray'
-      const presenceLabel = slot ? (KEY_PRESENCE_LABEL[slot.presence] || '未知') : '未知'
+      const presenceLabel = slot ? (KEY_PRESENCE_LABEL[slot.presence] || '未知') : '离柜'
+      const deviceName = key.deviceId === 'CAB001' ? '1号钥匙柜 (信息楼一楼大厅)' : key.deviceId
 
       this.setData({
         key,
         slot,
+        deviceName,
         statusLabel,
         statusTone,
         presenceLabel,
@@ -68,6 +70,10 @@ Page({
 
   toggleDevMode() {
     this.setData({ isAdminOrDev: !this.data.isAdminOrDev })
+  },
+
+  goBack() {
+    wx.navigateBack()
   },
 
   async goReserve() {

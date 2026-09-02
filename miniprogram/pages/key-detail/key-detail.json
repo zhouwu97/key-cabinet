@@ -1,4 +1,9 @@
 {
   "navigationBarTitleText": "钥匙详情",
-  "usingComponents": {}
+  "usingComponents": {
+    "status-badge": "../../components/status-badge/status-badge",
+    "section-header": "../../components/section-header/section-header",
+    "empty-state": "../../components/empty-state/empty-state",
+    "error-state": "../../components/error-state/error-state"
+  }
 }
