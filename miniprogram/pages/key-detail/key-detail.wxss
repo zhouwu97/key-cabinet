@@ -1,0 +1,21 @@
+.debug-panel {
+  border: 1rpx dashed #93c5fd;
+  background-color: #f8fafc;
+}
+
+.dev-toggle {
+  text-align: center;
+  padding: 16rpx;
+  color: #64748b;
+  text-decoration: underline;
+}
+
+.small-mono {
+  font-family: monospace;
+  font-size: 24rpx;
+  color: #475569;
+}
+
+.mt-16 {
+  margin-top: 32rpx;
+}

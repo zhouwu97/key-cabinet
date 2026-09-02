@@ -1,21 +1,36 @@
 <view class="page">
   <view class="card">
-    <view class="card-title">借用 103 实验室钥匙</view>
-
-    <view class="field-label">借用用途</view>
-    <input class="field-input" placeholder="实验设备调试" />
-
-    <view class="field-label">预计归还时间</view>
-    <input class="field-input" placeholder="2026-09-02 18:00" />
-
-    <view class="field-label">备注</view>
-    <textarea class="field-textarea" placeholder="选填" />
-
-    <view class="field-label">
-      <checkbox value="rule" /> 我已阅读钥匙借用规则
+    <view class="card-title">钥匙自助借还指南</view>
+    <view class="muted">
+      智能钥匙柜遵循“提前预约、按时取钥、扫码归还”的标准闭环流程。
     </view>
   </view>
 
-  <view class="btn-primary center" bindtap="onSubmit">提交申请</view>
-  <view class="placeholder-note">骨架占位 · 表单数据与提交待接入</view>
+  <view class="card">
+    <view class="card-title">标准使用流程</view>
+    <view class="flow-step">
+      <view class="flow-num">1</view>
+      <view class="flow-info">
+        <view class="flow-title">线上预约</view>
+        <view class="muted small">在【找钥匙】列表中选择所需房间钥匙并提交预约时间。</view>
+      </view>
+    </view>
+    <view class="flow-step">
+      <view class="flow-num">2</view>
+      <view class="flow-info">
+        <view class="flow-title">现场取钥</view>
+        <view class="muted small">到达钥匙柜后，在首页或记录中点击【发起取钥】，设备自动旋转出柜并开门。</view>
+      </view>
+    </view>
+    <view class="flow-step">
+      <view class="flow-num">3</view>
+      <view class="flow-info">
+        <view class="flow-title">RFID 归还</view>
+        <view class="muted small">使用完毕后点击【发起归还】，将钥匙放入归还口完成芯片识别入库。</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="btn-primary center" bindtap="goKeys">前往找钥匙并预约</view>
+  <view class="btn-secondary center mt-12" bindtap="goRecords">查看我的借还记录</view>
 </view>

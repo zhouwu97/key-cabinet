@@ -1,0 +1,65 @@
+.picker-box {
+  background-color: #f8fafc;
+  border: 1rpx solid #cbd5e1;
+  padding: 24rpx;
+  border-radius: 12rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.picker-value {
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.mt-8 {
+  margin-top: 16rpx;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.slot-cell {
+  padding: 16rpx 8rpx;
+  border-radius: 12rpx;
+  text-align: center;
+  border: 1rpx solid #e2e8f0;
+}
+
+.slot-present {
+  background-color: #f0fdf4;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.slot-absent {
+  background-color: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+
+.slot-disabled {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #94a3b8;
+}
+
+.slot-num {
+  font-size: 20rpx;
+  font-weight: 600;
+}
+
+.slot-key {
+  font-size: 22rpx;
+  font-weight: 700;
+  margin: 4rpx 0;
+}
+
+.slot-status {
+  font-size: 18rpx;
+}

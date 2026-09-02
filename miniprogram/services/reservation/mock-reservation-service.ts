@@ -5,6 +5,9 @@ import {
 } from './reservation-service'
 import { MOCK_RESERVATIONS, STORAGE_KEYS } from '../../mocks/mock-data'
 import { KeyStatus } from '../../models/key'
+import { BorrowRecordStatus } from '../../models/borrow-record'
+import { DeviceStatus } from '../../models/device'
+import { OperationErrorCode } from '../../models/operation-error'
 
 export class MockReservationService implements ReservationService {
   private reservations: Reservation[] = []
@@ -34,50 +37,104 @@ export class MockReservationService implements ReservationService {
   }
 
   private generateId(): string {
-    return `RSV${Date.now()}${Math.random().toString(36).substring(2, 9)}`
+    return `RSV${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`
   }
 
   async createReservation(
     params: CreateReservationParams,
   ): Promise<Reservation> {
+    this.loadFromStorage()
     return new Promise((resolve, reject) => {
       setTimeout(async () => {
-        // 检查是否可预约
-        const canReserve = await this.canReserveKey(params.keyId)
-        if (!canReserve) {
-          reject(new Error('该钥匙当前不可预约'))
-          return
-        }
-
-        // 检查用户是否已有该钥匙的活跃预约
-        const existing = await this.getActiveReservation(
-          params.userId,
-          params.keyId,
-        )
-        if (existing) {
-          reject(new Error('您已预约过该钥匙'))
-          return
-        }
-
         const now = Date.now()
+        const start = params.pickupWindowStart || now
+        const end = params.pickupWindowEnd || (start + 1800000) // 默认窗口 30 分钟
+        const duration = params.expectedDuration || 7200000 // 默认借用 2 小时
+        const expectedReturn = params.expectedReturnAt || (start + duration)
+
+        // 1. 检查钥匙基础状态
+        const keys = wx.getStorageSync(STORAGE_KEYS.KEYS) || []
+        const key = keys.find((k: any) => k.id === params.keyId)
+        if (!key || !key.enabled) {
+          reject(new Error(OperationErrorCode.KEY_NOT_AVAILABLE))
+          return
+        }
+
+        // 2. 检查设备状态
+        const devices = wx.getStorageSync(STORAGE_KEYS.DEVICES) || []
+        const device = devices.find((d: any) => d.id === key.deviceId)
+        if (device && (device.status === DeviceStatus.OFFLINE || device.status === DeviceStatus.FAULT)) {
+          reject(new Error(OperationErrorCode.DEVICE_OFFLINE))
+          return
+        }
+
+        // 3. 检查钥匙当前是否存在借出中借还记录
+        const borrows = wx.getStorageSync(STORAGE_KEYS.BORROW_RECORDS) || []
+        const activeBorrow = borrows.find(
+          (b: any) =>
+            b.keyId === params.keyId &&
+            (b.status === BorrowRecordStatus.BORROWING ||
+              b.status === BorrowRecordStatus.BORROWED ||
+              b.status === BorrowRecordStatus.RETURNING),
+        )
+        if (activeBorrow && now < (activeBorrow.expectedReturnAt || now)) {
+          // 当前若已被借出且还在借期内
+          reject(new Error(OperationErrorCode.KEY_ALREADY_BORROWED))
+          return
+        }
+
+        // 4. 检查用户本人是否已有该钥匙的活跃预约
+        const userActive = this.reservations.find(
+          r =>
+            r.userId === params.userId &&
+            r.keyId === params.keyId &&
+            (r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.APPROVED),
+        )
+        if (userActive) {
+          reject(new Error(OperationErrorCode.RESERVATION_CONFLICT))
+          return
+        }
+
+        // 5. 检查时间冲突 (new.start < old.end && new.end > old.start)
+        const hasConflict = this.reservations.some(r => {
+          if (r.keyId !== params.keyId) return false
+          if (r.status !== ReservationStatus.ACTIVE && r.status !== ReservationStatus.APPROVED) {
+            return false
+          }
+          // 比较预约覆盖的完整周期 (从取钥窗口起到预计归还)
+          const existingStart = r.pickupWindowStart || r.createdAt
+          const existingEnd = r.expectedReturnAt || (existingStart + 7200000)
+          return start < existingEnd && expectedReturn > existingStart
+        })
+
+        if (hasConflict) {
+          reject(new Error(OperationErrorCode.RESERVATION_CONFLICT))
+          return
+        }
+
+        // 6. 创建预约对象（自动确定 ACTIVE 或 APPROVED）
+        const isCurrentlyActive = now >= (start - 300000) && now <= end
+        const status = isCurrentlyActive ? ReservationStatus.ACTIVE : ReservationStatus.APPROVED
+
         const reservation: Reservation = {
           id: this.generateId(),
           userId: params.userId,
           keyId: params.keyId,
-          status: ReservationStatus.ACTIVE,
-          purpose: params.purpose,
-          reservedAt: now,
-          expiresAt: now + params.expectedDuration,
+          status,
+          purpose: params.purpose || '科研实验借用',
+          createdAt: now,
+          pickupWindowStart: start,
+          pickupWindowEnd: end,
+          expectedReturnAt: expectedReturn,
+          approvedAt: now,
         }
 
         this.reservations.push(reservation)
         this.saveToStorage()
 
-        // 更新钥匙状态为 RESERVED
+        // 7. 更新钥匙状态为 RESERVED（如果是当前活跃或钥匙原本可用）
         try {
-          const keys = wx.getStorageSync(STORAGE_KEYS.KEYS) || []
-          const key = keys.find((k: any) => k.id === params.keyId)
-          if (key) {
+          if (key && key.status === KeyStatus.AVAILABLE) {
             key.status = KeyStatus.RESERVED
             wx.setStorageSync(STORAGE_KEYS.KEYS, keys)
           }
@@ -86,44 +143,58 @@ export class MockReservationService implements ReservationService {
         }
 
         resolve({ ...reservation })
-      }, 300)
-    })
-  }
-
-  async getUserReservations(userId: string): Promise<Reservation[]> {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const results = this.reservations
-          .filter(r => r.userId === userId)
-          .sort((a, b) => b.reservedAt - a.reservedAt)
-        resolve(results)
-      }, 200)
-    })
-  }
-
-  async getReservationById(id: string): Promise<Reservation | null> {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        const reservation = this.reservations.find(r => r.id === id)
-        resolve(reservation ? { ...reservation } : null)
       }, 150)
     })
   }
 
-  async cancelReservation(id: string): Promise<void> {
+  async getUserReservations(userId: string): Promise<Reservation[]> {
+    this.loadFromStorage()
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const results = this.reservations
+          .filter(r => r.userId === userId)
+          .sort((a, b) => b.createdAt - a.createdAt)
+        resolve(results.map(r => ({ ...r })))
+      }, 100)
+    })
+  }
+
+  async getReservationById(id: string): Promise<Reservation | null> {
+    this.loadFromStorage()
     return new Promise(resolve => {
       setTimeout(() => {
         const reservation = this.reservations.find(r => r.id === id)
-        if (reservation && reservation.status === ReservationStatus.ACTIVE) {
+        resolve(reservation ? { ...reservation } : null)
+      }, 100)
+    })
+  }
+
+  async cancelReservation(id: string): Promise<void> {
+    this.loadFromStorage()
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const reservation = this.reservations.find(r => r.id === id)
+        if (
+          reservation &&
+          (reservation.status === ReservationStatus.ACTIVE ||
+            reservation.status === ReservationStatus.APPROVED ||
+            reservation.status === ReservationStatus.PENDING)
+        ) {
           reservation.status = ReservationStatus.CANCELLED
           reservation.cancelledAt = Date.now()
           this.saveToStorage()
 
-          // 更新钥匙状态回 AVAILABLE
+          // 检查该钥匙是否还有其他活跃预约，若无则恢复 AVAILABLE
           try {
             const keys = wx.getStorageSync(STORAGE_KEYS.KEYS) || []
             const key = keys.find((k: any) => k.id === reservation.keyId)
-            if (key && key.status === KeyStatus.RESERVED) {
+            const otherActive = this.reservations.some(
+              r =>
+                r.keyId === reservation.keyId &&
+                r.id !== id &&
+                (r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.APPROVED),
+            )
+            if (key && !otherActive && key.status === KeyStatus.RESERVED) {
               key.status = KeyStatus.AVAILABLE
               wx.setStorageSync(STORAGE_KEYS.KEYS, keys)
             }
@@ -132,47 +203,89 @@ export class MockReservationService implements ReservationService {
           }
         }
         resolve()
-      }, 200)
+      }, 100)
     })
   }
 
-  async canReserveKey(keyId: string): Promise<boolean> {
+  async canReserveKey(keyId: string, windowStart?: number, windowEnd?: number): Promise<boolean> {
+    this.loadFromStorage()
     return new Promise(resolve => {
       setTimeout(() => {
         try {
           const keys = wx.getStorageSync(STORAGE_KEYS.KEYS) || []
           const key = keys.find((k: any) => k.id === keyId)
-
-          if (!key || !key.enabled) {
+          if (!key || !key.enabled || key.status === KeyStatus.DISABLED || key.status === KeyStatus.MAINTENANCE) {
             resolve(false)
             return
           }
 
-          // 只有 AVAILABLE 状态才能预约
-          const canReserve = key.status === KeyStatus.AVAILABLE
-          resolve(canReserve)
+          const borrows = wx.getStorageSync(STORAGE_KEYS.BORROW_RECORDS) || []
+          const activeBorrow = borrows.find(
+            (b: any) =>
+              b.keyId === keyId &&
+              (b.status === BorrowRecordStatus.BORROWING ||
+                b.status === BorrowRecordStatus.BORROWED ||
+                b.status === BorrowRecordStatus.RETURNING),
+          )
+          if (activeBorrow) {
+            resolve(false)
+            return
+          }
+
+          const start = windowStart || Date.now()
+          const end = windowEnd || (start + 7200000)
+
+          const hasConflict = this.reservations.some(r => {
+            if (r.keyId !== keyId) return false
+            if (r.status !== ReservationStatus.ACTIVE && r.status !== ReservationStatus.APPROVED) {
+              return false
+            }
+            const existingStart = r.pickupWindowStart || r.createdAt
+            const existingEnd = r.expectedReturnAt || (existingStart + 7200000)
+            return start < existingEnd && end > existingStart
+          })
+
+          resolve(!hasConflict)
         } catch (e) {
           console.error('检查钥匙状态失败', e)
           resolve(false)
         }
-      }, 100)
+      }, 50)
     })
   }
 
   async getActiveReservation(
     userId: string,
-    keyId: string,
+    keyId?: string,
   ): Promise<Reservation | null> {
+    this.loadFromStorage()
     return new Promise(resolve => {
       setTimeout(() => {
+        const now = Date.now()
         const reservation = this.reservations.find(
           r =>
             r.userId === userId &&
-            r.keyId === keyId &&
-            r.status === ReservationStatus.ACTIVE,
+            (!keyId || r.keyId === keyId) &&
+            (r.status === ReservationStatus.ACTIVE ||
+              (r.status === ReservationStatus.APPROVED && now >= (r.pickupWindowStart - 300000))),
         )
         resolve(reservation ? { ...reservation } : null)
-      }, 100)
+      }, 50)
+    })
+  }
+
+  async markReservationUsed(id: string): Promise<void> {
+    this.loadFromStorage()
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const reservation = this.reservations.find(r => r.id === id)
+        if (reservation) {
+          reservation.status = ReservationStatus.USED
+          reservation.usedAt = Date.now()
+          this.saveToStorage()
+        }
+        resolve()
+      }, 50)
     })
   }
 }

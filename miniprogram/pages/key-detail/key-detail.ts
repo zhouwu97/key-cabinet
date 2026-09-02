@@ -1,14 +1,17 @@
-import { keyService, reservationService } from '../../services'
+import { keyService, reservationService, userService } from '../../services'
 import { Key, KeyStatus } from '../../models/key'
-import { KeyLocation, KeyPhysicalState } from '../../models/key-physical-state'
+import { KeySlot } from '../../models/key-slot'
+import { KEY_STATUS_LABEL, KEY_STATUS_TONE, KEY_PRESENCE_LABEL } from '../../constants/labels'
+import { KeyPresenceState } from '../../models/key-presence'
 
 Page({
   data: {
     keyId: '',
     key: null as Key | null,
-    location: null as KeyLocation | null,
+    slot: null as KeySlot | null,
     loading: true,
     canReserve: false,
+    isAdminOrDev: false,
   },
 
   onLoad(options: any) {
@@ -25,9 +28,9 @@ Page({
   async loadKeyDetail(keyId: string) {
     try {
       this.setData({ loading: true })
-      const [key, location] = await Promise.all([
+      const [key, user] = await Promise.all([
         keyService.getKeyById(keyId),
-        keyService.getKeyLocation(keyId),
+        userService.getCurrentUser(),
       ])
 
       if (!key) {
@@ -36,12 +39,15 @@ Page({
         return
       }
 
+      const slot = await keyService.getKeySlot(key.slotId || key.id)
       const canReserve = await reservationService.canReserveKey(keyId)
+      const isAdminOrDev = user?.role === 'ADMIN'
 
       this.setData({
         key,
-        location,
+        slot,
         canReserve,
+        isAdminOrDev,
         loading: false,
       })
     } catch (e) {
@@ -51,9 +57,12 @@ Page({
     }
   },
 
+  toggleDevMode() {
+    this.setData({ isAdminOrDev: !this.data.isAdminOrDev })
+  },
+
   async goReserve() {
     const { key, canReserve } = this.data
-
     if (!key) return
 
     if (!canReserve) {
@@ -61,46 +70,20 @@ Page({
       return
     }
 
-    // 跳转到预约页面
     wx.navigateTo({
       url: `/pages/reservation-create/reservation-create?keyId=${key.id}`,
     })
   },
 
   getStatusLabel(status: KeyStatus): string {
-    const labels: Record<KeyStatus, string> = {
-      [KeyStatus.AVAILABLE]: '可借用',
-      [KeyStatus.RESERVED]: '已预约',
-      [KeyStatus.BORROWED]: '借出中',
-      [KeyStatus.OVERDUE]: '逾期未还',
-      [KeyStatus.MAINTENANCE]: '维护中',
-      [KeyStatus.DISABLED]: '已停用',
-    }
-    return labels[status] || '未知'
+    return KEY_STATUS_LABEL[status] || '未知'
   },
 
   getStatusTone(status: KeyStatus): string {
-    const tones: Record<KeyStatus, string> = {
-      [KeyStatus.AVAILABLE]: 'green',
-      [KeyStatus.RESERVED]: 'blue',
-      [KeyStatus.BORROWED]: 'orange',
-      [KeyStatus.OVERDUE]: 'red',
-      [KeyStatus.MAINTENANCE]: 'gray',
-      [KeyStatus.DISABLED]: 'gray',
-    }
-    return tones[status] || 'gray'
+    return KEY_STATUS_TONE[status] || 'gray'
   },
 
-  getPhysicalStateLabel(state: KeyPhysicalState): string {
-    const labels: Record<KeyPhysicalState, string> = {
-      [KeyPhysicalState.IN_CABINET]: '在柜中',
-      [KeyPhysicalState.MOVING]: '移动中',
-      [KeyPhysicalState.AT_PICKUP]: '取钥口',
-      [KeyPhysicalState.OUT]: '已取出',
-      [KeyPhysicalState.RETURN_CHECK]: '归还检查',
-      [KeyPhysicalState.FAULT]: '故障',
-      [KeyPhysicalState.UNKNOWN]: '未知',
-    }
-    return labels[state] || '未知'
+  getPresenceLabel(presence: KeyPresenceState): string {
+    return KEY_PRESENCE_LABEL[presence] || '未知'
   },
 })

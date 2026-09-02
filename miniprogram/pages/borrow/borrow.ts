@@ -1,5 +1,11 @@
 Page({
-  onSubmit() {
-    wx.showToast({ title: '占位：提交逻辑待实现', icon: 'none' })
+  goKeys() {
+    wx.switchTab({ url: '/pages/keys/keys' })
+  },
+  goRecords() {
+    wx.switchTab({ url: '/pages/records/records' })
+  },
+  goHome() {
+    wx.switchTab({ url: '/pages/home/home' })
   },
 })

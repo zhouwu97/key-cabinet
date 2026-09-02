@@ -1,68 +1,111 @@
 <view class="page">
-  <view class="card">
-    <view class="card-title">智能钥匙管理</view>
-    <view class="muted">欢迎使用</view>
-  </view>
-
-  <!-- 当前预约 -->
-  <view wx:if="{{activeReservations.length > 0}}" class="card">
-    <view class="card-title">我的预约</view>
-    <view
-      wx:for="{{activeReservations}}"
-      wx:key="id"
-      class="list-item"
-      bindtap="goReservationDetail"
-      data-id="{{item.id}}"
-    >
-      <view>
-        <view>钥匙ID: {{item.keyId}}</view>
-        <view class="muted">
-          预约时间: {{formatTime(item.reservedAt)}} |
-          过期时间: {{formatTime(item.expiresAt)}}
-        </view>
-        <view wx:if="{{item.purpose}}" class="muted small">用途: {{item.purpose}}</view>
-      </view>
-      <view class="tone-blue">● 待使用</view>
+  <!-- P0: 未完成设备操作中断恢复横幅 -->
+  <view
+    wx:if="{{activeOperation}}"
+    class="card active-op-card"
+    bindtap="resumeOperation"
+  >
+    <view class="active-op-header">
+      <view class="active-op-pulse"></view>
+      <text class="active-op-title">检测到未完成设备操作</text>
+      <text class="active-op-badge">执行中</text>
     </view>
+    <view class="active-op-body">
+      <text class="active-op-name">
+        {{activeOperationKey ? activeOperationKey.roomNo + ' ' + activeOperationKey.name : '钥匙操作'}}
+      </text>
+      <text class="active-op-action">
+        ({{activeOperation.action === 'PICKUP' ? '正在取钥' : '正在归还'}})
+      </text>
+    </view>
+    <view class="active-op-btn">点击继续查看进度与恢复 ›</view>
   </view>
 
-  <!-- 当前借用 -->
+  <!-- 欢迎与系统概览 -->
+  <view class="card header-card">
+    <view class="card-title">智能钥匙自助服务</view>
+    <view class="muted">扫码/预约快速存取 · 实时设备状态同步</view>
+  </view>
+
+  <!-- P1: 我的当前借用 / 逾期列表 -->
   <view wx:if="{{currentBorrows.length > 0}}" class="card">
-    <view class="card-title">我的借用</view>
+    <view class="card-title">当前借用中 ({{currentBorrows.length}})</view>
     <view
       wx:for="{{currentBorrows}}"
       wx:key="id"
-      class="list-item"
-      bindtap="goBorrowDetail"
-      data-id="{{item.id}}"
+      class="list-card-item {{item.isOverdue ? 'item-overdue' : ''}}"
     >
-      <view>
-        <view>钥匙ID: {{item.keyId}}</view>
-        <view class="muted">
+      <view class="item-main">
+        <view class="item-title">{{item.roomNo}} {{item.keyName}}</view>
+        <view class="item-sub muted">
           预计归还: {{formatTime(item.expectedReturnAt)}}
+          <text wx:if="{{item.isOverdue}}" class="tone-red ml-8">● 已逾期</text>
         </view>
-        <view wx:if="{{item.purpose}}" class="muted small">用途: {{item.purpose}}</view>
+        <view wx:if="{{item.purpose}}" class="item-note muted small">用途: {{item.purpose}}</view>
       </view>
-      <view class="tone-{{isOverdue(item.expectedReturnAt) ? 'red' : 'orange'}}">
-        ● {{isOverdue(item.expectedReturnAt) ? '逾期' : '借用中'}}
+      <view
+        class="btn-mini btn-return"
+        catchtap="startReturnFromBorrow"
+        data-id="{{item.id}}"
+        data-keyid="{{item.keyId}}"
+      >
+        发起归还
       </view>
     </view>
   </view>
 
-  <!-- 快捷功能 -->
+  <!-- P2: 我的待履约预约列表 -->
+  <view wx:if="{{activeReservations.length > 0}}" class="card">
+    <view class="card-title">我的有效预约 ({{activeReservations.length}})</view>
+    <view
+      wx:for="{{activeReservations}}"
+      wx:key="id"
+      class="list-card-item"
+    >
+      <view class="item-main">
+        <view class="item-title">{{item.roomNo}} {{item.keyName}}</view>
+        <view class="item-sub muted">
+          取钥窗口: {{formatTime(item.pickupWindowStart)}} - {{formatTime(item.pickupWindowEnd)}}
+        </view>
+        <view wx:if="{{item.purpose}}" class="item-note muted small">用途: {{item.purpose}}</view>
+      </view>
+      <view
+        class="btn-mini btn-pickup"
+        catchtap="startPickupFromReservation"
+        data-id="{{item.id}}"
+        data-keyid="{{item.keyId}}"
+      >
+        发起取钥
+      </view>
+    </view>
+  </view>
+
+  <!-- P3: 快捷功能导航 -->
   <view class="card">
-    <view class="card-title">快捷功能</view>
+    <view class="card-title">快捷服务</view>
     <view class="grid-2">
-      <view class="grid-item" bindtap="goKeys">找钥匙</view>
-      <view class="grid-item" bindtap="goRecords">借还记录</view>
-      <view class="grid-item" bindtap="goScan">扫码取钥</view>
-      <view class="grid-item">故障反馈</view>
+      <view class="grid-item" bindtap="goKeys">
+        <view class="grid-icon">🔑</view>
+        <view class="grid-label">找钥匙/预约</view>
+      </view>
+      <view class="grid-item" bindtap="goRecords">
+        <view class="grid-icon">📋</view>
+        <view class="grid-label">借还历史</view>
+      </view>
+      <view class="grid-item" bindtap="goScan">
+        <view class="grid-icon">📷</view>
+        <view class="grid-label">现场扫码</view>
+      </view>
+      <view class="grid-item" bindtap="resumeOperation">
+        <view class="grid-icon">⚙️</view>
+        <view class="grid-label">设备操作台</view>
+      </view>
     </view>
   </view>
 
-  <!-- 设备状态 -->
+  <!-- P4: 设备状态卡片 -->
   <view class="card">
-    <view class="card-title">设备状态</view>
+    <view class="card-title">钥匙柜设备状态</view>
     <view class="row-between">
       <view>{{deviceName}}</view>
       <view class="tone-{{tone}}">● {{deviceLabel}}</view>

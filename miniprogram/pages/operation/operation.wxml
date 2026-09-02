@@ -1,11 +1,115 @@
 <view class="page">
-  <view class="card">
-    <view class="card-title">设备操作 · 103 实验室</view>
-    <view class="info-row"><text class="muted">当前事件</text><text>{{latest}}</text></view>
-    <view class="muted" wx:if="{{log.length === 0}}">点击下方按钮走一遍 Mock 事件时序（PRD 第三十五节）</view>
-    <view wx:for="{{log}}" wx:key="*this" class="muted">· {{item}}</view>
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="card center-loading">
+    <text class="muted">正在建立设备会话...</text>
   </view>
 
-  <view class="btn-primary center" bindtap="demoBorrow">演示：发起取钥（Mock）</view>
-  <view class="placeholder-note">骨架占位 · 步骤条/异常处理/归还流程待实现</view>
+  <!-- 错误状态（未找到操作） -->
+  <view wx:elif="{{hasError && !operation}}" class="card error-card">
+    <view class="card-title tone-red">操作异常</view>
+    <view class="muted">{{errorMessage || '未找到当前执行中的设备操作'}}</view>
+    <view class="btn-primary center mt-16" bindtap="goHome">返回首页</view>
+  </view>
+
+  <!-- 主操作流程界面 -->
+  <view wx:else>
+    <!-- 头部卡片：钥匙与设备信息 -->
+    <view class="card">
+      <view class="row-between">
+        <view class="card-title">{{key ? key.roomNo + ' ' + key.name : '智能钥匙柜操作'}}</view>
+        <view class="badge badge-{{statusTone}}">
+          {{operation.action === 'PICKUP' ? '取钥流程' : '归还流程'}}
+        </view>
+      </view>
+      <view class="info-row">
+        <text class="muted">执行设备</text>
+        <text>{{device ? device.name : operation.deviceId}}</text>
+      </view>
+      <view class="info-row">
+        <text class="muted">操作单号</text>
+        <text class="small-mono">{{operation.id}}</text>
+      </view>
+    </view>
+
+    <!-- 实时状态引导横幅 -->
+    <view class="card status-banner status-{{statusTone}}">
+      <view class="status-title">{{statusText}}</view>
+      <view wx:if="{{latestEvent}}" class="status-sub">
+        <text class="dot-indicator"></text>
+        {{latestEvent}}
+      </view>
+    </view>
+
+    <!-- 步骤进度可视化 -->
+    <view class="card">
+      <view class="card-title">执行步骤</view>
+      <view class="steps-container">
+        <view
+          wx:for="{{steps}}"
+          wx:key="key"
+          class="step-item step-{{item.status}}"
+        >
+          <view class="step-indicator">
+            <view class="step-icon">
+              <text wx:if="{{item.status === 'finish'}}">✓</text>
+              <text wx:elif="{{item.status === 'error'}}">✕</text>
+              <text wx:elif="{{item.status === 'process'}}">●</text>
+              <text wx:else>{{index + 1}}</text>
+            </view>
+            <view wx:if="{{index < steps.length - 1}}" class="step-line"></view>
+          </view>
+          <view class="step-content">
+            <view class="step-title-text">{{item.title}}</view>
+            <view class="step-desc-text">{{item.desc}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 实时设备通信事件流 -->
+    <view wx:if="{{eventLogs.length > 0}}" class="card log-card">
+      <view class="card-title">设备通信事件 (MQTT/ESP32 协议模拟)</view>
+      <view class="log-list">
+        <view wx:for="{{eventLogs}}" wx:key="seq" class="log-item">
+          <text class="log-time">{{item.time}}</text>
+          <text class="log-text">seq#{{item.seq}} · {{item.text}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 结束动作按钮 -->
+    <view wx:if="{{isFinished}}" class="action-buttons">
+      <view class="btn-primary center" bindtap="goRecords">查看借还记录</view>
+      <view class="btn-secondary center mt-12" bindtap="goHome">返回系统首页</view>
+    </view>
+
+    <view wx:elif="{{hasError}}" class="action-buttons">
+      <view class="btn-primary center" bindtap="goHome">返回首页重新发起</view>
+    </view>
+
+    <!-- 调试与故障注入面板 -->
+    <view class="card debug-card">
+      <view class="card-title">开发与答辩调试：故障场景注入</view>
+      <picker
+        range="{{scenarios}}"
+        range-key="label"
+        value="{{scenarioIndex}}"
+        bindchange="onScenarioChange"
+      >
+        <view class="picker-box">
+          <text class="muted">当前故障注入模式：</text>
+          <text class="picker-value">{{scenarios[scenarioIndex].label}}</text>
+        </view>
+      </picker>
+
+      <view class="grid-2 mt-12">
+        <view class="btn-secondary center small-btn" bindtap="triggerDemoPickup">
+          测试取钥 103
+        </view>
+        <view class="btn-secondary center small-btn" bindtap="triggerDemoReturn">
+          测试归还 104
+        </view>
+      </view>
+    </view>
+  </view>
 </view>

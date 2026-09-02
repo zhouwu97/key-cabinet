@@ -1,5 +1,5 @@
 import { Key, KeyStatus } from '../../models/key'
-import { KeyLocation } from '../../models/key-physical-state'
+import { KeySlot } from '../../models/key-slot'
 
 export interface KeyService {
   /** 获取所有钥匙 */
@@ -14,9 +14,12 @@ export interface KeyService {
   /** 按状态筛选钥匙 */
   filterKeysByStatus(status: KeyStatus): Promise<Key[]>
 
-  /** 获取钥匙物理位置 */
-  getKeyLocation(keyId: string): Promise<KeyLocation | null>
+  /** 获取钥匙对应的物理槽位信息 */
+  getKeySlot(slotIdOrKeyId: string): Promise<KeySlot | null>
 
-  /** 更新钥匙状态 */
+  /** 获取指定设备下的所有槽位 */
+  getDeviceSlots(deviceId: string): Promise<KeySlot[]>
+
+  /** 更新钥匙业务状态 */
   updateKeyStatus(keyId: string, status: KeyStatus): Promise<void>
 }

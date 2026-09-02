@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "outDir": "./.test-dist",
+    "noEmit": false
+  },
+  "include": [
+    "./miniprogram/**/*.ts"
+  ]
+}

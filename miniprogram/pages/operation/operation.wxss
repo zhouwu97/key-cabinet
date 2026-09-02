@@ -1,0 +1,272 @@
+.center-loading {
+  text-align: center;
+  padding: 48rpx;
+}
+
+.error-card {
+  border-left: 8rpx solid #ef4444;
+}
+
+.small-mono {
+  font-family: monospace;
+  font-size: 24rpx;
+  color: #64748b;
+}
+
+.badge {
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+}
+
+.badge-blue {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+
+.badge-green {
+  background-color: #dcfce7;
+  color: #16a34a;
+}
+
+.badge-red {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.badge-orange {
+  background-color: #ffedd5;
+  color: #ea580c;
+}
+
+.status-banner {
+  padding: 32rpx;
+  border-radius: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.status-blue {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1rpx solid #bfdbfe;
+  color: #1e40af;
+}
+
+.status-green {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border: 1rpx solid #bbf7d0;
+  color: #166534;
+}
+
+.status-red {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  border: 1rpx solid #fecaca;
+  color: #991b1b;
+}
+
+.status-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+.status-sub {
+  font-size: 26rpx;
+  opacity: 0.9;
+  display: flex;
+  align-items: center;
+}
+
+.dot-indicator {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background-color: currentColor;
+  margin-right: 12rpx;
+  display: inline-block;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+/* 步骤条样式 */
+.steps-container {
+  margin-top: 20rpx;
+}
+
+.step-item {
+  display: flex;
+  position: relative;
+  min-height: 110rpx;
+}
+
+.step-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 60rpx;
+  margin-right: 24rpx;
+  flex-shrink: 0;
+}
+
+.step-icon {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  font-weight: 600;
+  background-color: #f1f5f9;
+  color: #94a3b8;
+  z-index: 2;
+}
+
+.step-line {
+  flex: 1;
+  width: 4rpx;
+  background-color: #e2e8f0;
+  margin: 6rpx 0;
+}
+
+.step-content {
+  flex: 1;
+  padding-bottom: 24rpx;
+}
+
+.step-title-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 4rpx;
+}
+
+.step-desc-text {
+  font-size: 24rpx;
+  color: #64748b;
+}
+
+/* 步骤状态修饰 */
+.step-finish .step-icon {
+  background-color: #10b981;
+  color: #ffffff;
+}
+
+.step-finish .step-line {
+  background-color: #10b981;
+}
+
+.step-finish .step-title-text {
+  color: #0f172a;
+}
+
+.step-process .step-icon {
+  background-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 0 0 6rpx rgba(37, 99, 235, 0.2);
+}
+
+.step-process .step-title-text {
+  color: #2563eb;
+}
+
+.step-error .step-icon {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+.step-error .step-title-text {
+  color: #ef4444;
+}
+
+.step-error .step-desc-text {
+  color: #dc2626;
+}
+
+/* 日志面板 */
+.log-card {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  border: 1rpx solid #1e293b;
+}
+
+.log-card .card-title {
+  color: #94a3b8;
+  font-size: 24rpx;
+}
+
+.log-list {
+  max-height: 260rpx;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 22rpx;
+}
+
+.log-item {
+  padding: 6rpx 0;
+  border-bottom: 1rpx solid #1e293b;
+  display: flex;
+}
+
+.log-time {
+  color: #64748b;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.log-text {
+  color: #38bdf8;
+  word-break: break-all;
+}
+
+.action-buttons {
+  margin: 32rpx 0;
+}
+
+.mt-12 {
+  margin-top: 24rpx;
+}
+
+.mt-16 {
+  margin-top: 32rpx;
+}
+
+.btn-secondary {
+  background-color: #f1f5f9;
+  color: #334155;
+  padding: 22rpx;
+  border-radius: 12rpx;
+  font-weight: 500;
+  text-align: center;
+}
+
+.debug-card {
+  margin-top: 32rpx;
+  border: 1rpx dashed #cbd5e1;
+  background-color: #f8fafc;
+}
+
+.picker-box {
+  background-color: #ffffff;
+  border: 1rpx solid #e2e8f0;
+  padding: 20rpx;
+  border-radius: 8rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.picker-value {
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.small-btn {
+  padding: 16rpx;
+  font-size: 26rpx;
+}

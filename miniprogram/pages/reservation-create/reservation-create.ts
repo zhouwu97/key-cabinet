@@ -5,12 +5,13 @@ import {
 } from '../../services'
 import { Key } from '../../models/key'
 import { CreateReservationParams } from '../../services/reservation'
+import { OperationErrorCode } from '../../models/operation-error'
 
 Page({
   data: {
     keyId: '',
     key: null as Key | null,
-    purpose: '',
+    purpose: '科研实验与教学研讨',
     duration: 2, // 默认2小时
     loading: true,
     submitting: false,
@@ -74,11 +75,15 @@ Page({
         return
       }
 
+      const now = Date.now()
       const params: CreateReservationParams = {
         userId: user.id,
         keyId,
         purpose: purpose.trim(),
-        expectedDuration: duration * 3600000, // 转换为毫秒
+        pickupWindowStart: now,
+        pickupWindowEnd: now + 1800000, // 30分钟取钥窗口
+        expectedDuration: duration * 3600000,
+        expectedReturnAt: now + duration * 3600000,
       }
 
       await reservationService.createReservation(params)
@@ -90,7 +95,19 @@ Page({
       }, 1500)
     } catch (e: any) {
       console.error('预约失败', e)
-      wx.showToast({ title: e.message || '预约失败', icon: 'none' })
+      let msg = '预约失败'
+      if (e.message === OperationErrorCode.RESERVATION_CONFLICT) {
+        msg = '所选时间段该钥匙已被他人预约'
+      } else if (e.message === OperationErrorCode.KEY_ALREADY_BORROWED) {
+        msg = '该钥匙当前已被借出'
+      } else if (e.message === OperationErrorCode.KEY_NOT_AVAILABLE) {
+        msg = '该钥匙当前不可预约'
+      } else if (e.message === OperationErrorCode.DEVICE_OFFLINE) {
+        msg = '所属钥匙柜离线，暂时无法预约'
+      } else if (e.message) {
+        msg = e.message
+      }
+      wx.showToast({ title: msg, icon: 'none', duration: 2500 })
       this.setData({ submitting: false })
     }
   },

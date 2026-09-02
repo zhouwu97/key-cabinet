@@ -1,82 +1,102 @@
 <view class="page">
-  <view wx:if="{{loading}}" class="loading-state">
-    <text>加载中...</text>
+  <view wx:if="{{loading}}" class="card">
+    <text class="muted">加载钥匙详情中...</text>
   </view>
 
-  <view wx:elif="{{!key}}" class="empty-state">
-    <text>钥匙不存在</text>
+  <view wx:elif="{{!key}}" class="card">
+    <text class="muted">未找到该钥匙信息</text>
   </view>
 
   <view wx:else>
+    <!-- 普通用户视角：核心业务信息 -->
     <view class="card">
       <view class="card-title">{{key.roomNo}} {{key.name}}</view>
 
       <view class="info-row">
-        <text class="muted">钥匙编号</text>
-        <text>{{key.id}}</text>
-      </view>
-
-      <view class="info-row">
         <text class="muted">业务状态</text>
         <text class="tone-{{getStatusTone(key.status)}}">
-          {{getStatusLabel(key.status)}}
+          ● {{getStatusLabel(key.status)}}
         </text>
       </view>
 
       <view class="info-row">
-        <text class="muted">物理状态</text>
-        <text>{{location ? getPhysicalStateLabel(location.physicalState) : '未知'}}</text>
-      </view>
-
-      <view class="info-row">
-        <text class="muted">存放位置</text>
-        <text>{{key.deviceId}}</text>
-      </view>
-
-      <view wx:if="{{location && location.slotPosition}}" class="info-row">
-        <text class="muted">槽位编号</text>
-        <text>{{location.slotPosition}}</text>
-      </view>
-
-      <view wx:if="{{key.rfidTag}}" class="info-row">
-        <text class="muted">RFID标签</text>
-        <text>{{key.rfidTag}}</text>
+        <text class="muted">所属钥匙柜</text>
+        <text>{{key.deviceId === 'CAB001' ? '一号钥匙柜（信息楼）' : key.deviceId}}</text>
       </view>
 
       <view class="info-row">
         <text class="muted">是否需要审批</text>
-        <text>{{key.requiresApproval ? '是' : '否'}}</text>
+        <text>{{key.requiresApproval ? '需要管理员审批' : '免审批（即约即取）'}}</text>
       </view>
 
       <view class="info-row">
-        <text class="muted">启用状态</text>
-        <text>{{key.enabled ? '启用' : '停用'}}</text>
+        <text class="muted">可用状态</text>
+        <text class="{{key.enabled ? 'tone-green' : 'tone-red'}}">
+          {{key.enabled ? '正常服务中' : '已停用'}}
+        </text>
       </view>
     </view>
 
+    <!-- 说明卡片 -->
     <view wx:if="{{key.description}}" class="card">
-      <view class="card-title">说明</view>
+      <view class="card-title">房间与钥匙说明</view>
       <view class="muted">{{key.description}}</view>
     </view>
 
     <view class="card">
-      <view class="card-title">借用说明</view>
-      <view class="muted">请按时归还钥匙。禁止私自转借。</view>
+      <view class="card-title">自助借用说明</view>
+      <view class="muted">
+        1. 手机提交预约后即可在有效窗口期内前往钥匙柜取钥。<br/>
+        2. 使用完毕后请在规定时间内将钥匙放入归还口完成 RFID 结算。<br/>
+        3. 严禁私自转借或带离校园。
+      </view>
     </view>
 
+    <!-- 管理员 / 开发模式专用诊断面板（普通用户默认隐藏） -->
+    <view wx:if="{{isAdminOrDev}}" class="card debug-panel">
+      <view class="card-title tone-blue">内部硬件与物理槽位（管理员/开发模式）</view>
+      <view class="info-row">
+        <text class="muted">钥匙全局 ID</text>
+        <text class="small-mono">{{key.id}}</text>
+      </view>
+      <view class="info-row">
+        <text class="muted">物理槽位 ID (slotId)</text>
+        <text class="small-mono">{{slot ? slot.id : key.slotId}}</text>
+      </view>
+      <view class="info-row">
+        <text class="muted">物理槽位序号</text>
+        <text>{{slot ? '#' + slot.slotNo : '未分配'}}</text>
+      </view>
+      <view class="info-row">
+        <text class="muted">槽位物理在位检测</text>
+        <text class="{{slot && slot.presence === 'PRESENT' ? 'tone-green' : 'tone-orange'}}">
+          {{slot ? getPresenceLabel(slot.presence) : '未知'}}
+        </text>
+      </view>
+      <view class="info-row">
+        <text class="muted">RFID 芯片 UID</text>
+        <text class="small-mono">{{key.rfidTag || '未绑定'}}</text>
+      </view>
+    </view>
+
+    <view class="dev-toggle muted small" bindtap="toggleDevMode">
+      {{isAdminOrDev ? '▼ 隐藏硬件底层信息' : '▶ 查看硬件/槽位底层信息（调试模式）'}}
+    </view>
+
+    <!-- 操作按钮 -->
     <view
       wx:if="{{canReserve}}"
-      class="btn-primary center"
+      class="btn-primary center mt-16"
       bindtap="goReserve"
     >
-      预约借用
+      立即预约借用
     </view>
 
     <view
       wx:else
-      class="btn-disabled center"
+      class="btn-disabled center mt-16"
     >
-      当前不可预约
+      当前不可预约（{{getStatusLabel(key.status)}}）
     </view>
   </view>
 </view>

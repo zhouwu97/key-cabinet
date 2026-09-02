@@ -1,72 +1,108 @@
 <view class="page">
-  <view class="chips">
+  <!-- 顶部 Tab 切换 -->
+  <view class="tab-header card">
     <view
-      class="chip {{activeTab === 'RESERVATIONS' ? 'chip-active' : ''}}"
-      bindtap="onTabChange"
-      data-tab="RESERVATIONS"
-    >
-      预约
-    </view>
-    <view
-      class="chip {{activeTab === 'CURRENT' ? 'chip-active' : ''}}"
+      class="tab-item {{activeTab === 'CURRENT' ? 'tab-active' : ''}}"
       bindtap="onTabChange"
       data-tab="CURRENT"
     >
-      借用中
+      当前借用 ({{currentBorrows.length}})
     </view>
     <view
-      class="chip {{activeTab === 'HISTORY' ? 'chip-active' : ''}}"
+      class="tab-item {{activeTab === 'RESERVATIONS' ? 'tab-active' : ''}}"
+      bindtap="onTabChange"
+      data-tab="RESERVATIONS"
+    >
+      我的预约 ({{reservations.length}})
+    </view>
+    <view
+      class="tab-item {{activeTab === 'HISTORY' ? 'tab-active' : ''}}"
       bindtap="onTabChange"
       data-tab="HISTORY"
     >
-      已完成
+      已归还 ({{historyBorrows.length}})
     </view>
     <view
-      class="chip {{activeTab === 'EXCEPTION' ? 'chip-active' : ''}}"
+      class="tab-item {{activeTab === 'EXCEPTION' ? 'tab-active' : ''}}"
       bindtap="onTabChange"
       data-tab="EXCEPTION"
     >
-      异常
+      异常/逾期 ({{exceptionBorrows.length}})
     </view>
   </view>
 
-  <view wx:if="{{loading}}" class="loading-state">
-    <text>加载中...</text>
+  <!-- 当前借用 TAB -->
+  <view wx:if="{{activeTab === 'CURRENT'}}">
+    <view wx:if="{{currentBorrows.length === 0}}" class="card center-empty">
+      <view class="muted">当前无进行中的借用记录</view>
+    </view>
+    <view wx:for="{{currentBorrows}}" wx:key="id" class="card record-card">
+      <view class="row-between">
+        <view class="record-title">{{getKeyName(item.keyId)}}</view>
+        <view class="badge badge-orange">
+          ● 借用中
+        </view>
+      </view>
+      <view class="info-row">
+        <text class="muted">借出时间</text>
+        <text>{{item.borrowedAt ? formatDateTime(item.borrowedAt) : '-'}}</text>
+      </view>
+      <view class="info-row">
+        <text class="muted">应还时间</text>
+        <text>{{formatDateTime(item.expectedReturnAt)}}</text>
+      </view>
+      <view wx:if="{{item.purpose}}" class="info-row">
+        <text class="muted">用途说明</text>
+        <text>{{item.purpose}}</text>
+      </view>
+      <view class="action-row mt-12">
+        <view
+          class="btn-primary center small-btn"
+          bindtap="startReturn"
+          data-id="{{item.id}}"
+          data-keyid="{{item.keyId}}"
+        >
+          前往钥匙柜归还
+        </view>
+      </view>
+    </view>
   </view>
 
-  <!-- 预约列表 -->
+  <!-- 预约列表 TAB -->
   <view wx:elif="{{activeTab === 'RESERVATIONS'}}">
-    <view wx:if="{{reservations.length === 0}}" class="empty-state">
-      <text>暂无预约记录</text>
+    <view wx:if="{{reservations.length === 0}}" class="card center-empty">
+      <view class="muted">暂无预约记录</view>
     </view>
-    <view wx:else>
-      <view
-        wx:for="{{reservations}}"
-        wx:key="id"
-        class="card"
-      >
-        <view class="card-title">{{getKeyName(item.keyId)}}</view>
-        <view class="info-row">
-          <text class="muted">预约时间</text>
-          <text>{{formatDateTime(item.reservedAt)}}</text>
+    <view wx:for="{{reservations}}" wx:key="id" class="card record-card">
+      <view class="row-between">
+        <view class="record-title">{{getKeyName(item.keyId)}}</view>
+        <view class="badge badge-{{getReservationTone(item.status)}}">
+          {{getReservationStatusLabel(item.status)}}
         </view>
-        <view class="info-row">
-          <text class="muted">过期时间</text>
-          <text>{{formatDateTime(item.expiresAt)}}</text>
-        </view>
-        <view wx:if="{{item.purpose}}" class="info-row">
-          <text class="muted">用途</text>
-          <text>{{item.purpose}}</text>
-        </view>
-        <view class="info-row">
-          <text class="muted">状态</text>
-          <text class="tone-{{getStatusTone(item.status)}}">
-            {{getReservationStatusLabel(item.status)}}
-          </text>
+      </view>
+      <view class="info-row">
+        <text class="muted">取钥时间窗口</text>
+        <text>{{formatDateTime(item.pickupWindowStart)}} - {{formatTime(item.pickupWindowEnd)}}</text>
+      </view>
+      <view class="info-row">
+        <text class="muted">预计归还时间</text>
+        <text>{{formatDateTime(item.expectedReturnAt)}}</text>
+      </view>
+      <view wx:if="{{item.purpose}}" class="info-row">
+        <text class="muted">借用用途</text>
+        <text>{{item.purpose}}</text>
+      </view>
+      <view wx:if="{{item.status === 'ACTIVE' || item.status === 'APPROVED'}}" class="action-row mt-12 grid-2">
+        <view
+          class="btn-primary center small-btn"
+          bindtap="startPickup"
+          data-id="{{item.id}}"
+          data-keyid="{{item.keyId}}"
+        >
+          现场取钥
         </view>
         <view
-          wx:if="{{item.status === 'ACTIVE'}}"
-          class="btn-ghost btn-small"
+          class="btn-secondary center small-btn"
           bindtap="cancelReservation"
           data-id="{{item.id}}"
         >
@@ -76,94 +112,53 @@
     </view>
   </view>
 
-  <!-- 借用中 -->
-  <view wx:elif="{{activeTab === 'CURRENT'}}">
-    <view wx:if="{{currentBorrows.length === 0}}" class="empty-state">
-      <text>暂无借用</text>
-    </view>
-    <view wx:else>
-      <view
-        wx:for="{{currentBorrows}}"
-        wx:key="id"
-        class="card"
-      >
-        <view class="card-title">{{getKeyName(item.keyId)}}</view>
-        <view class="info-row">
-          <text class="muted">借出时间</text>
-          <text>{{formatDateTime(item.borrowedAt)}}</text>
-        </view>
-        <view class="info-row">
-          <text class="muted">应还时间</text>
-          <text>{{formatDateTime(item.expectedReturnAt)}}</text>
-        </view>
-        <view wx:if="{{item.purpose}}" class="info-row">
-          <text class="muted">用途</text>
-          <text>{{item.purpose}}</text>
-        </view>
-        <view class="info-row">
-          <text class="muted">状态</text>
-          <text class="tone-{{getStatusTone(item.status)}}">
-            {{getBorrowStatusLabel(item.status)}}
-          </text>
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 已完成 -->
+  <!-- 历史归还 TAB -->
   <view wx:elif="{{activeTab === 'HISTORY'}}">
-    <view wx:if="{{historyBorrows.length === 0}}" class="empty-state">
-      <text>暂无历史记录</text>
+    <view wx:if="{{historyBorrows.length === 0}}" class="card center-empty">
+      <view class="muted">暂无已归还历史</view>
     </view>
-    <view wx:else>
-      <view
-        wx:for="{{historyBorrows}}"
-        wx:key="id"
-        class="card"
-      >
-        <view class="row-between">
-          <view>
-            <view>{{formatDate(item.borrowedAt)}} · {{getKeyName(item.keyId)}}</view>
-            <view class="muted">
-              {{formatTime(item.borrowedAt)}} - {{formatTime(item.returnedAt)}}
-            </view>
-            <view wx:if="{{item.purpose}}" class="muted small">{{item.purpose}}</view>
-          </view>
-          <view class="tone-green">已归还</view>
-        </view>
+    <view wx:for="{{historyBorrows}}" wx:key="id" class="card record-card">
+      <view class="row-between">
+        <view class="record-title">{{getKeyName(item.keyId)}}</view>
+        <view class="badge badge-green">✓ 已归还</view>
+      </view>
+      <view class="info-row">
+        <text class="muted">借出时间</text>
+        <text>{{item.borrowedAt ? formatDateTime(item.borrowedAt) : '-'}}</text>
+      </view>
+      <view class="info-row">
+        <text class="muted">归还时间</text>
+        <text>{{item.returnedAt ? formatDateTime(item.returnedAt) : '-'}}</text>
       </view>
     </view>
   </view>
 
-  <!-- 异常 -->
+  <!-- 异常/逾期 TAB -->
   <view wx:elif="{{activeTab === 'EXCEPTION'}}">
-    <view wx:if="{{exceptionBorrows.length === 0}}" class="empty-state">
-      <text>暂无异常记录</text>
+    <view wx:if="{{exceptionBorrows.length === 0}}" class="card center-empty">
+      <view class="muted">无逾期或异常记录，信用良好！</view>
     </view>
-    <view wx:else>
-      <view
-        wx:for="{{exceptionBorrows}}"
-        wx:key="id"
-        class="card"
-      >
-        <view class="card-title">{{getKeyName(item.keyId)}}</view>
-        <view class="info-row">
-          <text class="muted">借出时间</text>
-          <text>{{formatDateTime(item.borrowedAt)}}</text>
-        </view>
-        <view class="info-row">
-          <text class="muted">应还时间</text>
-          <text>{{formatDateTime(item.expectedReturnAt)}}</text>
-        </view>
-        <view wx:if="{{item.purpose}}" class="info-row">
-          <text class="muted">用途</text>
-          <text>{{item.purpose}}</text>
-        </view>
-        <view class="info-row">
-          <text class="muted">状态</text>
-          <text class="tone-{{getStatusTone(item.status)}}">
-            {{getBorrowStatusLabel(item.status)}}
-          </text>
+    <view wx:for="{{exceptionBorrows}}" wx:key="id" class="card record-card error-card">
+      <view class="row-between">
+        <view class="record-title">{{getKeyName(item.keyId)}}</view>
+        <view class="badge badge-red">● 逾期/异常</view>
+      </view>
+      <view class="info-row">
+        <text class="muted">应还时间</text>
+        <text class="tone-red">{{formatDateTime(item.expectedReturnAt)}}</text>
+      </view>
+      <view wx:if="{{item.notes}}" class="info-row">
+        <text class="muted">异常说明</text>
+        <text class="tone-red">{{item.notes}}</text>
+      </view>
+      <view class="action-row mt-12">
+        <view
+          class="btn-primary center small-btn"
+          bindtap="startReturn"
+          data-id="{{item.id}}"
+          data-keyid="{{item.keyId}}"
+        >
+          立即归还钥匙
         </view>
       </view>
     </view>

@@ -2,3 +2,4 @@ node_modules/
 miniprogram/miniprogram_npm/
 .DS_Store
 project.private.config.json
+.test-dist/

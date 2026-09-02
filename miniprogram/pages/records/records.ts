@@ -3,12 +3,19 @@ import {
   borrowService,
   userService,
   keyService,
+  operationService,
 } from '../../services'
 import { Reservation, ReservationStatus } from '../../models/reservation'
-import { BorrowRecord, BorrowRecordStatus } from '../../models/borrow-record'
+import { BorrowRecord, BorrowRecordStatus, isRecordOverdue } from '../../models/borrow-record'
 import { Key } from '../../models/key'
+import {
+  RESERVATION_STATUS_LABEL,
+  RESERVATION_STATUS_TONE,
+  getBorrowRecordDisplayStatus,
+} from '../../constants/labels'
+import { DeviceOperationAction } from '../../models/device-operation'
 
-type TabType = 'RESERVATIONS' | 'CURRENT' | 'HISTORY' | 'EXCEPTION'
+type TabType = 'CURRENT' | 'RESERVATIONS' | 'HISTORY' | 'EXCEPTION'
 
 Page({
   data: {
@@ -64,9 +71,7 @@ Page({
       )
 
       const exceptionBorrows = borrowRecords.filter(
-        r =>
-          r.status === BorrowRecordStatus.OVERDUE ||
-          r.status === BorrowRecordStatus.EXCEPTION,
+        r => isRecordOverdue(r) || r.status === BorrowRecordStatus.EXCEPTION,
       )
 
       this.setData({
@@ -89,12 +94,68 @@ Page({
     this.setData({ activeTab: tab })
   },
 
+  // 快捷发起取钥
+  async startPickup(e: any) {
+    const rsvId = e.currentTarget.dataset.id
+    const keyId = e.currentTarget.dataset.keyid
+    try {
+      const user = await userService.getCurrentUser()
+      if (!user) return
+
+      const key = this.data.keyMap[keyId]
+      if (!key) return
+
+      const op = await operationService.startOperation({
+        action: DeviceOperationAction.PICKUP,
+        userId: user.id,
+        keyId,
+        deviceId: key.deviceId,
+        slotId: key.slotId,
+        reservationId: rsvId,
+      })
+
+      wx.navigateTo({
+        url: `/pages/operation/operation?operationId=${op.id}`,
+      })
+    } catch (e: any) {
+      wx.showToast({ title: e.message || '发起取钥失败', icon: 'none' })
+    }
+  },
+
+  // 快捷发起归还
+  async startReturn(e: any) {
+    const borrowId = e.currentTarget.dataset.id
+    const keyId = e.currentTarget.dataset.keyid
+    try {
+      const user = await userService.getCurrentUser()
+      if (!user) return
+
+      const key = this.data.keyMap[keyId]
+      if (!key) return
+
+      const op = await operationService.startOperation({
+        action: DeviceOperationAction.RETURN,
+        userId: user.id,
+        keyId,
+        deviceId: key.deviceId,
+        slotId: key.slotId,
+        borrowRecordId: borrowId,
+      })
+
+      wx.navigateTo({
+        url: `/pages/operation/operation?operationId=${op.id}`,
+      })
+    } catch (e: any) {
+      wx.showToast({ title: e.message || '发起归还失败', icon: 'none' })
+    }
+  },
+
   async cancelReservation(e: any) {
     const id = e.currentTarget.dataset.id
     try {
       await wx.showModal({
         title: '取消预约',
-        content: '确认取消该预约吗？',
+        content: '确认取消该预约吗？取消后该时段钥匙将重新对他人开放。',
       })
 
       await reservationService.cancelReservation(id)
@@ -133,35 +194,14 @@ Page({
   },
 
   getReservationStatusLabel(status: ReservationStatus): string {
-    const labels: Record<ReservationStatus, string> = {
-      [ReservationStatus.ACTIVE]: '待使用',
-      [ReservationStatus.USED]: '已使用',
-      [ReservationStatus.CANCELLED]: '已取消',
-      [ReservationStatus.EXPIRED]: '已过期',
-    }
-    return labels[status] || '未知'
+    return RESERVATION_STATUS_LABEL[status] || '未知'
   },
 
-  getBorrowStatusLabel(status: BorrowRecordStatus): string {
-    const labels: Record<BorrowRecordStatus, string> = {
-      [BorrowRecordStatus.BORROWING]: '借用中',
-      [BorrowRecordStatus.BORROWED]: '借用中',
-      [BorrowRecordStatus.OVERDUE]: '逾期',
-      [BorrowRecordStatus.RETURNING]: '归还中',
-      [BorrowRecordStatus.COMPLETED]: '已完成',
-      [BorrowRecordStatus.EXCEPTION]: '异常',
-    }
-    return labels[status] || '未知'
+  getReservationTone(status: ReservationStatus): string {
+    return RESERVATION_STATUS_TONE[status] || 'gray'
   },
 
-  getStatusTone(
-    status: ReservationStatus | BorrowRecordStatus,
-  ): string {
-    if (status === ReservationStatus.ACTIVE) return 'blue'
-    if (status === BorrowRecordStatus.BORROWED) return 'orange'
-    if (status === BorrowRecordStatus.OVERDUE) return 'red'
-    if (status === BorrowRecordStatus.COMPLETED) return 'green'
-    if (status === BorrowRecordStatus.EXCEPTION) return 'red'
-    return 'gray'
+  getBorrowStatusInfo(record: BorrowRecord) {
+    return getBorrowRecordDisplayStatus(record)
   },
 })

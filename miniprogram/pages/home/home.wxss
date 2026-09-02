@@ -1,0 +1,141 @@
+.active-op-card {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  color: #ffffff;
+  border-radius: 16rpx;
+  box-shadow: 0 8rpx 20rpx rgba(37, 99, 235, 0.3);
+  padding: 28rpx;
+  position: relative;
+  overflow: hidden;
+}
+
+.active-op-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.active-op-pulse {
+  width: 14rpx;
+  height: 14rpx;
+  background-color: #38bdf8;
+  border-radius: 50%;
+  margin-right: 12rpx;
+  animation: pulse-op 1.2s infinite;
+}
+
+@keyframes pulse-op {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+.active-op-title {
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #93c5fd;
+  flex: 1;
+}
+
+.active-op-badge {
+  background-color: rgba(255, 255, 255, 0.2);
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  color: #ffffff;
+}
+
+.active-op-body {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+
+.active-op-name {
+  color: #ffffff;
+  margin-right: 8rpx;
+}
+
+.active-op-action {
+  font-size: 26rpx;
+  color: #bfdbfe;
+  font-weight: 400;
+}
+
+.active-op-btn {
+  font-size: 24rpx;
+  color: #93c5fd;
+}
+
+.list-card-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f1f5f9;
+}
+
+.list-card-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.item-overdue {
+  background-color: #fff1f2;
+  margin: 0 -24rpx;
+  padding: 24rpx;
+  border-radius: 12rpx;
+}
+
+.item-main {
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.item-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 6rpx;
+}
+
+.item-sub {
+  font-size: 24rpx;
+}
+
+.item-note {
+  font-size: 22rpx;
+  margin-top: 4rpx;
+}
+
+.btn-mini {
+  padding: 12rpx 24rpx;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.btn-pickup {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.btn-return {
+  background-color: #10b981;
+  color: #ffffff;
+}
+
+.ml-8 {
+  margin-left: 16rpx;
+}
+
+.grid-icon {
+  font-size: 40rpx;
+  margin-bottom: 8rpx;
+}
+
+.grid-label {
+  font-size: 26rpx;
+  color: #334155;
+  font-weight: 500;
+}

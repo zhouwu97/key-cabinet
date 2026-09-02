@@ -2,7 +2,7 @@ import { BorrowRecord, BorrowRecordStatus } from '../../models/borrow-record'
 import { BorrowService } from './borrow-service'
 import { MOCK_BORROW_RECORDS, STORAGE_KEYS } from '../../mocks/mock-data'
 import { KeyStatus } from '../../models/key'
-import { KeyPhysicalState } from '../../models/key-physical-state'
+import { KeyPresenceState } from '../../models/key-presence'
 
 export class MockBorrowService implements BorrowService {
   private borrowRecords: BorrowRecord[] = []
@@ -32,40 +32,60 @@ export class MockBorrowService implements BorrowService {
   }
 
   private generateId(): string {
-    return `BR${Date.now()}${Math.random().toString(36).substring(2, 9)}`
+    return `BR${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`
   }
 
   async getUserBorrowRecords(userId: string): Promise<BorrowRecord[]> {
+    this.loadFromStorage()
     return new Promise(resolve => {
       setTimeout(() => {
         const results = this.borrowRecords
           .filter(r => r.userId === userId)
           .sort((a, b) => (b.borrowedAt || 0) - (a.borrowedAt || 0))
-        resolve([...results])
-      }, 200)
+        resolve(results.map(r => ({ ...r })))
+      }, 100)
     })
   }
 
   async getCurrentBorrows(userId: string): Promise<BorrowRecord[]> {
+    this.loadFromStorage()
     return new Promise(resolve => {
       setTimeout(() => {
         const results = this.borrowRecords.filter(
           r =>
             r.userId === userId &&
             (r.status === BorrowRecordStatus.BORROWED ||
-              r.status === BorrowRecordStatus.OVERDUE),
+              r.status === BorrowRecordStatus.BORROWING ||
+              r.status === BorrowRecordStatus.RETURNING),
         )
-        resolve([...results])
-      }, 150)
+        resolve(results.map(r => ({ ...r })))
+      }, 100)
     })
   }
 
   async getBorrowRecordById(id: string): Promise<BorrowRecord | null> {
+    this.loadFromStorage()
     return new Promise(resolve => {
       setTimeout(() => {
         const record = this.borrowRecords.find(r => r.id === id)
         resolve(record ? { ...record } : null)
-      }, 150)
+      }, 100)
+    })
+  }
+
+  async getActiveBorrowByKey(keyId: string): Promise<BorrowRecord | null> {
+    this.loadFromStorage()
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const record = this.borrowRecords.find(
+          r =>
+            r.keyId === keyId &&
+            (r.status === BorrowRecordStatus.BORROWED ||
+              r.status === BorrowRecordStatus.BORROWING ||
+              r.status === BorrowRecordStatus.RETURNING),
+        )
+        resolve(record ? { ...record } : null)
+      }, 50)
     })
   }
 
@@ -73,54 +93,66 @@ export class MockBorrowService implements BorrowService {
     userId: string,
     keyId: string,
     deviceId: string,
+    slotId?: string,
     reservationId?: string,
+    purpose?: string,
+    expectedReturnAt?: number,
   ): Promise<BorrowRecord> {
+    this.loadFromStorage()
     return new Promise(resolve => {
       setTimeout(() => {
         const now = Date.now()
-        const twoHours = 7200000
+        const defaultDuration = 7200000 // 2小时
+
+        // 查找槽位
+        let targetSlotId: string = slotId || ''
+        if (!targetSlotId) {
+          const keys = wx.getStorageSync(STORAGE_KEYS.KEYS) || []
+          const keyObj = keys.find((k: any) => k.id === keyId)
+          targetSlotId = keyObj?.slotId || 'SLOT01'
+        }
 
         const record: BorrowRecord = {
           id: this.generateId(),
           userId,
           keyId,
+          slotId: targetSlotId,
           deviceId,
           reservationId,
+          purpose: purpose || '实验教学与研讨',
           status: BorrowRecordStatus.BORROWING,
           borrowedAt: now,
-          expectedReturnAt: now + twoHours,
+          expectedReturnAt: expectedReturnAt || (now + defaultDuration),
         }
 
-        this.borrowRecords.push(record)
+        this.borrowRecords.unshift(record)
         this.saveToStorage()
 
-        // 更新钥匙状态
-        try {
-          const keys = wx.getStorageSync(STORAGE_KEYS.KEYS) || []
-          const key = keys.find((k: any) => k.id === keyId)
-          if (key) {
-            key.status = KeyStatus.BORROWED
-            wx.setStorageSync(STORAGE_KEYS.KEYS, keys)
-          }
-
-          // 更新钥匙物理状态
-          const locations = wx.getStorageSync(STORAGE_KEYS.KEY_LOCATIONS) || []
-          const location = locations.find((loc: any) => loc.keyId === keyId)
-          if (location) {
-            location.physicalState = KeyPhysicalState.OUT
-            location.lastUpdated = now
-            wx.setStorageSync(STORAGE_KEYS.KEY_LOCATIONS, locations)
-          }
-        } catch (e) {
-          console.error('更新钥匙状态失败', e)
-        }
-
         resolve({ ...record })
-      }, 300)
+      }, 100)
+    })
+  }
+
+  async updateBorrowStatus(id: string, status: BorrowRecordStatus, notes?: string): Promise<void> {
+    this.loadFromStorage()
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const record = this.borrowRecords.find(r => r.id === id)
+        if (record) {
+          record.status = status
+          if (notes) record.notes = notes
+          if (status === BorrowRecordStatus.BORROWED && !record.borrowedAt) {
+            record.borrowedAt = Date.now()
+          }
+          this.saveToStorage()
+        }
+        resolve()
+      }, 50)
     })
   }
 
   async completeBorrowRecord(id: string): Promise<void> {
+    this.loadFromStorage()
     return new Promise(resolve => {
       setTimeout(() => {
         const record = this.borrowRecords.find(r => r.id === id)
@@ -139,26 +171,25 @@ export class MockBorrowService implements BorrowService {
               wx.setStorageSync(STORAGE_KEYS.KEYS, keys)
             }
 
-            // 更新钥匙物理状态
-            const locations = wx.getStorageSync(STORAGE_KEYS.KEY_LOCATIONS) || []
-            const location = locations.find(
-              (loc: any) => loc.keyId === record.keyId,
-            )
-            if (location) {
-              location.physicalState = KeyPhysicalState.IN_CABINET
-              location.lastUpdated = now
-              wx.setStorageSync(STORAGE_KEYS.KEY_LOCATIONS, locations)
+            // 更新槽位在位状态为 PRESENT
+            const slots = wx.getStorageSync(STORAGE_KEYS.KEY_SLOTS) || []
+            const slot = slots.find((s: any) => s.id === record.slotId || s.keyId === record.keyId)
+            if (slot) {
+              slot.presence = KeyPresenceState.PRESENT
+              slot.lastUpdated = now
+              wx.setStorageSync(STORAGE_KEYS.KEY_SLOTS, slots)
             }
           } catch (e) {
-            console.error('更新钥匙状态失败', e)
+            console.error('更新钥匙及槽位状态失败', e)
           }
         }
         resolve()
-      }, 200)
+      }, 100)
     })
   }
 
   async checkOverdue(): Promise<void> {
+    this.loadFromStorage()
     return new Promise(resolve => {
       setTimeout(() => {
         const now = Date.now()
@@ -167,22 +198,11 @@ export class MockBorrowService implements BorrowService {
         this.borrowRecords.forEach(record => {
           if (
             record.status === BorrowRecordStatus.BORROWED &&
-            now > record.expectedReturnAt
+            now > record.expectedReturnAt &&
+            !record.overdueAt
           ) {
-            record.status = BorrowRecordStatus.OVERDUE
+            record.overdueAt = now
             updated = true
-
-            // 更新钥匙状态
-            try {
-              const keys = wx.getStorageSync(STORAGE_KEYS.KEYS) || []
-              const key = keys.find((k: any) => k.id === record.keyId)
-              if (key) {
-                key.status = KeyStatus.OVERDUE
-                wx.setStorageSync(STORAGE_KEYS.KEYS, keys)
-              }
-            } catch (e) {
-              console.error('更新钥匙状态失败', e)
-            }
           }
         })
 
@@ -191,7 +211,7 @@ export class MockBorrowService implements BorrowService {
         }
 
         resolve()
-      }, 100)
+      }, 50)
     })
   }
 }
