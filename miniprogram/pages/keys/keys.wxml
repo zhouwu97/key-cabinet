@@ -1,69 +1,84 @@
 <view class="page">
-  <view class="search-box">
-    <input
-      placeholder="搜索 房间号 / 钥匙名称"
-      bindinput="onSearchInput"
-      value="{{searchKeyword}}"
-    />
+  <!-- 离线状态提示横幅 (Offline State) -->
+  <view wx:if="{{isCabinetOffline}}" class="offline-banner">
+    <text class="offline-icon">⚠️</text>
+    <text class="offline-text">当前 1 号钥匙柜离线，仍可浏览钥匙但暂无法现场取钥</text>
   </view>
 
-  <view class="chips">
+  <!-- 搜索输入框 -->
+  <view class="search-container">
+    <view class="search-input-box">
+      <text class="search-icon">🔍</text>
+      <input
+        class="search-input"
+        placeholder="搜索房间号 (如 103) / 钥匙名称"
+        placeholder-class="search-placeholder"
+        bindinput="onSearchInput"
+        value="{{searchKeyword}}"
+      />
+      <view wx:if="{{searchKeyword}}" class="clear-btn" bindtap="clearSearch">✕</view>
+    </view>
+  </view>
+
+  <!-- 状态分类筛选 -->
+  <view class="chips-container">
     <view
       class="chip {{activeFilter === 'ALL' ? 'chip-active' : ''}}"
       bindtap="onFilterTap"
       data-filter="ALL"
     >
-      全部
+      全部 ({{keys.length}})
     </view>
     <view
       class="chip {{activeFilter === 'AVAILABLE' ? 'chip-active' : ''}}"
       bindtap="onFilterTap"
       data-filter="AVAILABLE"
     >
-      可借
+      可预约 ({{availableCount}})
     </view>
     <view
       class="chip {{activeFilter === 'BORROWED' ? 'chip-active' : ''}}"
       bindtap="onFilterTap"
       data-filter="BORROWED"
     >
-      借出
-    </view>
-    <view
-      class="chip {{activeFilter === 'MY' ? 'chip-active' : ''}}"
-      bindtap="onFilterTap"
-      data-filter="MY"
-    >
-      我的
+      已借出 ({{borrowedCount}})
     </view>
   </view>
 
-  <view wx:if="{{loading}}" class="loading-state">
-    <text>加载中...</text>
+  <!-- 1. 加载中状态 (Loading) -->
+  <view wx:if="{{loading}}" class="card center-loading">
+    <view class="loading-spinner"></view>
+    <view class="loading-text">正在同步钥匙状态...</view>
   </view>
 
-  <view wx:elif="{{filteredKeys.length === 0}}" class="empty-state">
-    <text>暂无钥匙</text>
+  <!-- 2. 错误状态 (Error) -->
+  <view wx:elif="{{hasError}}" class="card">
+    <error-state
+      title="钥匙列表加载失败"
+      message="暂时无法获取钥匙柜数据，请检查网络后重试"
+      retryText="重新加载"
+      bindretry="loadKeys"
+    />
   </view>
 
-  <view wx:else>
-    <view
-      wx:for="{{filteredKeys}}"
-      wx:key="id"
-      class="card"
-      bindtap="goDetail"
-      data-id="{{item.id}}"
-    >
-      <view class="row-between">
-        <view>
-          <view class="key-name">{{item.roomNo}} · {{item.name}}</view>
-          <view class="muted">位置：{{item.deviceId}}</view>
-          <view wx:if="{{item.description}}" class="muted small">{{item.description}}</view>
-        </view>
-        <view class="tone-{{item.statusTone}}">
-          ● {{item.statusLabel}}
-        </view>
-      </view>
+  <!-- 3. 空结果状态 (Empty) -->
+  <view wx:elif="{{filteredKeys.length === 0}}" class="card">
+    <empty-state
+      icon="🔍"
+      title="{{searchKeyword ? '未找到相关钥匙' : '暂无相关钥匙'}}"
+      description="{{searchKeyword ? '没有找到包含“' + searchKeyword + '”的钥匙，请检查房间号或名称后重试' : '当前分类下暂无钥匙'}}"
+      actionText="{{searchKeyword ? '清空搜索' : ''}}"
+      bindaction="clearSearch"
+    />
+  </view>
+
+  <!-- 4. 正常卡片列表 (Normal) -->
+  <view wx:else class="key-list">
+    <view wx:for="{{filteredKeys}}" wx:key="id">
+      <key-card
+        keyItem="{{item}}"
+        bindtapcard="onKeyCardTap"
+      />
     </view>
   </view>
 </view>

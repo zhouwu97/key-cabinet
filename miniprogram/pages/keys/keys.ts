@@ -1,12 +1,14 @@
-import { keyService } from '../../services'
+import { keyService, deviceService } from '../../services'
 import { Key, KeyStatus } from '../../models/key'
 import { KEY_STATUS_LABEL, KEY_STATUS_TONE } from '../../constants/labels'
+import { DeviceStatus } from '../../models/device'
 
-type FilterType = 'ALL' | 'AVAILABLE' | 'BORROWED' | 'MY'
+type FilterType = 'ALL' | 'AVAILABLE' | 'BORROWED'
 
 export interface KeyViewModel extends Key {
   statusLabel: string
   statusTone: string
+  deviceName: string
 }
 
 Page({
@@ -15,7 +17,11 @@ Page({
     filteredKeys: [] as KeyViewModel[],
     searchKeyword: '',
     activeFilter: 'ALL' as FilterType,
+    availableCount: 0,
+    borrowedCount: 0,
     loading: true,
+    hasError: false,
+    isCabinetOffline: false,
   },
 
   onLoad() {
@@ -28,29 +34,50 @@ Page({
 
   async loadKeys() {
     try {
-      this.setData({ loading: true })
-      const rawKeys = await keyService.getKeys()
+      this.setData({ loading: true, hasError: false })
+      
+      const [rawKeys, device] = await Promise.all([
+        keyService.getKeys(),
+        deviceService.getDeviceStatus('CAB001').catch(() => null),
+      ])
+
+      const isCabinetOffline = device ? device.status === DeviceStatus.OFFLINE : false
+
       const keys: KeyViewModel[] = rawKeys.map(k => ({
         ...k,
+        deviceName: k.deviceId === 'CAB001' ? '1号钥匙柜 (信息楼)' : k.deviceId,
         statusLabel: KEY_STATUS_LABEL[k.status] || '未知',
         statusTone: KEY_STATUS_TONE[k.status] || 'gray',
       }))
 
+      const availableCount = keys.filter(k => k.status === KeyStatus.AVAILABLE).length
+      const borrowedCount = keys.filter(
+        k => k.status === KeyStatus.BORROWED || k.status === KeyStatus.OVERDUE,
+      ).length
+
       this.setData({
         keys,
+        availableCount,
+        borrowedCount,
+        isCabinetOffline,
         loading: false,
+        hasError: false,
       })
       this.applyFilter()
     } catch (e) {
       console.error('加载钥匙列表失败', e)
-      this.setData({ loading: false })
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      this.setData({ loading: false, hasError: true })
     }
   },
 
   onSearchInput(e: any) {
     const keyword = e.detail.value
     this.setData({ searchKeyword: keyword })
+    this.applyFilter()
+  },
+
+  clearSearch() {
+    this.setData({ searchKeyword: '' })
     this.applyFilter()
   },
 
@@ -83,18 +110,13 @@ Page({
         key =>
           key.status === KeyStatus.BORROWED || key.status === KeyStatus.OVERDUE,
       )
-    } else if (activeFilter === 'MY') {
-      results = results.filter(
-        key =>
-          key.status === KeyStatus.BORROWED || key.status === KeyStatus.OVERDUE,
-      )
     }
 
     this.setData({ filteredKeys: results })
   },
 
-  goDetail(e: any) {
-    const keyId = e.currentTarget.dataset.id
+  onKeyCardTap(e: any) {
+    const { keyId } = e.detail
     wx.navigateTo({ url: `/pages/key-detail/key-detail?keyId=${keyId}` })
   },
 })

@@ -1,4 +1,10 @@
 {
-  "navigationBarTitleText": "钥匙",
-  "usingComponents": {}
+  "navigationBarTitleText": "钥匙检索与预约",
+  "usingComponents": {
+    "key-card": "../../components/key-card/key-card",
+    "status-badge": "../../components/status-badge/status-badge",
+    "empty-state": "../../components/empty-state/empty-state",
+    "error-state": "../../components/error-state/error-state",
+    "section-header": "../../components/section-header/section-header"
+  }
 }
