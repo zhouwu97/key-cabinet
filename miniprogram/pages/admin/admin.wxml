@@ -1,0 +1,20 @@
+<view class="page">
+  <view class="card">
+    <view class="card-title">管理中心</view>
+    <view class="grid-2">
+      <view class="grid-item">待审批 <text class="tone-orange">4</text></view>
+      <view class="grid-item">借用中 <text class="tone-blue">8</text></view>
+      <view class="grid-item">逾期 <text class="tone-red">2</text></view>
+      <view class="grid-item">设备异常 <text class="tone-red">1</text></view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="menu-item">借用审批</view>
+    <view class="menu-item">钥匙管理</view>
+    <view class="menu-item">借还记录</view>
+    <view class="menu-item">设备状态</view>
+  </view>
+
+  <view class="placeholder-note">骨架占位 · 管理功能待实现</view>
+</view>

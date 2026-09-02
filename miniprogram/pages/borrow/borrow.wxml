@@ -1,0 +1,21 @@
+<view class="page">
+  <view class="card">
+    <view class="card-title">借用 103 实验室钥匙</view>
+
+    <view class="field-label">借用用途</view>
+    <input class="field-input" placeholder="实验设备调试" />
+
+    <view class="field-label">预计归还时间</view>
+    <input class="field-input" placeholder="2026-09-02 18:00" />
+
+    <view class="field-label">备注</view>
+    <textarea class="field-textarea" placeholder="选填" />
+
+    <view class="field-label">
+      <checkbox value="rule" /> 我已阅读钥匙借用规则
+    </view>
+  </view>
+
+  <view class="btn-primary center" bindtap="onSubmit">提交申请</view>
+  <view class="placeholder-note">骨架占位 · 表单数据与提交待接入</view>
+</view>

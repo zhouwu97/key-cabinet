@@ -1,0 +1,145 @@
+/* 全局样式：白卡片 + 浅灰底 + 蓝色主操作（PRD 第三十六节） */
+page {
+  background: #f5f6f8;
+  color: #1f2329;
+  font-size: 28rpx;
+}
+
+.page {
+  padding: 24rpx;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 12rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  margin-bottom: 20rpx;
+}
+
+.btn-primary {
+  background: #2f6bff;
+  color: #ffffff;
+  font-size: 30rpx;
+  text-align: center;
+  padding: 22rpx 0;
+  border-radius: 10rpx;
+}
+
+.btn-ghost {
+  border: 2rpx solid #2f6bff;
+  color: #2f6bff;
+  font-size: 30rpx;
+  text-align: center;
+  padding: 20rpx 0;
+  border-radius: 10rpx;
+}
+
+.tone-blue { color: #2f6bff; }
+.tone-green { color: #22b07d; }
+.tone-orange { color: #ff8f1f; }
+.tone-red { color: #e34d59; }
+.tone-gray { color: #8a919f; }
+
+.muted {
+  color: #8a919f;
+  font-size: 26rpx;
+}
+
+.grid-2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+}
+
+.grid-2 > .grid-item {
+  width: calc(50% - 10rpx);
+  background: #f7f8fa;
+  border-radius: 10rpx;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.placeholder-note {
+  color: #b0b6bf;
+  font-size: 24rpx;
+  text-align: center;
+  padding: 24rpx 0;
+}
+
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.center {
+  text-align: center;
+}
+
+.btn-small {
+  padding: 10rpx 32rpx;
+  font-size: 26rpx;
+}
+
+.search-box {
+  background: #ffffff;
+  border-radius: 10rpx;
+  padding: 18rpx 24rpx;
+  margin-bottom: 24rpx;
+}
+
+.chips {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.chip {
+  padding: 10rpx 28rpx;
+  background: #ffffff;
+  border-radius: 32rpx;
+  color: #8a919f;
+  font-size: 26rpx;
+}
+
+.chip-active {
+  background: #2f6bff;
+  color: #ffffff;
+}
+
+.menu-item {
+  padding: 26rpx 4rpx;
+  border-bottom: 1rpx solid #f0f1f3;
+}
+
+.field-label {
+  font-size: 28rpx;
+  margin: 24rpx 0 12rpx;
+}
+
+.field-input {
+  background: #f7f8fa;
+  border-radius: 10rpx;
+  padding: 18rpx 24rpx;
+}
+
+.field-textarea {
+  background: #f7f8fa;
+  border-radius: 10rpx;
+  padding: 18rpx 24rpx;
+  height: 160rpx;
+  box-sizing: border-box;
+  width: auto;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 14rpx 0;
+}

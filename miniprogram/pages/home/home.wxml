@@ -1,0 +1,40 @@
+<view class="page">
+  <view class="card">
+    <view class="card-title">智能钥匙管理</view>
+    <view class="muted">下午好，张三</view>
+  </view>
+
+  <view class="btn-primary center" bindtap="goScan">扫码使用</view>
+  <view class="placeholder-note">扫描钥匙柜二维码</view>
+
+  <view class="card">
+    <view class="card-title">我的钥匙</view>
+    <view class="row-between">
+      <view>
+        <view>103实验室</view>
+        <view class="muted">借用中 · 今天 18:00 前归还</view>
+      </view>
+      <view class="btn-ghost btn-small">归还</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">快捷功能</view>
+    <view class="grid-2">
+      <view class="grid-item" bindtap="goKeys">找钥匙</view>
+      <view class="grid-item" bindtap="goRecords">借还记录</view>
+      <view class="grid-item">待审批</view>
+      <view class="grid-item">故障反馈</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">设备状态</view>
+    <view class="row-between">
+      <view>{{deviceName}}</view>
+      <view class="tone-{{tone}}">● {{deviceLabel}}</view>
+    </view>
+  </view>
+
+  <view class="placeholder-note">骨架占位 · 按 docs/PRD-V1.md 实现</view>
+</view>

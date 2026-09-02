@@ -1,0 +1,34 @@
+<view class="page">
+  <view class="search-box">
+    <input placeholder="搜索 房间号 / 钥匙名称" />
+  </view>
+
+  <view class="chips">
+    <view class="chip chip-active">全部</view>
+    <view class="chip">可借</view>
+    <view class="chip">借出</view>
+    <view class="chip">我的</view>
+  </view>
+
+  <view class="card" bindtap="goDetail">
+    <view class="row-between">
+      <view>
+        <view>信息楼 103 · 实验室钥匙</view>
+        <view class="muted">位置：1号钥匙柜</view>
+      </view>
+      <view class="tone-green">● 可借</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="row-between">
+      <view>
+        <view>信息楼 104 · 实验室钥匙</view>
+        <view class="muted">预计归还：17:30</view>
+      </view>
+      <view class="tone-orange">● 借出</view>
+    </view>
+  </view>
+
+  <view class="placeholder-note">骨架占位 · 列表数据待接入</view>
+</view>

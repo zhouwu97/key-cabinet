@@ -1,0 +1,18 @@
+<view class="page">
+  <view class="card">
+    <view class="card-title">信息楼 103 实验室</view>
+    <view class="info-row"><text class="muted">钥匙编号</text><text>KEY103</text></view>
+    <view class="info-row"><text class="muted">状态</text><text class="tone-green">可借用</text></view>
+    <view class="info-row"><text class="muted">存放位置</text><text>1号钥匙柜</text></view>
+    <view class="info-row"><text class="muted">开放时间</text><text>08:00 - 22:00</text></view>
+    <view class="info-row"><text class="muted">最长借用</text><text>8小时</text></view>
+    <view class="info-row"><text class="muted">审批要求</text><text>管理员审批</text></view>
+  </view>
+
+  <view class="card">
+    <view class="card-title">借用说明</view>
+    <view class="muted">请按时归还钥匙。禁止私自转借。</view>
+  </view>
+
+  <view class="btn-primary center" bindtap="goBorrow">申请借用</view>
+</view>

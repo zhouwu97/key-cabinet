@@ -1,0 +1,21 @@
+<view class="page">
+  <view class="card">
+    <view class="card-title">张三</view>
+    <view class="muted">学号：2023xxxx · 信息科学与工程学院</view>
+  </view>
+
+  <view class="card">
+    <view class="menu-item">身份认证</view>
+    <view class="menu-item">消息通知</view>
+    <view class="menu-item">我的申请</view>
+    <view class="menu-item">故障反馈</view>
+    <view class="menu-item">使用帮助</view>
+  </view>
+
+  <view class="card">
+    <view class="menu-item" bindtap="goAdmin">管理员入口</view>
+    <view class="menu-item">关于系统</view>
+  </view>
+
+  <view class="placeholder-note">骨架占位 · role=ADMIN 时才显示管理员入口</view>
+</view>
