@@ -1,0 +1,60 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="loading-state">
+    <text>加载中...</text>
+  </view>
+
+  <view wx:else>
+    <view class="card">
+      <view class="card-title">预约信息</view>
+
+      <view class="info-row">
+        <text class="muted">钥匙</text>
+        <text>{{key.roomNo}} {{key.name}}</text>
+      </view>
+
+      <view class="info-row">
+        <text class="muted">位置</text>
+        <text>{{key.deviceId}}</text>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">使用信息</view>
+
+      <view class="form-row">
+        <text class="label">用途</text>
+        <textarea
+          class="textarea"
+          placeholder="请输入钥匙用途"
+          value="{{purpose}}"
+          bindinput="onPurposeInput"
+          maxlength="100"
+        />
+      </view>
+
+      <view class="form-row">
+        <text class="label">预计时长</text>
+        <picker mode="selector" range="{{[1,2,3,4,5,6,7,8]}}" value="{{duration - 1}}" bindchange="onDurationChange">
+          <view class="picker">{{duration}} 小时</view>
+        </picker>
+      </view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">注意事项</view>
+      <view class="muted">
+        1. 预约成功后请在有效期内取钥<br/>
+        2. 请按时归还钥匙<br/>
+        3. 禁止私自转借<br/>
+        4. 如需取消预约，请在"记录"页面操作
+      </view>
+    </view>
+
+    <view
+      class="btn-primary center"
+      bindtap="submitReservation"
+    >
+      {{submitting ? '提交中...' : '确认预约'}}
+    </view>
+  </view>
+</view>

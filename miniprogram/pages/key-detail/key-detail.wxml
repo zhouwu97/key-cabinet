@@ -1,18 +1,82 @@
 <view class="page">
-  <view class="card">
-    <view class="card-title">信息楼 103 实验室</view>
-    <view class="info-row"><text class="muted">钥匙编号</text><text>KEY103</text></view>
-    <view class="info-row"><text class="muted">状态</text><text class="tone-green">可借用</text></view>
-    <view class="info-row"><text class="muted">存放位置</text><text>1号钥匙柜</text></view>
-    <view class="info-row"><text class="muted">开放时间</text><text>08:00 - 22:00</text></view>
-    <view class="info-row"><text class="muted">最长借用</text><text>8小时</text></view>
-    <view class="info-row"><text class="muted">审批要求</text><text>管理员审批</text></view>
+  <view wx:if="{{loading}}" class="loading-state">
+    <text>加载中...</text>
   </view>
 
-  <view class="card">
-    <view class="card-title">借用说明</view>
-    <view class="muted">请按时归还钥匙。禁止私自转借。</view>
+  <view wx:elif="{{!key}}" class="empty-state">
+    <text>钥匙不存在</text>
   </view>
 
-  <view class="btn-primary center" bindtap="goBorrow">申请借用</view>
+  <view wx:else>
+    <view class="card">
+      <view class="card-title">{{key.roomNo}} {{key.name}}</view>
+
+      <view class="info-row">
+        <text class="muted">钥匙编号</text>
+        <text>{{key.id}}</text>
+      </view>
+
+      <view class="info-row">
+        <text class="muted">业务状态</text>
+        <text class="tone-{{getStatusTone(key.status)}}">
+          {{getStatusLabel(key.status)}}
+        </text>
+      </view>
+
+      <view class="info-row">
+        <text class="muted">物理状态</text>
+        <text>{{location ? getPhysicalStateLabel(location.physicalState) : '未知'}}</text>
+      </view>
+
+      <view class="info-row">
+        <text class="muted">存放位置</text>
+        <text>{{key.deviceId}}</text>
+      </view>
+
+      <view wx:if="{{location && location.slotPosition}}" class="info-row">
+        <text class="muted">槽位编号</text>
+        <text>{{location.slotPosition}}</text>
+      </view>
+
+      <view wx:if="{{key.rfidTag}}" class="info-row">
+        <text class="muted">RFID标签</text>
+        <text>{{key.rfidTag}}</text>
+      </view>
+
+      <view class="info-row">
+        <text class="muted">是否需要审批</text>
+        <text>{{key.requiresApproval ? '是' : '否'}}</text>
+      </view>
+
+      <view class="info-row">
+        <text class="muted">启用状态</text>
+        <text>{{key.enabled ? '启用' : '停用'}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{key.description}}" class="card">
+      <view class="card-title">说明</view>
+      <view class="muted">{{key.description}}</view>
+    </view>
+
+    <view class="card">
+      <view class="card-title">借用说明</view>
+      <view class="muted">请按时归还钥匙。禁止私自转借。</view>
+    </view>
+
+    <view
+      wx:if="{{canReserve}}"
+      class="btn-primary center"
+      bindtap="goReserve"
+    >
+      预约借用
+    </view>
+
+    <view
+      wx:else
+      class="btn-disabled center"
+    >
+      当前不可预约
+    </view>
+  </view>
 </view>

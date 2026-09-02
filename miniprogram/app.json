@@ -5,6 +5,7 @@
     "pages/records/records",
     "pages/profile/profile",
     "pages/key-detail/key-detail",
+    "pages/reservation-create/reservation-create",
     "pages/borrow/borrow",
     "pages/scan/scan",
     "pages/operation/operation",

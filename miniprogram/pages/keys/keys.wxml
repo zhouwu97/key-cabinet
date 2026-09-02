@@ -1,34 +1,69 @@
 <view class="page">
   <view class="search-box">
-    <input placeholder="搜索 房间号 / 钥匙名称" />
+    <input
+      placeholder="搜索 房间号 / 钥匙名称"
+      bindinput="onSearchInput"
+      value="{{searchKeyword}}"
+    />
   </view>
 
   <view class="chips">
-    <view class="chip chip-active">全部</view>
-    <view class="chip">可借</view>
-    <view class="chip">借出</view>
-    <view class="chip">我的</view>
-  </view>
-
-  <view class="card" bindtap="goDetail">
-    <view class="row-between">
-      <view>
-        <view>信息楼 103 · 实验室钥匙</view>
-        <view class="muted">位置：1号钥匙柜</view>
-      </view>
-      <view class="tone-green">● 可借</view>
+    <view
+      class="chip {{activeFilter === 'ALL' ? 'chip-active' : ''}}"
+      bindtap="onFilterTap"
+      data-filter="ALL"
+    >
+      全部
+    </view>
+    <view
+      class="chip {{activeFilter === 'AVAILABLE' ? 'chip-active' : ''}}"
+      bindtap="onFilterTap"
+      data-filter="AVAILABLE"
+    >
+      可借
+    </view>
+    <view
+      class="chip {{activeFilter === 'BORROWED' ? 'chip-active' : ''}}"
+      bindtap="onFilterTap"
+      data-filter="BORROWED"
+    >
+      借出
+    </view>
+    <view
+      class="chip {{activeFilter === 'MY' ? 'chip-active' : ''}}"
+      bindtap="onFilterTap"
+      data-filter="MY"
+    >
+      我的
     </view>
   </view>
 
-  <view class="card">
-    <view class="row-between">
-      <view>
-        <view>信息楼 104 · 实验室钥匙</view>
-        <view class="muted">预计归还：17:30</view>
-      </view>
-      <view class="tone-orange">● 借出</view>
-    </view>
+  <view wx:if="{{loading}}" class="loading-state">
+    <text>加载中...</text>
   </view>
 
-  <view class="placeholder-note">骨架占位 · 列表数据待接入</view>
+  <view wx:elif="{{filteredKeys.length === 0}}" class="empty-state">
+    <text>暂无钥匙</text>
+  </view>
+
+  <view wx:else>
+    <view
+      wx:for="{{filteredKeys}}"
+      wx:key="id"
+      class="card"
+      bindtap="goDetail"
+      data-id="{{item.id}}"
+    >
+      <view class="row-between">
+        <view>
+          <view class="key-name">{{item.roomNo}} · {{item.name}}</view>
+          <view class="muted">位置：{{item.deviceId}}</view>
+          <view wx:if="{{item.description}}" class="muted small">{{item.description}}</view>
+        </view>
+        <view class="tone-{{getStatusTone(item.status)}}">
+          ● {{getStatusLabel(item.status)}}
+        </view>
+      </view>
+    </view>
+  </view>
 </view>
