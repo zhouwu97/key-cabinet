@@ -1,0 +1,8 @@
+<view class="error-container">
+  <view class="error-icon">⚠️</view>
+  <view class="error-title">{{title || '遇到异常情况'}}</view>
+  <view class="error-msg">{{message || '无法获取数据，请检查网络或重试'}}</view>
+  <view class="error-btn" bindtap="onRetry">
+    {{retryText || '重新加载'}}
+  </view>
+</view>

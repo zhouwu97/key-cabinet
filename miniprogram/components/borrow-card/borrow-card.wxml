@@ -1,0 +1,42 @@
+<view class="borrow-card {{borrow.isOverdue ? 'borrow-card-overdue' : ''}}">
+  <view class="card-head">
+    <view class="key-name">{{borrow.roomNo ? borrow.roomNo + ' ' : ''}}{{borrow.keyName}}</view>
+    <status-badge
+      text="{{borrow.statusLabel || (borrow.isOverdue ? '已逾期' : '借用中')}}"
+      tone="{{borrow.statusTone || (borrow.isOverdue ? 'red' : 'green')}}"
+      dot="{{true}}"
+    />
+  </view>
+
+  <view class="card-body">
+    <view wx:if="{{borrow.borrowedAtText}}" class="info-line">
+      <text class="info-label">借出时间</text>
+      <text class="info-val">{{borrow.borrowedAtText}}</text>
+    </view>
+    <view wx:if="{{borrow.expectedReturnText}}" class="info-line">
+      <text class="info-label">应还时间</text>
+      <text class="info-val {{borrow.isOverdue ? 'tone-red' : ''}}">
+        {{borrow.expectedReturnText}}
+        <text wx:if="{{borrow.isOverdue}}" class="overdue-text">(已逾期)</text>
+      </text>
+    </view>
+    <view wx:if="{{borrow.returnedAtText}}" class="info-line">
+      <text class="info-label">归还时间</text>
+      <text class="info-val">{{borrow.returnedAtText}}</text>
+    </view>
+    <view wx:if="{{borrow.purpose}}" class="info-line">
+      <text class="info-label">用途说明</text>
+      <text class="info-val">{{borrow.purpose}}</text>
+    </view>
+    <view wx:if="{{borrow.notes}}" class="info-line">
+      <text class="info-label">异常备注</text>
+      <text class="info-val tone-red">{{borrow.notes}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{borrow.canReturn !== false && showReturnBtn}}" class="card-actions">
+    <view class="btn-return" catchtap="onReturn">
+      {{borrow.isOverdue ? '立即前往归还' : '发起归还'}}
+    </view>
+  </view>
+</view>

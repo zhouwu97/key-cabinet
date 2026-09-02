@@ -1,0 +1,86 @@
+.key-card {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.key-card:active {
+  transform: scale(0.99);
+}
+
+.key-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16rpx;
+}
+
+.key-title-wrap {
+  flex: 1;
+}
+
+.key-main-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.key-cabinet-tag {
+  font-size: 22rpx;
+  color: #8a919f;
+  margin-top: 4rpx;
+}
+
+.key-desc {
+  font-size: 24rpx;
+  color: #646a73;
+  line-height: 1.5;
+  margin-top: 14rpx;
+}
+
+.key-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20rpx;
+  padding-top: 16rpx;
+  border-top: 1px solid #f0f1f3;
+}
+
+.key-tag-list {
+  display: flex;
+  gap: 12rpx;
+}
+
+.tag-auto {
+  font-size: 20rpx;
+  color: #00b578;
+  background-color: #e6f8f1;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+}
+
+.tag-approval {
+  font-size: 20rpx;
+  color: #ff8f1f;
+  background-color: #fff4e8;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+}
+
+.tag-disabled {
+  font-size: 20rpx;
+  color: #ee0a24;
+  background-color: #ffeceb;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+}
+
+.key-action-hint {
+  font-size: 24rpx;
+  color: #2f6bff;
+  font-weight: 500;
+}

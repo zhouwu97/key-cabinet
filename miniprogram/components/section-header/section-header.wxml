@@ -1,0 +1,10 @@
+<view class="section-header">
+  <view class="title-wrap">
+    <text class="title">{{title}}</text>
+    <text wx:if="{{subTitle}}" class="sub-title">{{subTitle}}</text>
+  </view>
+  <view wx:if="{{actionText}}" class="action-wrap" bindtap="onAction">
+    <text class="action-text">{{actionText}}</text>
+    <text class="action-arrow">›</text>
+  </view>
+</view>

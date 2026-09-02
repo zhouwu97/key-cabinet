@@ -1,0 +1,49 @@
+.device-card {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx 28rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+}
+
+.device-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.device-info {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.device-icon {
+  font-size: 36rpx;
+}
+
+.device-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.device-location {
+  font-size: 24rpx;
+  color: #8a919f;
+  margin-top: 2rpx;
+}
+
+.device-meta {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 1px solid #f0f1f3;
+  display: flex;
+  justify-content: space-between;
+  font-size: 24rpx;
+  color: #8a919f;
+}
+
+.meta-highlight {
+  font-weight: 600;
+  color: #00b578;
+}

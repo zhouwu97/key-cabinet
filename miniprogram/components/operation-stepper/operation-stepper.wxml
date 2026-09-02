@@ -1,0 +1,38 @@
+<view class="stepper-wrap">
+  <view class="stepper-head">
+    <text class="stepper-head-title">{{actionTitle || '执行进度'}}</text>
+    <view class="stepper-count-badge">
+      <text class="count-curr">{{currentStep || 1}}</text>
+      <text class="count-slash">/</text>
+      <text class="count-total">{{totalSteps || 6}}</text>
+    </view>
+  </view>
+
+  <view class="steps-list">
+    <view
+      wx:for="{{steps}}"
+      wx:key="key"
+      class="step-item step-item-{{item.status}}"
+    >
+      <view class="step-axis">
+        <view class="step-node">
+          <text wx:if="{{item.status === 'finish'}}" class="node-icon node-finish">✓</text>
+          <text wx:elif="{{item.status === 'error'}}" class="node-icon node-error">✕</text>
+          <view wx:elif="{{item.status === 'process'}}" class="node-process-ring">
+            <view class="node-process-dot"></view>
+          </view>
+          <text wx:else class="node-num">{{index + 1}}</text>
+        </view>
+        <view wx:if="{{index < steps.length - 1}}" class="step-line {{item.status === 'finish' ? 'step-line-finish' : ''}}"></view>
+      </view>
+
+      <view class="step-main">
+        <view class="step-title-row">
+          <text class="step-title {{item.status === 'process' ? 'title-active' : ''}}">{{item.title}}</text>
+          <text wx:if="{{item.status === 'process'}}" class="step-badge-process">进行中</text>
+        </view>
+        <view class="step-desc {{item.status === 'process' ? 'desc-active' : ''}}">{{item.desc}}</view>
+      </view>
+    </view>
+  </view>
+</view>

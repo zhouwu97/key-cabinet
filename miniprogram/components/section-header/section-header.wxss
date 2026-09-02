@@ -1,0 +1,42 @@
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.sub-title {
+  font-size: 24rpx;
+  color: #8a919f;
+}
+
+.action-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  padding: 8rpx 0;
+}
+
+.action-text {
+  font-size: 26rpx;
+  color: #2f6bff;
+  font-weight: 500;
+}
+
+.action-arrow {
+  font-size: 28rpx;
+  color: #2f6bff;
+  line-height: 1;
+}

@@ -1,0 +1,4 @@
+<view class="badge badge-{{tone || 'gray'}}">
+  <text wx:if="{{dot}}" class="badge-dot"></text>
+  <text class="badge-text">{{text}}</text>
+</view>

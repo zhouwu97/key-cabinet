@@ -1,0 +1,38 @@
+<view class="reservation-card">
+  <view class="card-head">
+    <view class="key-name">{{reservation.roomNo ? reservation.roomNo + ' ' : ''}}{{reservation.keyName}}</view>
+    <status-badge text="{{reservation.statusLabel}}" tone="{{reservation.statusTone || 'blue'}}" dot="{{true}}" />
+  </view>
+
+  <view class="card-body">
+    <view class="info-line">
+      <text class="info-label">取钥窗口</text>
+      <text class="info-val">{{reservation.pickupWindowText || (reservation.pickupWindowStartText + ' - ' + reservation.pickupWindowEndText)}}</text>
+    </view>
+    <view wx:if="{{reservation.expectedReturnText}}" class="info-line">
+      <text class="info-label">预计归还</text>
+      <text class="info-val">{{reservation.expectedReturnText}}</text>
+    </view>
+    <view wx:if="{{reservation.purpose}}" class="info-line">
+      <text class="info-label">借用用途</text>
+      <text class="info-val">{{reservation.purpose}}</text>
+    </view>
+  </view>
+
+  <view wx:if="{{reservation.canPickup || reservation.canCancel || showActions}}" class="card-actions">
+    <view
+      wx:if="{{reservation.canPickup !== false}}"
+      class="btn-act btn-pickup"
+      catchtap="onPickup"
+    >
+      现场取钥
+    </view>
+    <view
+      wx:if="{{reservation.canCancel}}"
+      class="btn-act btn-cancel"
+      catchtap="onCancel"
+    >
+      取消预约
+    </view>
+  </view>
+</view>

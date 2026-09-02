@@ -1,0 +1,22 @@
+<view class="key-card" bindtap="onTap">
+  <view class="key-card-header">
+    <view class="key-title-wrap">
+      <view class="key-main-title">{{keyItem.roomNo}} · {{keyItem.name}}</view>
+      <view class="key-cabinet-tag">{{keyItem.deviceName || keyItem.deviceId || '1号钥匙柜'}}</view>
+    </view>
+    <status-badge text="{{keyItem.statusLabel}}" tone="{{keyItem.statusTone}}" dot="{{true}}" />
+  </view>
+  <view wx:if="{{keyItem.description}}" class="key-desc">
+    {{keyItem.description}}
+  </view>
+  <view class="key-footer">
+    <view class="key-tag-list">
+      <text wx:if="{{keyItem.requiresApproval}}" class="tag-approval">需审批</text>
+      <text wx:else class="tag-auto">免审批即约即用</text>
+      <text wx:if="{{!keyItem.enabled}}" class="tag-disabled">已停用</text>
+    </view>
+    <view class="key-action-hint">
+      查看详情 ›
+    </view>
+  </view>
+</view>
