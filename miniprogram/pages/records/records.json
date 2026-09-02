@@ -1,11 +1,11 @@
 {
   "navigationBarTitleText": "借还台账与历史",
   "usingComponents": {
-    "reservation-card": "../../components/reservation-card/reservation-card",
-    "borrow-card": "../../components/borrow-card/borrow-card",
-    "status-badge": "../../components/status-badge/status-badge",
-    "empty-state": "../../components/empty-state/empty-state",
-    "error-state": "../../components/error-state/error-state",
-    "section-header": "../../components/section-header/section-header"
+    "reservation-card": "/components/reservation-card/reservation-card",
+    "borrow-card": "/components/borrow-card/borrow-card",
+    "status-badge": "/components/status-badge/status-badge",
+    "empty-state": "/components/empty-state/empty-state",
+    "error-state": "/components/error-state/error-state",
+    "section-header": "/components/section-header/section-header"
   }
 }

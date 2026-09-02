@@ -1,7 +1,7 @@
 {
   "navigationBarTitleText": "个人中心",
   "usingComponents": {
-    "status-badge": "../../components/status-badge/status-badge",
-    "section-header": "../../components/section-header/section-header"
+    "status-badge": "/components/status-badge/status-badge",
+    "section-header": "/components/section-header/section-header"
   }
 }

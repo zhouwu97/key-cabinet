@@ -23,23 +23,45 @@ for (const tab of tabs) {
 }
 if (new Set(tabs).size !== tabs.length) problems.push('tabBar 页面重复')
 
-// 扫描所有 WXML 模板并进行运行时兼容性静态检查
-function scanWxmlFiles(dir) {
+// 扫描所有 JSON 与 WXML
+function scanFiles(dir, ext) {
   const files = []
   const list = readdirSync(dir)
   for (const item of list) {
     const full = join(dir, item)
     const stat = statSync(full)
     if (stat.isDirectory()) {
-      files.push(...scanWxmlFiles(full))
-    } else if (item.endsWith('.wxml')) {
+      files.push(...scanFiles(full, ext))
+    } else if (item.endsWith(ext)) {
       files.push(full)
     }
   }
   return files
 }
 
-const wxmlFiles = scanWxmlFiles(resolve(root, 'miniprogram'))
+const jsonFiles = scanFiles(resolve(root, 'miniprogram'), '.json')
+for (const jsonPath of jsonFiles) {
+  try {
+    const json = JSON.parse(readFileSync(jsonPath, 'utf8'))
+    if (json.usingComponents) {
+      for (const [name, compPath] of Object.entries(json.usingComponents)) {
+        let resolvedWxml = ''
+        if (compPath.startsWith('/')) {
+          resolvedWxml = resolve(root, 'miniprogram', `.${compPath}.wxml`)
+        } else {
+          resolvedWxml = resolve(dirname(jsonPath), `${compPath}.wxml`)
+        }
+        if (!existsSync(resolvedWxml)) {
+          problems.push(`组件引用文件不存在 [${jsonPath.replace(root, '')}] -> ${compPath} (${resolvedWxml})`)
+        }
+      }
+    }
+  } catch (err) {
+    problems.push(`JSON 解析错误 [${jsonPath.replace(root, '')}]: ${err.message}`)
+  }
+}
+
+const wxmlFiles = scanFiles(resolve(root, 'miniprogram'), '.wxml')
 const fnCallRegex = /\{\{[^}]*?\b[a-zA-Z0-9_$]+\s*\([^}]*?\)[^}]*?\}\}/g
 const htmlTagRegex = /<\/?(br|hr|div|span|p|table|tr|td)\b[^>]*>/gi
 
@@ -69,4 +91,4 @@ if (problems.length > 0) {
   process.exit(1)
 }
 
-console.log(`OK: ${pages.length} 个页面注册完整，${tabs.length} 个 tabBar 页面，${wxmlFiles.length} 个 WXML 模板语法与兼容性校验全部通过！`)
+console.log(`OK: ${pages.length} 个页面注册完整，${tabs.length} 个 tabBar 页面，${jsonFiles.length} 个 JSON 组件路径校验通过，${wxmlFiles.length} 个 WXML 模板语法全部通过！`)

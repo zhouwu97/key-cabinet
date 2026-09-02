@@ -1,11 +1,11 @@
 {
   "navigationBarTitleText": "智能钥匙自助借还",
   "usingComponents": {
-    "section-header": "../../components/section-header/section-header",
-    "borrow-card": "../../components/borrow-card/borrow-card",
-    "reservation-card": "../../components/reservation-card/reservation-card",
-    "device-status": "../../components/device-status/device-status",
-    "status-badge": "../../components/status-badge/status-badge",
-    "empty-state": "../../components/empty-state/empty-state"
+    "section-header": "/components/section-header/section-header",
+    "borrow-card": "/components/borrow-card/borrow-card",
+    "reservation-card": "/components/reservation-card/reservation-card",
+    "device-status": "/components/device-status/device-status",
+    "status-badge": "/components/status-badge/status-badge",
+    "empty-state": "/components/empty-state/empty-state"
   }
 }
