@@ -1,52 +1,178 @@
-# key-cabinet — 智能钥匙借还微信小程序
+# 智能钥匙自助借还系统 - 开发进度
 
-微信小程序作为智能钥匙借还系统的用户交互端：用户身份绑定、钥匙查询、借用申请、扫码取还、设备状态反馈、借还记录及管理员审批。设备通信统一走 DeviceService 封装，第一阶段用 Mock 独立开发，后续接入 MQTT over WebSocket 与 ESP 设备通信，业务层不依赖具体硬件实现。
+## 项目信息
 
-## 文档
+- **项目名称**: 智能钥匙自助借还系统
+- **技术栈**: 微信小程序 + TypeScript
+- **开发模式**: Mock 优先，接口先行
+- **当前版本**: V1.0 阶段 1 已完成
 
-- [V1 产品设计方案（PRD）](docs/PRD-V1.md) — 页面结构、状态机、消息协议、异常场景的唯一依据
+---
 
-## 目录结构
+## ✅ 阶段 0：需求与架构冻结（已完成）
 
-```text
-miniprogram/
-├── pages/          # home 首页 / keys 钥匙 / records 记录 / profile 我的（4 Tab）
-│                   # key-detail 详情 / borrow 申请 / scan 扫码 / operation 设备操作 / admin 管理中心
-├── services/
-│   └── device/     # DeviceService 接口 + Mock 实现（MQTT 实现阶段五替换）
-├── models/         # User / Key / Device / BorrowOrder 与状态枚举
-├── constants/      # USE_MOCK、MQTT topic、状态中文标签
-└── utils/          # requestId 生成等
-```
+- [x] 系统总架构设计
+- [x] 数据模型定义
+- [x] MQTT 协议规划
+- [x] 状态机定义
+- [x] 小程序职责边界明确
 
-## 快速开始
+**产物**:
+- `PROJECT-ARCHITECTURE.md` - 项目架构文档
+- `PLAN.md` - 完整开发计划
 
-```bash
-npm install
-npm run check   # tsc 类型检查 + app.json 页面完整性断言
-```
+---
 
-微信开发者工具导入项目根目录（appid 已配置在 project.config.json），编译即可预览。设备操作页内置「Mock 事件流演示」按钮，可在无硬件情况下走完取钥事件时序。
+## ✅ 阶段 1：小程序业务数据层（已完成）
 
-## Mock 模式
+### 完成时间
+2026-09-02
 
-`miniprogram/constants/config.ts` 中 `USE_MOCK = true` 时所有设备交互走 Mock（事件时序见 PRD 第三十五节）。接真实设备时在 `miniprogram/services/device/index.ts` 单点替换为 MQTT 实现，页面层不动。
+### 核心成果
 
-## 与设备组的接口边界
+#### 1. 数据模型（5个新增 + 3个调整）
+- ✅ `Reservation` - 预约模型
+- ✅ `BorrowRecord` - 借还记录
+- ✅ `KeyPhysicalState` - 钥匙物理状态
+- ✅ `KeyLocation` - 钥匙位置
+- ✅ `Reminder` - 提醒模型
+- ✅ 调整 `Key` - 业务状态拆分
+- ✅ 调整 `Device` - 新增维护状态
+- ✅ 调整 `DeviceEvent` - 完善事件类型
 
-```text
-输入：deviceId / keyId / action / requestId
-输出：requestId / event / errorCode / timestamp
-Topic：keybox/{deviceId}/command|event|status|heartbeat
-```
+#### 2. Service 层（4个完整服务）
+- ✅ `KeyService` - 钥匙管理
+- ✅ `ReservationService` - 预约管理
+- ✅ `BorrowService` - 借还管理
+- ✅ `UserService` - 用户管理
 
-设备内部实现（ESP32 / ESP→RK3588→STM32 等）与小程序无关。
+#### 3. Mock 数据仓库
+- ✅ 10 把钥匙覆盖所有状态
+- ✅ 本地持久化（localStorage）
+- ✅ 数据可刷新恢复
 
-## 开发顺序（PRD 第四十三节）
+#### 4. 页面动态化（5个页面）
+- ✅ 钥匙列表 - 搜索/筛选/动态加载
+- ✅ 钥匙详情 - 动态显示/判断可预约性
+- ✅ 预约创建 - 完整预约流程
+- ✅ 首页 - 显示当前预约和借用
+- ✅ 记录页 - 4分类展示
 
-1. 数据与状态 — 已完成（models / constants）
-2. Mock DeviceService — 已完成（services/device）
-3. 核心页面 — 当前为占位骨架，待实现
-4. 扫码
-5. 接真实 MQTT
-6. 接后端 API
+### 验收标准
+- ✅ 数据不再写死在 WXML
+- ✅ 刷新后 Mock 数据可恢复
+- ✅ 所有页面通过 Service 获取数据
+- ✅ 页面层不直接管理业务数据
+- ✅ TypeScript 编译通过
+- ✅ 路由注册完整
+
+**详细报告**: `docs/STAGE-1-REPORT.md`
+
+---
+
+## 🚧 阶段 2：小程序核心业务闭环（进行中）
+
+### 目标
+完全没有真实硬件，也能走通：预约 → 取钥 → 借用 → 归还 → 完成
+
+### 待完成任务
+
+#### 首页完善
+- [ ] 当前预约卡片
+- [ ] 当前借用卡片
+- [ ] 超时提示
+- [ ] 快捷入口优化
+
+#### Mock 取钥流程
+- [ ] 调整 operation 页面为设备操作页
+- [ ] 实现完整状态机流转
+- [ ] 从预约到借用的完整链路
+- [ ] 设备事件实时展示
+
+#### Mock 归还流程
+- [ ] 归还入口
+- [ ] RFID 校验模拟
+- [ ] 状态回归逻辑
+- [ ] 记录完成更新
+
+#### 业务闭环测试
+- [ ] 搜索 103 → 预约 → 取钥 → 归还
+- [ ] 状态正确流转
+- [ ] 超时逻辑验证
+
+---
+
+## 📅 后续阶段规划
+
+### 阶段 3：小程序 UI 完整化
+- 设计系统优化
+- 页面状态覆盖（Loading/Empty/Error/Offline）
+- 动画与交互优化
+
+### 阶段 4：业务后台
+- API 接口实现
+- 数据库设计
+- 替换 Mock Service
+
+### 阶段 5：MQTT 与 ESP32 联调
+- Broker 配置
+- Topic 实现
+- 设备通信测试
+
+### 阶段 6：RK3588/K230 + 人脸联调
+- 人脸识别集成
+- 触摸屏 UI
+- 串口通信
+
+### 阶段 7：RFID 与归还闭环
+- RFID 读取
+- 钥匙身份校验
+- 归还流程完善
+
+### 阶段 8：全系统测试
+- 正常链路测试
+- 异常链路测试（20+ 场景）
+- 测试记录整理
+
+### 阶段 9：结题与成果整理
+- 技术报告
+- 测试报告
+- 成果材料
+
+---
+
+## 📊 当前统计
+
+| 指标 | 数量 |
+|------|------|
+| 数据模型 | 8 个 |
+| Service | 4 个 |
+| Mock 实现 | 5 个 |
+| 页面 | 10 个 |
+| 动态化页面 | 5 个 |
+| 代码行数 | ~4000+ |
+| TypeScript 错误 | 0 |
+
+---
+
+## 🎯 近期目标（本周）
+
+1. **完成阶段 2 核心业务闭环**
+   - Mock 取钥完整流程
+   - Mock 归还完整流程
+   - 状态机验证
+
+2. **演示准备**
+   - 录制完整业务流程视频
+   - 准备 PPT 演示材料
+
+---
+
+## 📝 提交记录
+
+- `79ca94f` - feat(stage-1): 完成小程序业务数据层实现
+- `7dec172` - init: 智能钥匙借还小程序 V1 骨架
+
+---
+
+**最后更新**: 2026-09-02
