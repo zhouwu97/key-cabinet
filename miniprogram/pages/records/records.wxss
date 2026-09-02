@@ -1,0 +1,42 @@
+.page {
+  padding: 24rpx;
+  background-color: #f5f6f8;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* 顶部 Tab 栏 */
+.tab-bar {
+  display: flex;
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 8rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 4rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #646a73;
+  border-radius: 12rpx;
+  transition: all 0.2s ease;
+}
+
+.tab-item-active {
+  background-color: #2f6bff;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4rpx 12rpx rgba(47, 107, 255, 0.2);
+}
+
+.center-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 40rpx;
+}

@@ -5,7 +5,7 @@ import {
   keyService,
   operationService,
 } from '../../services'
-import { Reservation } from '../../models/reservation'
+import { Reservation, ReservationStatus } from '../../models/reservation'
 import { BorrowRecord, BorrowRecordStatus, isRecordOverdue } from '../../models/borrow-record'
 import { Key } from '../../models/key'
 import {
@@ -41,6 +41,8 @@ export interface ReservationViewModel extends Reservation {
   expectedReturnText: string
   statusLabel: string
   statusTone: string
+  canPickup: boolean
+  canCancel: boolean
 }
 
 export interface BorrowViewModel extends BorrowRecord {
@@ -50,6 +52,7 @@ export interface BorrowViewModel extends BorrowRecord {
   returnedAtText: string
   statusLabel: string
   statusTone: string
+  canReturn: boolean
 }
 
 Page({
@@ -64,11 +67,23 @@ Page({
   },
 
   onLoad() {
+    this.checkInitialTab()
     this.loadData()
   },
 
   onShow() {
+    this.checkInitialTab()
     this.loadData()
+  },
+
+  checkInitialTab() {
+    try {
+      const initialTab = wx.getStorageSync('kcab_records_initial_tab')
+      if (initialTab) {
+        this.setData({ activeTab: initialTab as TabType })
+        wx.removeStorageSync('kcab_records_initial_tab')
+      }
+    } catch (e) {}
   },
 
   async loadData() {
@@ -87,7 +102,6 @@ Page({
         keyService.getKeys(),
       ])
 
-      // 构建钥匙映射
       const keyMap: Record<string, Key> = {}
       keys.forEach(key => {
         keyMap[key.id] = key
@@ -106,11 +120,18 @@ Page({
         expectedReturnText: formatDateTime(r.expectedReturnAt),
         statusLabel: RESERVATION_STATUS_LABEL[r.status] || '未知',
         statusTone: RESERVATION_STATUS_TONE[r.status] || 'gray',
+        canPickup: r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.APPROVED,
+        canCancel: r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.PENDING,
       }))
 
       // 格式化借还 ViewModel
       const mapBorrowViewModel = (b: BorrowRecord): BorrowViewModel => {
         const statusInfo = getBorrowRecordDisplayStatus(b)
+        const canReturn =
+          b.status === BorrowRecordStatus.BORROWED ||
+          b.status === BorrowRecordStatus.BORROWING ||
+          isRecordOverdue(b)
+
         return {
           ...b,
           keyName: getKeyName(b.keyId),
@@ -119,10 +140,10 @@ Page({
           returnedAtText: formatDateTime(b.returnedAt),
           statusLabel: statusInfo.label,
           statusTone: statusInfo.tone,
+          canReturn,
         }
       }
 
-      // 分类借还记录
       const currentBorrows: BorrowViewModel[] = rawBorrowRecords
         .filter(
           r =>
@@ -160,10 +181,12 @@ Page({
     this.setData({ activeTab: tab })
   },
 
-  // 快捷发起取钥
-  async startPickup(e: any) {
-    const rsvId = e.currentTarget.dataset.id
-    const keyId = e.currentTarget.dataset.keyid
+  goKeys() {
+    wx.switchTab({ url: '/pages/keys/keys' })
+  },
+
+  async onReservationPickup(e: any) {
+    const { id: rsvId, keyId } = e.detail
     try {
       const user = await userService.getCurrentUser()
       if (!user) return
@@ -171,6 +194,7 @@ Page({
       const key = this.data.keyMap[keyId]
       if (!key) return
 
+      wx.showLoading({ title: '正在建立会话...' })
       const op = await operationService.startOperation({
         action: DeviceOperationAction.PICKUP,
         userId: user.id,
@@ -179,19 +203,38 @@ Page({
         slotId: key.slotId,
         reservationId: rsvId,
       })
+      wx.hideLoading()
 
       wx.navigateTo({
         url: `/pages/operation/operation?operationId=${op.id}`,
       })
     } catch (e: any) {
+      wx.hideLoading()
       wx.showToast({ title: e.message || '发起取钥失败', icon: 'none' })
     }
   },
 
-  // 快捷发起归还
-  async startReturn(e: any) {
-    const borrowId = e.currentTarget.dataset.id
-    const keyId = e.currentTarget.dataset.keyid
+  async onReservationCancel(e: any) {
+    const { id: rsvId } = e.detail
+    try {
+      const res = await wx.showModal({
+        title: '取消预约',
+        content: '确认取消该预约吗？取消后钥匙将重新对他人开放。',
+      })
+
+      if (res.confirm) {
+        await reservationService.cancelReservation(rsvId)
+        wx.showToast({ title: '已取消预约', icon: 'success' })
+        this.loadData()
+      }
+    } catch (e: any) {
+      console.error('取消预约失败', e)
+      wx.showToast({ title: '取消失败', icon: 'none' })
+    }
+  },
+
+  async onBorrowReturn(e: any) {
+    const { id: borrowId, keyId } = e.detail
     try {
       const user = await userService.getCurrentUser()
       if (!user) return
@@ -199,6 +242,7 @@ Page({
       const key = this.data.keyMap[keyId]
       if (!key) return
 
+      wx.showLoading({ title: '正在开启归还口...' })
       const op = await operationService.startOperation({
         action: DeviceOperationAction.RETURN,
         userId: user.id,
@@ -207,32 +251,14 @@ Page({
         slotId: key.slotId,
         borrowRecordId: borrowId,
       })
+      wx.hideLoading()
 
       wx.navigateTo({
         url: `/pages/operation/operation?operationId=${op.id}`,
       })
     } catch (e: any) {
+      wx.hideLoading()
       wx.showToast({ title: e.message || '发起归还失败', icon: 'none' })
-    }
-  },
-
-  async cancelReservation(e: any) {
-    const id = e.currentTarget.dataset.id
-    try {
-      await wx.showModal({
-        title: '取消预约',
-        content: '确认取消该预约吗？取消后该时段钥匙将重新对他人开放。',
-      })
-
-      await reservationService.cancelReservation(id)
-      wx.showToast({ title: '已取消', icon: 'success' })
-      this.loadData()
-    } catch (e: any) {
-      if (e.errMsg && e.errMsg.includes('cancel')) {
-        return
-      }
-      console.error('取消预约失败', e)
-      wx.showToast({ title: '取消失败', icon: 'none' })
     }
   },
 })
