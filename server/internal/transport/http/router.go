@@ -2,9 +2,9 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/yourusername/key-cabinet/server/internal/transport/http/handler"
-	"github.com/yourusername/key-cabinet/server/internal/transport/http/middleware"
-	"github.com/yourusername/key-cabinet/server/internal/platform/jwt"
+	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/handler"
+	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/middleware"
+	"github.com/zhouwu97/key-cabinet/server/internal/platform/jwt"
 )
 
 type RouterConfig struct {

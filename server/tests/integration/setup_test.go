@@ -3,8 +3,8 @@ package integration
 import (
 	"testing"
 	"gorm.io/gorm"
-	"github.com/yourusername/key-cabinet/server/internal/config"
-	"github.com/yourusername/key-cabinet/server/internal/infrastructure/postgres"
+	"github.com/zhouwu97/key-cabinet/server/internal/config"
+	"github.com/zhouwu97/key-cabinet/server/internal/infrastructure/postgres"
 )
 
 func setupTestDB(t *testing.T) *gorm.DB {

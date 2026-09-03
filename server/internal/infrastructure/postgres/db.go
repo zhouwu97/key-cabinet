@@ -6,7 +6,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"github.com/yourusername/key-cabinet/server/internal/config"
+	"github.com/zhouwu97/key-cabinet/server/internal/config"
 )
 
 func NewDatabase(cfg config.DatabaseConfig) (*gorm.DB, error) {

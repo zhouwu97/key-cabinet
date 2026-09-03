@@ -1,4 +1,4 @@
-module github.com/yourusername/key-cabinet/server
+module github.com/zhouwu97/key-cabinet/server
 
 go 1.26.2
 

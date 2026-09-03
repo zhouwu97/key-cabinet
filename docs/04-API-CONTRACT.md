@@ -79,8 +79,9 @@
     "user": {
       "id": "U001",
       "name": "张三",
-      "studentId": "20230001",
+      "studentNo": "20230001",
       "role": "USER",
+      "status": "ACTIVE",
       "department": "信息科学与工程学院",
       "creditScore": 100
     }
@@ -109,8 +110,9 @@
   "data": {
     "id": "U001",
     "name": "张三",
-    "studentId": "20230001",
+    "studentNo": "20230001",
     "role": "USER",
+    "status": "ACTIVE",
     "department": "信息科学与工程学院",
     "phone": "13800138000",
     "creditScore": 100

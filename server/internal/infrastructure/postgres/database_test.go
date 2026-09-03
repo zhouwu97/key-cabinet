@@ -3,7 +3,7 @@ package postgres
 import (
 	"testing"
 	"github.com/stretchr/testify/assert"
-	"github.com/yourusername/key-cabinet/server/internal/config"
+	"github.com/zhouwu97/key-cabinet/server/internal/config"
 )
 
 func TestNewDatabase(t *testing.T) {

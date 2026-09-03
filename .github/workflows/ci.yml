@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    name: Frontend Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./miniprogram
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: miniprogram/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npm run check
+
+      - name: Run tests
+        run: npm test
+
+  backend:
+    name: Backend Check
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: keycabinet_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: ./server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+          cache-dependency-path: server/go.sum
+
+      - name: Install golang-migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/
+          migrate -version
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/keycabinet_test?sslmode=disable
+        run: migrate -path ./migrations -database "$DATABASE_URL" up
+
+      - name: Verify migrations
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/keycabinet_test?sslmode=disable
+        run: |
+          migrate -path ./migrations -database "$DATABASE_URL" version
+          echo "Checking users table structure..."
+          psql "$DATABASE_URL" -c "\d users"
+
+      - name: Go fmt check
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "Files need formatting:"
+            gofmt -s -l .
+            echo "Run: gofmt -s -w ."
+            exit 1
+          fi
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Go test
+        env:
+          KC_DATABASE_HOST: localhost
+          KC_DATABASE_PORT: 5432
+          KC_DATABASE_USER: postgres
+          KC_DATABASE_PASSWORD: postgres
+          KC_DATABASE_DBNAME: keycabinet_test
+          KC_JWT_SECRET: test-secret-key-for-ci
+        run: go test ./... -v -cover
+
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t keycabinet-api:test ./server
+
+      - name: Check image size
+        run: |
+          docker images keycabinet-api:test
+          echo "Docker image built successfully"

@@ -26,12 +26,13 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - DATABASE_HOST=postgres
-      - DATABASE_PORT=5432
-      - DATABASE_USER=postgres
-      - DATABASE_PASSWORD=postgres
-      - DATABASE_NAME=keycabinet
-      - JWT_SECRET=docker-development-secret
+      - KC_DATABASE_HOST=postgres
+      - KC_DATABASE_PORT=5432
+      - KC_DATABASE_USER=postgres
+      - KC_DATABASE_PASSWORD=postgres
+      - KC_DATABASE_DBNAME=keycabinet
+      - KC_JWT_SECRET=docker-development-secret-change-in-production
+      - KC_DEVICE_GATEWAY_TYPE=mock
     depends_on:
       postgres:
         condition: service_healthy

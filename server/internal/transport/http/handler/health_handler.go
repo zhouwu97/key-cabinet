@@ -5,7 +5,7 @@ import (
 	"time"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
-	"github.com/yourusername/key-cabinet/server/internal/infrastructure/postgres"
+	"github.com/zhouwu97/key-cabinet/server/internal/infrastructure/postgres"
 )
 
 type HealthHandler struct {

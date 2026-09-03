@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
-	"github.com/yourusername/key-cabinet/server/internal/config"
-	"github.com/yourusername/key-cabinet/server/internal/infrastructure/postgres"
-	"github.com/yourusername/key-cabinet/server/internal/platform/jwt"
-	"github.com/yourusername/key-cabinet/server/internal/transport/http"
-	"github.com/yourusername/key-cabinet/server/internal/transport/http/handler"
+	"github.com/zhouwu97/key-cabinet/server/internal/config"
+	"github.com/zhouwu97/key-cabinet/server/internal/infrastructure/postgres"
+	"github.com/zhouwu97/key-cabinet/server/internal/platform/jwt"
+	"github.com/zhouwu97/key-cabinet/server/internal/transport/http"
+	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/handler"
 )
 
 func main() {

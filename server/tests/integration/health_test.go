@@ -5,9 +5,9 @@ import (
 	"net/http/httptest"
 	"testing"
 	"github.com/stretchr/testify/assert"
-	transportHttp "github.com/yourusername/key-cabinet/server/internal/transport/http"
-	"github.com/yourusername/key-cabinet/server/internal/transport/http/handler"
-	"github.com/yourusername/key-cabinet/server/internal/platform/jwt"
+	transportHttp "github.com/zhouwu97/key-cabinet/server/internal/transport/http"
+	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/handler"
+	"github.com/zhouwu97/key-cabinet/server/internal/platform/jwt"
 )
 
 func TestHealthCheck(t *testing.T) {

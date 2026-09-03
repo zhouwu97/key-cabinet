@@ -34,8 +34,9 @@ erDiagram
 export interface User {
   id: string;              // 用户唯一 ID (如 "U001")
   name: string;            // 用户姓名 (如 "张三")
-  studentId: string;       // 学号/工号 (如 "20230001")
-  role: 'USER' | 'ADMIN' | 'MAINTAINER'; // 角色
+  studentNo: string;       // 学号/工号 (如 "20230001") - 使用 studentNo 而非 studentId
+  role: 'USER' | 'ADMIN';  // 角色 (MAINTAINER 保留给 v0.5)
+  status: 'ACTIVE' | 'DISABLED'; // 状态 (DISABLED 表示账号已停用)
   department: string;      // 所属学院/部门 (如 "信息科学与工程学院")
   phone?: string;          // 联系电话 (如 "13800138000")
   avatarUrl?: string;      // 头像链接

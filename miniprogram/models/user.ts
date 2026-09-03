@@ -9,4 +9,8 @@ export interface User {
   phone?: string
   role: UserRole
   status: UserStatus
+  department?: string
+  creditScore: number
+  createdAt?: string
+  updatedAt?: string
 }

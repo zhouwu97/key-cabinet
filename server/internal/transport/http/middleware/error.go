@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 	"github.com/gin-gonic/gin"
-	"github.com/yourusername/key-cabinet/server/internal/platform/errors"
-	"github.com/yourusername/key-cabinet/server/internal/transport/http/dto"
+	"github.com/zhouwu97/key-cabinet/server/internal/platform/errors"
+	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/dto"
 )
 
 func ErrorMiddleware() gin.HandlerFunc {
