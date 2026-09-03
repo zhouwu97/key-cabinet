@@ -1,0 +1,29 @@
+server:
+  port: 8080
+  mode: debug # debug, release
+
+database:
+  host: localhost
+  port: 5432
+  user: postgres
+  password: postgres
+  dbname: keycabinet
+  sslmode: disable
+  max_open_conns: 25
+  max_idle_conns: 5
+
+jwt:
+  secret: change-this-secret-in-production
+  expiration: 86400 # 24 hours in seconds
+
+wechat:
+  app_id: your-wechat-app-id
+  app_secret: your-wechat-app-secret
+
+device:
+  type: mock # mock, mqtt
+  mqtt:
+    broker: tcp://localhost:1883
+    client_id: key-cabinet-server
+    username: ""
+    password: ""
