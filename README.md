@@ -16,8 +16,9 @@
 | `v0.1.0` | **Stage 1** | 数据模型定义、Service 接口层与 Mock 仓库持久化 | ✅ 已完成 |
 | `v0.2.0-mock-closed-loop` | **Stage 2** | Mock 设备服务闭环、预约/取钥/借用/归还完整流转、24 项自动化测试 | ✅ 已完成 |
 | `v0.2.1-runtime-verified` | **Stage 2.1** | WXML 运行时 ViewModel 预计算重构、WXML 语法与非小程序标签 Linter | ✅ 已完成 |
-| **`v0.3.0-product-ready`** | **Stage 3 & 4** | **9 大复用组件沉淀、全页面 6 状态完整化、Operation 旗舰展示流、5 份核心后台与 MQTT 协议规范冻结** | ✅ **已完成** |
-| `v0.4.0-backend-integrated` | **Stage 5** | 替换 Mock 服务为真实后端 RESTful API（小程序形态与行为保持稳定） | 🚀 下一阶段 |
+| `v0.3.0-product-ready` | **Stage 3 & 4** | 9 大复用组件沉淀、全页面 6 状态完整化、Operation 旗舰展示流 | ✅ 已完成 |
+| **`v0.3.1-contract-alignment`** | **契约对齐** | **统一前端代码与后台协议文档的状态机、枚举、API契约，补充 Auth、DTO 设计指南** | 🚀 **进行中** |
+| `v0.4.0-backend-integrated` | **Stage 5** | 替换 Mock 服务为真实后端 RESTful API（小程序形态与行为保持稳定） | 📋 下一阶段 |
 | `v0.5.0-device-connected` | **Stage 6** | 业务后台接入真实 MQTT Broker 与 ESP32 柜控硬件 | 规划中 |
 | `v0.6.0-identity-integrated` | **Stage 7** | RK3588 / K230 人脸识别与现场屏端交互联调 | 规划中 |
 | `v0.7.0-rfid-closed-loop` | **Stage 8** | RFID 实物天线读取与在位检测物理闭环 | 规划中 |
@@ -27,13 +28,15 @@
 
 ## 📚 冻结的系统级规范文档 (`docs/`)
 
-- [02-DATA-MODEL.md](docs/02-DATA-MODEL.md) - 完整领域数据模型定义与 SQL DDL 字典
-- [03-STATE-MACHINE.md](docs/03-STATE-MACHINE.md) - 钥匙、预约、借还与设备操作 4 套核心状态机及状态转移矩阵
-- [04-API-CONTRACT.md](docs/04-API-CONTRACT.md) - 后台 RESTful API 契约 V1 (`/me`, `/keys`, `/reservations`, `/borrow-records`, `/device-operations`)
+- [02-DATA-MODEL.md](docs/02-DATA-MODEL.md) - 完整领域数据模型定义与 SQL DDL 字典 (v1.1 契约对齐版)
+- [03-STATE-MACHINE.md](docs/03-STATE-MACHINE.md) - 钥匙、预约、借还与设备操作 4 套核心状态机及状态转移矩阵 (v1.1 契约对齐版)
+- [04-API-CONTRACT.md](docs/04-API-CONTRACT.md) - 后台 RESTful API 契约 V1 (`/auth`, `/me`, `/keys`, `/reservations`, `/borrow-records`, `/device-operations`) (v1.1 契约对齐版)
 - [05-MQTT-PROTOCOL.md](docs/05-MQTT-PROTOCOL.md) - 柜机 MQTT Topic 树与 JSON Payload 报文协议
 - [06-DEVICE-OPERATION.md](docs/06-DEVICE-OPERATION.md) - 6 阶段设备操作时序契约、超时保护与现场恢复机制
 - [07-ERROR-CODES.md](docs/07-ERROR-CODES.md) - 全系统错误码对齐字典
 - [PRD-V1.md](docs/PRD-V1.md) - 智能钥匙借还系统需求规格说明书
+- [CONTRACT-ALIGNMENT-REPORT.md](docs/CONTRACT-ALIGNMENT-REPORT.md) - 契约对齐报告 (v0.3.1 新增)
+- [DTO-DESIGN-GUIDE.md](docs/DTO-DESIGN-GUIDE.md) - 前端 DTO 设计指南 (v0.3.1 新增)
 
 ---
 
@@ -66,4 +69,4 @@ npm test
 
 ---
 
-**最后更新**: 2026-09-02 (v0.3.0-product-ready)
+**最后更新**: 2026-09-03 (v0.3.1-contract-alignment 进行中)
