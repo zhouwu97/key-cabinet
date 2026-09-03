@@ -58,7 +58,7 @@ Page({
   },
 
   onLoad() {
-    this.loadData()
+    // Removed: loadData() will be called in onShow()
   },
 
   onShow() {

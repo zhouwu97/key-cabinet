@@ -11,17 +11,6 @@
     "pages/operation/operation",
     "pages/admin/admin"
   ],
-  "usingComponents": {
-    "status-badge": "/components/status-badge/status-badge",
-    "section-header": "/components/section-header/section-header",
-    "empty-state": "/components/empty-state/empty-state",
-    "error-state": "/components/error-state/error-state",
-    "device-status": "/components/device-status/device-status",
-    "key-card": "/components/key-card/key-card",
-    "reservation-card": "/components/reservation-card/reservation-card",
-    "borrow-card": "/components/borrow-card/borrow-card",
-    "operation-stepper": "/components/operation-stepper/operation-stepper"
-  },
   "window": {
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
