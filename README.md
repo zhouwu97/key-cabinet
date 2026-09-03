@@ -1,72 +1,312 @@
-# 智能钥匙自助借还系统 (Key Cabinet Self-Service System)
+# Key Cabinet - 智能钥匙自助借还系统
 
-## 📌 项目概述
+## 项目概述
 
-- **项目名称**: 智能钥匙自助借还系统
-- **技术栈**: 微信小程序 + TypeScript + SCSS
-- **架构主线**: 微信小程序 ➔ 业务后台 REST API ➔ MQTT Broker ➔ 柜控硬件 (RK3588/K230/ESP32)
-- **当前发布版本**: `v0.3.0-product-ready` (已推送到远端并在微信模拟器中完成全流程闭环验证)
+智能钥匙自助借还系统（Key Cabinet）是一个面向校园/企业的钥匙管理系统，支持微信小程序预约、自助取还钥匙、设备联动控制。
 
----
+**当前版本**: v0.4 - Sprint 4.1 已完成
 
-## 🏆 阶段里程碑与演进路线
+## 最新进展
 
-| 版本 Tag | 阶段代号 | 核心交付内容 | 验收状态 |
-| :--- | :--- | :--- | :---: |
-| `v0.1.0` | **Stage 1** | 数据模型定义、Service 接口层与 Mock 仓库持久化 | ✅ 已完成 |
-| `v0.2.0-mock-closed-loop` | **Stage 2** | Mock 设备服务闭环、预约/取钥/借用/归还完整流转、24 项自动化测试 | ✅ 已完成 |
-| `v0.2.1-runtime-verified` | **Stage 2.1** | WXML 运行时 ViewModel 预计算重构、WXML 语法与非小程序标签 Linter | ✅ 已完成 |
-| `v0.3.0-product-ready` | **Stage 3 & 4** | 9 大复用组件沉淀、全页面 6 状态完整化、Operation 旗舰展示流 | ✅ 已完成 |
-| **`v0.3.1-contract-alignment`** | **契约对齐** | **统一前端代码与后台协议文档的状态机、枚举、API契约，补充 Auth、DTO 设计指南** | 🚀 **进行中** |
-| `v0.4.0-backend-integrated` | **Stage 5** | 替换 Mock 服务为真实后端 RESTful API（小程序形态与行为保持稳定） | 📋 下一阶段 |
-| `v0.5.0-device-connected` | **Stage 6** | 业务后台接入真实 MQTT Broker 与 ESP32 柜控硬件 | 规划中 |
-| `v0.6.0-identity-integrated` | **Stage 7** | RK3588 / K230 人脸识别与现场屏端交互联调 | 规划中 |
-| `v0.7.0-rfid-closed-loop` | **Stage 8** | RFID 实物天线读取与在位检测物理闭环 | 规划中 |
-| `v1.0.0` | **Stage 9** | 生产就绪与结题交付 | 规划中 |
+### ✅ Sprint 4.1 完成 (2026-09-03)
 
----
+**后端基础架构**：
+- Go + Gin + GORM + PostgreSQL 完整技术栈
+- Domain-Service-Repository-Transport 分层架构
+- PostgreSQL 排他约束解决预约时间冲突
+- 事件驱动的 DeviceGateway（Mock → MQTT 可升级）
+- JWT 认证 + 统一错误处理
+- 15+ 单元测试全部通过
 
-## 📚 冻结的系统级规范文档 (`docs/`)
+**小程序问题修复**：
+- 修复全局组件注册冲突导致的白屏问题
+- 修复 onLoad/onShow 重复数据加载
 
-- [02-DATA-MODEL.md](docs/02-DATA-MODEL.md) - 完整领域数据模型定义与 SQL DDL 字典 (v1.1 契约对齐版)
-- [03-STATE-MACHINE.md](docs/03-STATE-MACHINE.md) - 钥匙、预约、借还与设备操作 4 套核心状态机及状态转移矩阵 (v1.1 契约对齐版)
-- [04-API-CONTRACT.md](docs/04-API-CONTRACT.md) - 后台 RESTful API 契约 V1 (`/auth`, `/me`, `/keys`, `/reservations`, `/borrow-records`, `/device-operations`) (v1.1 契约对齐版)
-- [05-MQTT-PROTOCOL.md](docs/05-MQTT-PROTOCOL.md) - 柜机 MQTT Topic 树与 JSON Payload 报文协议
-- [06-DEVICE-OPERATION.md](docs/06-DEVICE-OPERATION.md) - 6 阶段设备操作时序契约、超时保护与现场恢复机制
-- [07-ERROR-CODES.md](docs/07-ERROR-CODES.md) - 全系统错误码对齐字典
-- [PRD-V1.md](docs/PRD-V1.md) - 智能钥匙借还系统需求规格说明书
-- [CONTRACT-ALIGNMENT-REPORT.md](docs/CONTRACT-ALIGNMENT-REPORT.md) - 契约对齐报告 (v0.3.1 新增)
-- [DTO-DESIGN-GUIDE.md](docs/DTO-DESIGN-GUIDE.md) - 前端 DTO 设计指南 (v0.3.1 新增)
+**文档交付**：
+- 完整架构设计文档
+- Sprint 4.1-4.8 实施计划
+- 故障排查指南
+- 下一步指引
 
----
+详见：[v0.4 完成报告](docs/v0.4-COMPLETION-REPORT.md) | [下一步指引](NEXT-STEPS.md)
 
-## 🧩 9 大公共组件库 (`miniprogram/components/`)
+## 技术栈
 
-1. `status-badge`：统一状态标签（主题色彩、圆点动效）；
-2. `section-header`：统一模块标题与副标题，支持右侧操作插槽；
-3. `empty-state`：通用空状态插图、文案与引导行动按钮；
-4. `error-state`：网络/接口异常展示与「重新加载」重试按钮；
-5. `device-status`：钥匙柜硬件健康、在位统计及物理位置卡片；
-6. `key-card`：统一钥匙卡片（房间号、名称、所在柜、审批规则、点击交互）；
-7. `reservation-card`：统一预约卡片（取钥窗口倒计时、预计归还、现场取钥/取消）；
-8. `borrow-card`：统一借还卡片（借出时间、应还时间、逾期警示高亮、一键归还）；
-9. `operation-stepper`：旗舰级竖向步进器（进度计数 `3 / 6`、呼吸动效、全中文友好流转）。
+### 前端（微信小程序）
+- TypeScript
+- WXML/WXSS
+- Domain-Driven Design
+- Mock Service（v0.4）→ HttpService（v0.5+）
 
----
+### 后端（Go）
+- **语言**: Go 1.23+
+- **Web 框架**: Gin
+- **ORM**: GORM
+- **数据库**: PostgreSQL 14+
+- **认证**: JWT (HS256)
+- **迁移工具**: golang-migrate
 
-## 🧪 自动化测试与静态验证
+### 硬件（v0.5+）
+- ESP32/ESP8266 设备控制器
+- MQTT 通信协议
+- RK3588 人脸识别（v0.6+）
 
-```bash
-# 1. 静态检查 (TypeScript 编译 + 21 个 JSON 组件路径校验 + 19 个 WXML 模板语法分析)
-npm run check
+## 项目结构
 
-# 2. Stage 3 验收清单核对 (核对 6 份协议 + 9 个组件 + 8 大页面状态)
-npm run checklist
-
-# 3. 业务闭环与故障注入自动化测试套件 (24/24 项用例)
-npm test
+```
+key-cabinet/
+├── miniprogram/          # 微信小程序前端
+│   ├── components/       # 自定义组件
+│   ├── models/           # 领域模型
+│   ├── services/         # 业务服务层
+│   ├── pages/            # 页面
+│   └── app.ts            # 小程序入口
+│
+├── server/               # Go 后端服务
+│   ├── cmd/              # 命令行入口
+│   │   ├── api/          # API 服务器
+│   │   └── migrate/      # 数据库迁移
+│   ├── internal/         # 内部包
+│   │   ├── config/       # 配置管理
+│   │   ├── domain/       # 领域模型
+│   │   ├── service/      # 应用服务
+│   │   ├── repository/   # 数据访问
+│   │   ├── transport/    # HTTP 传输层
+│   │   ├── infrastructure/ # 基础设施
+│   │   └── platform/     # 平台层
+│   ├── migrations/       # SQL 迁移文件
+│   └── tests/            # 测试
+│
+└── docs/                 # 文档
+    ├── sprints/          # Sprint 计划和总结
+    ├── troubleshooting/  # 故障排查
+    └── *.md              # 各类文档
 ```
 
----
+## 快速开始
 
-**最后更新**: 2026-09-03 (v0.3.1-contract-alignment 进行中)
+### 前端（微信小程序）
+
+1. 安装微信开发者工具
+2. 导入项目（选择 `miniprogram/` 目录）
+3. 编译运行
+
+详见：[小程序 README](miniprogram/README.md)
+
+### 后端（Go 服务）
+
+```bash
+# 1. 安装依赖
+cd server
+go mod download
+
+# 2. 创建数据库
+createdb keycabinet
+
+# 3. 配置
+cp internal/config/config.example.yaml internal/config/config.yaml
+# 编辑 config.yaml，配置数据库连接
+
+# 4. 运行迁移
+go run cmd/migrate/main.go -command up
+
+# 5. 启动服务器
+go run cmd/api/main.go
+
+# 6. 验证
+curl http://localhost:8080/health
+```
+
+详见：[后端 README](server/README.md)
+
+## 核心功能
+
+### v0.3.1 - 产品级小程序（已完成）
+- ✅ 微信小程序完整 UI/UX
+- ✅ 钥匙浏览和搜索
+- ✅ 预约创建和管理
+- ✅ 取钥/还钥操作流程
+- ✅ 借用历史记录
+- ✅ 用户个人中心
+- ✅ 完整的 Mock Service
+
+### v0.4 - 后端集成（进行中）
+- ✅ **Sprint 4.1**: Backend Foundation
+  - Go + Gin + GORM + PostgreSQL
+  - 核心接口和平台层
+  - JWT 认证
+  - 数据库迁移
+  - MockDeviceGateway
+  
+- 🔄 **Sprint 4.2**: Auth + User (下一步)
+  - 微信登录集成
+  - 用户身份管理
+  - JWT 签发
+  
+- 📋 **Sprint 4.3**: Key + Slot + Device
+- 📋 **Sprint 4.4**: Reservation + 并发控制
+- 📋 **Sprint 4.5**: BorrowRecord
+- 📋 **Sprint 4.6**: DeviceOperation + 事务
+- 📋 **Sprint 4.7**: 前端接入真实后端
+- 📋 **Sprint 4.8**: 全系统验收
+
+### v0.5 - 真实设备（计划中）
+- 📋 MQTT 设备通信
+- 📋 ESP32/ESP8266 控制器
+- 📋 真实电机和 RFID
+- 📋 设备状态监控
+
+### v0.6 - 人脸识别（计划中）
+- 📋 RK3588 人脸识别
+- 📋 现场快速取钥
+- 📋 多种认证方式
+
+## 技术亮点
+
+### 1. PostgreSQL 排他约束解决预约冲突
+
+```sql
+ALTER TABLE reservations
+ADD CONSTRAINT reservations_no_overlap
+EXCLUDE USING gist (
+  key_id WITH =,
+  tstzrange(start_time, end_time) WITH &&
+);
+```
+
+**优势**：
+- 数据库层面保证时间冲突检测
+- 并发安全，无法绕过
+- 性能优于应用层锁
+
+### 2. 事件驱动的设备网关
+
+```go
+type DeviceGateway interface {
+    StartPickup(ctx, cmd) error          // 发送命令
+    RegisterEventHandler(handler)        // 注册回调
+}
+
+type DeviceEventHandler interface {
+    OnPickupSuccess(ctx, event) error    // 异步回调
+    OnPickupFailed(ctx, event) error
+}
+```
+
+**优势**：
+- Mock 和 MQTT 实现一致
+- 支持长时间异步操作
+- 业务代码无需改动
+
+### 3. 多认证方式支持
+
+```
+User (U001)
+  ├─ UserIdentity (WECHAT, openid_xxx)    # 微信登录
+  └─ UserIdentity (FACE, face_profile_001) # 人脸识别
+```
+
+**优势**：
+- 灵活扩展登录方式
+- 多种方式指向同一用户
+- 便于后续添加新认证
+
+### 4. Domain-Driven Design
+
+前后端统一采用 DDD 架构：
+- **Domain**: 领域模型 + 业务规则
+- **Service**: 应用服务编排
+- **Repository**: 数据访问抽象
+- **Infrastructure**: 基础设施实现
+
+## 文档
+
+### 架构设计
+- [后端架构](docs/BACKEND-ARCHITECTURE.md)
+- [Sprint 4 总览](docs/sprints/SPRINT-4-OVERVIEW.md)
+- [v0.4 完成报告](docs/v0.4-COMPLETION-REPORT.md)
+
+### 开发指南
+- [后端 README](server/README.md)
+- [小程序 README](miniprogram/README.md)
+- [下一步指引](NEXT-STEPS.md)
+
+### 故障排查
+- [白屏问题修复](docs/troubleshooting/WHITE-SCREEN-FIX.md)
+
+### Sprint 计划
+- [Sprint 4.1 计划](docs/sprints/SPRINT-4.1-PLAN.md)
+- [Sprint 4.1 总结](docs/sprints/SPRINT-4.1-SUMMARY.md)
+
+## 开发进度
+
+| Sprint | 状态 | 完成日期 | 说明 |
+|--------|------|---------|------|
+| v0.3.0 | ✅ | 2026-08 | 产品级小程序 UI/UX |
+| v0.3.1 | ✅ | 2026-08 | 契约对齐和文档完善 |
+| Sprint 4.1 | ✅ | 2026-09-03 | Backend Foundation |
+| Sprint 4.2 | 🔄 | - | Auth + User |
+| Sprint 4.3 | 📋 | - | Key + Device |
+| Sprint 4.4 | 📋 | - | Reservation |
+| Sprint 4.5 | 📋 | - | BorrowRecord |
+| Sprint 4.6 | 📋 | - | DeviceOperation |
+| Sprint 4.7 | 📋 | - | 前端集成 |
+| Sprint 4.8 | 📋 | - | 全系统验收 |
+
+## 测试
+
+### 后端测试
+```bash
+cd server
+
+# 单元测试（不需要数据库）
+go test ./... -short
+
+# 所有测试（需要 PostgreSQL）
+go test ./...
+
+# 带覆盖率
+go test ./... -cover
+```
+
+### 前端测试
+微信开发者工具手动测试：
+- 页面功能测试
+- 组件交互测试
+- Mock Service 验证
+
+## 提交规范
+
+遵循 Conventional Commits：
+
+```
+feat(scope): 新功能
+fix(scope): 问题修复
+docs(scope): 文档更新
+refactor(scope): 代码重构
+test(scope): 测试相关
+chore(scope): 构建/工具相关
+```
+
+示例：
+```
+feat(backend): complete Sprint 4.1 - Backend Foundation
+fix(miniprogram): remove global component registration
+docs: add Sprint 4.1 completion report
+```
+
+## 贡献者
+
+- 项目负责人：XIAOcx
+- AI 助手：Claude Opus 4.8
+
+## 许可证
+
+MIT
+
+## 联系方式
+
+有问题或建议？
+- 查看文档：`docs/` 目录
+- 查看故障排查：`docs/troubleshooting/`
+- 查看下一步：`NEXT-STEPS.md`
