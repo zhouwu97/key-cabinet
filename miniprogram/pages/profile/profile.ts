@@ -1,4 +1,4 @@
-import { userService, borrowService, reservationService } from '../../services'
+import { userService, borrowService, reservationService } from '../../services/index'
 import { User } from '../../models/user'
 import { BorrowRecordStatus } from '../../models/borrow-record'
 import { ReservationStatus } from '../../models/reservation'

@@ -1,4 +1,4 @@
-import { operationService, keyService, deviceService } from '../../services'
+import { operationService, keyService, deviceService } from '../../services/index'
 import { DeviceOperation, DeviceOperationAction, DeviceOperationStatus } from '../../models/device-operation'
 import { Key } from '../../models/key'
 import { Device, DeviceEvent, DeviceEventMessage } from '../../models/device'

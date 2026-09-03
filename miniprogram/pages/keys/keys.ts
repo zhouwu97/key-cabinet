@@ -1,4 +1,4 @@
-import { keyService, deviceService } from '../../services'
+import { keyService, deviceService } from '../../services/index'
 import { Key, KeyStatus } from '../../models/key'
 import { KEY_STATUS_LABEL, KEY_STATUS_TONE } from '../../constants/labels'
 import { DeviceStatus } from '../../models/device'

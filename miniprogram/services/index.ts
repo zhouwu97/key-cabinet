@@ -18,9 +18,9 @@ export const operationService = new MockOperationService(
   borrowService,
 )
 
-export * from './key'
-export * from './reservation'
-export * from './borrow'
-export * from './user'
-export * from './device'
-export * from './operation'
+export * from './key/index'
+export * from './reservation/index'
+export * from './borrow/index'
+export * from './user/index'
+export * from './device/index'
+export * from './operation/index'

@@ -5,7 +5,7 @@ import {
   userService,
   operationService,
   keyService,
-} from '../../services'
+} from '../../services/index'
 import { DEVICE_STATUS_LABEL } from '../../constants/labels'
 import { DeviceStatus } from '../../models/device'
 import { Reservation, ReservationStatus } from '../../models/reservation'

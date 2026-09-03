@@ -3,7 +3,7 @@ import {
   keyService,
   userService,
   operationService,
-} from '../../services'
+} from '../../services/index'
 import { KeySlot } from '../../models/key-slot'
 import { Key } from '../../models/key'
 import { MockScenario, MOCK_SCENARIO_LABEL } from '../../mocks/mock-scenarios'

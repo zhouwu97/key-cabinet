@@ -4,7 +4,7 @@ import {
   userService,
   keyService,
   operationService,
-} from '../../services'
+} from '../../services/index'
 import { Reservation, ReservationStatus } from '../../models/reservation'
 import { BorrowRecord, BorrowRecordStatus, isRecordOverdue } from '../../models/borrow-record'
 import { Key } from '../../models/key'

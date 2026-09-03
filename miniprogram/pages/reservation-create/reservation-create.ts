@@ -2,9 +2,9 @@ import {
   keyService,
   reservationService,
   userService,
-} from '../../services'
+} from '../../services/index'
 import { Key } from '../../models/key'
-import { CreateReservationParams } from '../../services/reservation'
+import { CreateReservationParams } from '../../services/reservation/index'
 import { OperationErrorCode } from '../../models/operation-error'
 
 Page({

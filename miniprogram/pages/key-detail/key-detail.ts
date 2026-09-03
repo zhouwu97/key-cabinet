@@ -1,4 +1,4 @@
-import { keyService, reservationService, userService } from '../../services'
+import { keyService, reservationService, userService } from '../../services/index'
 import { Key } from '../../models/key'
 import { KeySlot } from '../../models/key-slot'
 import { KEY_STATUS_LABEL, KEY_STATUS_TONE, KEY_PRESENCE_LABEL } from '../../constants/labels'
