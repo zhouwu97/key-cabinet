@@ -1,4 +1,12 @@
-<view class="page">
+<view wx:if="{{loading}}" class="page">
+  <view style="padding: 60rpx; text-align: center; color: #666;">正在加载...</view>
+</view>
+
+<view wx:elif="{{!user}}" class="page">
+  <view style="padding: 60rpx; text-align: center; color: #666;">当前未登录</view>
+</view>
+
+<view wx:else class="page">
   <!-- 用户身份卡片 -->
   <view class="user-hero-card">
     <view class="user-avatar-wrap">
@@ -13,7 +21,7 @@
           dot="{{true}}"
         />
       </view>
-      <view class="user-meta">{{user.studentId || '20230001'}} · {{user.department || '信息科学与工程学院'}}</view>
+      <view class="user-meta">{{user.studentNo || '--'}}</view>
     </view>
   </view>
 

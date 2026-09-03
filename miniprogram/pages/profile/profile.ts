@@ -12,10 +12,6 @@ Page({
     loading: true,
   },
 
-  onLoad() {
-    this.loadUserData()
-  },
-
   onShow() {
     this.loadUserData()
   },

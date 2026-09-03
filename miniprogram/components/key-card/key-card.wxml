@@ -4,7 +4,7 @@
       <view class="key-main-title">{{keyItem.roomNo}} · {{keyItem.name}}</view>
       <view class="key-cabinet-tag">{{keyItem.deviceName || keyItem.deviceId || '1号钥匙柜'}}</view>
     </view>
-    <status-badge text="{{keyItem.statusLabel}}" tone="{{keyItem.statusTone}}" dot="{{true}}" />
+    <status-badge text="{{keyItem.statusLabel || ''}}" tone="{{keyItem.statusTone || 'gray'}}" dot="{{true}}" />
   </view>
   <view wx:if="{{keyItem.description}}" class="key-desc">
     {{keyItem.description}}

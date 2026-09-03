@@ -7,7 +7,7 @@
         <view wx:if="{{location}}" class="device-location">{{location}}</view>
       </view>
     </view>
-    <status-badge text="{{statusLabel}}" tone="{{tone}}" dot="{{true}}" />
+    <status-badge text="{{statusLabel || ''}}" tone="{{tone || 'gray'}}" dot="{{true}}" />
   </view>
   <view wx:if="{{totalCount !== undefined && totalCount > 0}}" class="device-meta">
     <text class="meta-item">在位可用：<text class="meta-highlight">{{availableCount}}</text> / {{totalCount}} 把</text>

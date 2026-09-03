@@ -1,7 +1,7 @@
 <view class="reservation-card">
   <view class="card-head">
     <view class="key-name">{{reservation.roomNo ? reservation.roomNo + ' ' : ''}}{{reservation.keyName}}</view>
-    <status-badge text="{{reservation.statusLabel}}" tone="{{reservation.statusTone || 'blue'}}" dot="{{true}}" />
+    <status-badge text="{{reservation.statusLabel || ''}}" tone="{{reservation.statusTone || 'blue'}}" dot="{{true}}" />
   </view>
 
   <view class="card-body">
