@@ -1,9 +1,92 @@
 <view class="page">
-  <view class="card">
-    <view class="card-title">扫描钥匙柜二维码</view>
-    <view class="muted">二维码只包含 cabinetId（如 CAB001），不包含任何开锁信息。</view>
+  <!-- 模式与目标指引头 -->
+  <view class="mode-banner card">
+    <view class="mode-badge {{mode === 'PICKUP' ? 'badge-blue' : 'badge-green'}}">
+      {{mode === 'PICKUP' ? '现场取钥核验' : '现场归还核验'}}
+    </view>
+    <view class="mode-title">{{key ? key.roomNo + ' ' + key.name : '钥匙柜自助服务'}}</view>
+    <view class="mode-sub">
+      {{mode === 'PICKUP' ? '请前往钥匙所在柜机，扫描柜身二维码核验' : '请前往归还钥匙柜，扫描柜身二维码确认'}}
+    </view>
   </view>
 
-  <view class="btn-primary center" bindtap="onScan">模拟扫码</view>
-  <view class="placeholder-note">骨架占位 · 扫码后的设备确认与取钥流程待实现</view>
+  <!-- 状态 1：等待扫码 -->
+  <view wx:if="{{!verified}}" class="scan-section card">
+    <view class="scan-target-box">
+      <view class="scan-icon-wrap">
+        <text class="scan-icon">📷</text>
+      </view>
+      <view class="scan-target-text">请扫描钥匙柜二维码</view>
+      <view class="scan-target-hint">二维码位于钥匙柜屏幕下方或柜门右上方</view>
+      <view wx:if="{{expectedDeviceId}}" class="scan-target-cabinet">
+        目标柜机：{{expectedDeviceId === 'CAB001' ? '1号钥匙柜 (信息楼 1F)' : expectedDeviceId}}
+      </view>
+    </view>
+
+    <!-- 校验错误提示 -->
+    <view wx:if="{{verifyError}}" class="error-banner">
+      <text class="error-icon">⚠️</text>
+      <text class="error-text">{{verifyError}}</text>
+    </view>
+
+    <view class="btn-primary center scan-main-btn" bindtap="startScan">
+      打开相机扫码
+    </view>
+
+    <view class="sim-btn center" bindtap="simulateScanSuccess">
+      开发测试：模拟扫码识别 CAB001
+    </view>
+  </view>
+
+  <!-- 状态 2：核验成功，等待用户确认 -->
+  <view wx:else class="verified-section">
+    <!-- 识别到的钥匙柜卡片 -->
+    <view class="card verified-card">
+      <view class="verified-tag">已识别钥匙柜</view>
+      <view class="cabinet-name">{{cabinetName}}</view>
+      <view class="cabinet-location">{{cabinetLocation}}</view>
+      <view class="cabinet-status">
+        <text class="status-dot online"></text>
+        <text class="status-text">{{isOnline ? '在线服务中' : '离线'}}</text>
+      </view>
+    </view>
+
+    <!-- 本次操作卡片 -->
+    <view class="card op-info-card">
+      <view class="op-section-label">本次操作</view>
+      <view class="op-key-row">
+        <text class="op-key-name">{{key ? key.roomNo + ' · ' + key.name : '目标钥匙'}}</text>
+        <text class="op-badge {{mode === 'PICKUP' ? 'badge-blue' : 'badge-green'}}">
+          {{mode === 'PICKUP' ? '取钥' : '归还'}}
+        </text>
+      </view>
+      <view class="op-detail-row">
+        <text class="detail-label">操作人：</text>
+        <text class="detail-val">{{userName || '当前用户'}}</text>
+      </view>
+      <view wx:if="{{reservationId}}" class="op-detail-row">
+        <text class="detail-label">预约编号：</text>
+        <text class="detail-val">{{reservationId}}</text>
+      </view>
+      <view wx:if="{{borrowRecordId}}" class="op-detail-row">
+        <text class="detail-label">借用编号：</text>
+        <text class="detail-val">{{borrowRecordId}}</text>
+      </view>
+    </view>
+
+    <!-- 确认按钮区 -->
+    <view class="confirm-action-wrap">
+      <button
+        class="btn-primary center confirm-btn {{starting ? 'disabled' : ''}}"
+        loading="{{starting}}"
+        bindtap="onConfirmOperation"
+      >
+        {{mode === 'PICKUP' ? '确认开始取钥' : '确认开始归还'}}
+      </button>
+
+      <view class="re-scan-btn" bindtap="reScan">
+        重新扫描二维码
+      </view>
+    </view>
+  </view>
 </view>

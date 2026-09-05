@@ -1,0 +1,32 @@
+.kc-flex {
+  display: flex;
+}
+
+.kc-flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.kc-flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kc-flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.kc-gap-sm {
+  gap: 12rpx;
+}
+
+.kc-gap-md {
+  gap: 20rpx;
+}
+
+.kc-gap-lg {
+  gap: 28rpx;
+}

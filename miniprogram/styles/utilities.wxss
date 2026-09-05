@@ -1,0 +1,53 @@
+.kc-card {
+  background-color: var(--kc-surface, #ffffff);
+  border-radius: var(--kc-radius-lg, 20rpx);
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: var(--kc-shadow-sm, 0 2rpx 8rpx rgba(0, 0, 0, 0.04));
+  border: 1rpx solid var(--kc-border-subtle, #f0f2f5);
+}
+
+.kc-btn-primary {
+  background-color: var(--kc-primary, #315ef6);
+  color: #ffffff;
+  border-radius: var(--kc-radius-full, 9999rpx);
+  font-weight: 600;
+  box-shadow: var(--kc-shadow-primary, 0 6rpx 20rpx rgba(49, 94, 246, 0.28));
+  transition: all 0.2s ease;
+}
+
+.kc-btn-secondary {
+  background-color: var(--kc-primary-light, #eaf0ff);
+  color: var(--kc-primary, #315ef6);
+  border-radius: var(--kc-radius-full, 9999rpx);
+  font-weight: 600;
+}
+
+.kc-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 4rpx 14rpx;
+  border-radius: var(--kc-radius-sm, 8rpx);
+}
+
+.kc-badge-primary {
+  background-color: var(--kc-primary-light, #eaf0ff);
+  color: var(--kc-primary, #315ef6);
+}
+
+.kc-badge-success {
+  background-color: var(--kc-success-light, #e8f7ee);
+  color: var(--kc-success, #18a058);
+}
+
+.kc-badge-warning {
+  background-color: var(--kc-warning-light, #fff7eb);
+  color: var(--kc-warning, #e98b16);
+}
+
+.kc-badge-danger {
+  background-color: var(--kc-danger-light, #fff0f0);
+  color: var(--kc-danger, #e5484d);
+}

@@ -48,15 +48,19 @@ export class HttpClient {
     const token = wx.getStorageSync('accessToken')
 
     try {
-      const res = await wx.request({
-        url: `${this.baseURL}${options.url}`,
-        method: options.method || 'GET',
-        data: options.data,
-        header: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-          ...options.headers,
-        },
+      const res = await new Promise<WechatMiniprogram.RequestSuccessCallbackResult>((resolve, reject) => {
+        wx.request({
+          url: `${this.baseURL}${options.url}`,
+          method: (options.method || 'GET') as any,
+          data: options.data,
+          header: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+            ...options.headers,
+          },
+          success: resolve,
+          fail: reject,
+        })
       })
 
       // 401 Token 失效，自动重新登录
@@ -76,16 +80,19 @@ export class HttpClient {
       // HTTP 错误
       if (res.statusCode >= 400) {
         const error = res.data as ApiError
-        throw new Error(error.message || `请求失败 (${res.statusCode})`)
+        throw new Error(error?.message || `请求失败 (${res.statusCode})`)
       }
 
       // 成功响应，解包 data
       const response = res.data as ApiResponse<T>
-      if (response.code !== 0) {
-        throw new Error(response.message || '业务错误')
+      if (response && typeof response === 'object' && 'code' in response) {
+        if (response.code !== 0) {
+          throw new Error(response.message || '业务错误')
+        }
+        return response.data
       }
 
-      return response.data
+      return res.data as T
     } catch (err: any) {
       console.error('HTTP Request Error:', err)
       throw err

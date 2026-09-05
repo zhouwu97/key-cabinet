@@ -1,0 +1,254 @@
+.mode-banner {
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  border-radius: 20rpx;
+}
+
+.mode-badge {
+  display: inline-block;
+  font-size: 24rpx;
+  font-weight: 600;
+  padding: 6rpx 18rpx;
+  border-radius: 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.badge-blue {
+  background-color: #eaf0ff;
+  color: #315ef6;
+}
+
+.badge-green {
+  background-color: #e8f7ee;
+  color: #18a058;
+}
+
+.mode-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #171a1d;
+  margin-bottom: 10rpx;
+}
+
+.mode-sub {
+  font-size: 26rpx;
+  color: #737a87;
+  line-height: 1.5;
+}
+
+.scan-section {
+  padding: 48rpx 32rpx;
+  text-align: center;
+  border-radius: 20rpx;
+}
+
+.scan-target-box {
+  margin-bottom: 48rpx;
+}
+
+.scan-icon-wrap {
+  width: 130rpx;
+  height: 130rpx;
+  line-height: 130rpx;
+  border-radius: 65rpx;
+  background-color: #f0f4ff;
+  margin: 0 auto 24rpx auto;
+}
+
+.scan-icon {
+  font-size: 64rpx;
+}
+
+.scan-target-text {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #171a1d;
+  margin-bottom: 12rpx;
+}
+
+.scan-target-hint {
+  font-size: 26rpx;
+  color: #8a919f;
+  margin-bottom: 16rpx;
+}
+
+.scan-target-cabinet {
+  display: inline-block;
+  background-color: #f6f7f9;
+  color: #4b525d;
+  padding: 8rpx 20rpx;
+  font-size: 24rpx;
+  border-radius: 8rpx;
+}
+
+.error-banner {
+  background-color: #fff2f0;
+  border: 1px solid #ffccc7;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-bottom: 32rpx;
+  text-align: left;
+}
+
+.error-icon {
+  font-size: 28rpx;
+  line-height: 1.4;
+}
+
+.error-text {
+  font-size: 26rpx;
+  color: #cf1322;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.scan-main-btn {
+  height: 92rpx;
+  line-height: 92rpx;
+  background-color: #315ef6;
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 46rpx;
+  box-shadow: 0 6rpx 16rpx rgba(49, 94, 246, 0.28);
+  margin-bottom: 24rpx;
+}
+
+.sim-btn {
+  font-size: 26rpx;
+  color: #737a87;
+  padding: 16rpx;
+  text-decoration: underline;
+}
+
+/* Verified section */
+.verified-card {
+  padding: 36rpx 32rpx;
+  border-radius: 20rpx;
+  margin-bottom: 24rpx;
+  border-left: 8rpx solid #18a058;
+}
+
+.verified-tag {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #18a058;
+  margin-bottom: 12rpx;
+}
+
+.cabinet-name {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #171a1d;
+  margin-bottom: 8rpx;
+}
+
+.cabinet-location {
+  font-size: 26rpx;
+  color: #737a87;
+  margin-bottom: 16rpx;
+}
+
+.cabinet-status {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.status-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 50%;
+}
+
+.status-dot.online {
+  background-color: #18a058;
+  box-shadow: 0 0 8rpx #18a058;
+}
+
+.status-text {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: #18a058;
+}
+
+.op-info-card {
+  padding: 32rpx;
+  border-radius: 20rpx;
+  margin-bottom: 40rpx;
+}
+
+.op-section-label {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #737a87;
+  margin-bottom: 16rpx;
+}
+
+.op-key-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 20rpx;
+  border-bottom: 1rpx solid #f0f1f3;
+  margin-bottom: 20rpx;
+}
+
+.op-key-name {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #171a1d;
+}
+
+.op-badge {
+  font-size: 24rpx;
+  font-weight: 600;
+  padding: 4rpx 16rpx;
+  border-radius: 12rpx;
+}
+
+.op-detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 26rpx;
+  padding: 10rpx 0;
+}
+
+.detail-label {
+  color: #737a87;
+}
+
+.detail-val {
+  color: #171a1d;
+  font-weight: 500;
+}
+
+.confirm-action-wrap {
+  padding: 0 16rpx;
+}
+
+.confirm-btn {
+  height: 96rpx;
+  line-height: 96rpx;
+  background-color: #315ef6;
+  color: #ffffff;
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 48rpx;
+  box-shadow: 0 8rpx 20rpx rgba(49, 94, 246, 0.3);
+  margin-bottom: 24rpx;
+}
+
+.confirm-btn.disabled {
+  opacity: 0.6;
+}
+
+.re-scan-btn {
+  text-align: center;
+  font-size: 28rpx;
+  color: #737a87;
+  padding: 16rpx;
+}

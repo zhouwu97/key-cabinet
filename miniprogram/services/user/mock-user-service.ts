@@ -45,10 +45,11 @@ export class MockUserService implements UserService {
     })
   }
 
-  async login(studentNo: string): Promise<User> {
+  async login(studentNo?: string): Promise<User> {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        const user = MOCK_USERS.find(u => u.studentNo === studentNo)
+        const targetNo = studentNo || '2021001'
+        const user = MOCK_USERS.find(u => u.studentNo === targetNo) || MOCK_USERS[0]
         if (user) {
           this.currentUser = user
           this.saveToStorage()
@@ -57,6 +58,34 @@ export class MockUserService implements UserService {
           reject(new Error('用户不存在'))
         }
       }, 300)
+    })
+  }
+
+  async updateProfile(data: Partial<User>): Promise<User> {
+    return new Promise(resolve => {
+      setTimeout(() => {
+        if (this.currentUser) {
+          this.currentUser = {
+            ...this.currentUser,
+            ...data,
+            profileCompleted: true,
+          }
+        } else {
+          this.currentUser = {
+            id: 'U001',
+            name: data.name || '张三',
+            studentNo: data.studentNo || '2021001',
+            phone: data.phone || '13800000000',
+            department: data.department || '计算机学院',
+            role: 'USER',
+            status: 'ACTIVE',
+            creditScore: 100,
+            profileCompleted: true,
+          }
+        }
+        this.saveToStorage()
+        resolve({ ...this.currentUser })
+      }, 200)
     })
   }
 }

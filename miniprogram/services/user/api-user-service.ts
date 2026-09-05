@@ -40,10 +40,23 @@ export class ApiUserService implements UserService {
     }
   }
 
-  async login(studentNo: string): Promise<User> {
-    // API 版本通过微信登录，不使用 studentNo
+  async login(_studentNo?: string): Promise<User> {
+    // API 版本通过微信登录
     const { authService } = await import('../auth/auth-service')
     const response = await authService.login()
     return response.user
+  }
+
+  async updateProfile(data: Partial<User>): Promise<User> {
+    const updatedUser = await httpClient.request<User>({
+      url: '/api/v1/me',
+      method: 'PATCH',
+      data,
+    })
+
+    // 更新本地缓存
+    wx.setStorageSync('user', updatedUser)
+
+    return updatedUser
   }
 }

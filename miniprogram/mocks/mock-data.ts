@@ -14,16 +14,22 @@ export const MOCK_USERS: User[] = [
     name: '张三',
     studentNo: '2021001',
     phone: '13800138001',
+    department: '计算机学院',
     role: 'USER' as UserRole,
     status: 'ACTIVE' as UserStatus,
+    creditScore: 100,
+    profileCompleted: true,
   },
   {
     id: 'A001',
     name: '管理员',
     studentNo: 'ADMIN001',
     phone: '13800138000',
+    department: '实验设备管理处',
     role: 'ADMIN' as UserRole,
     status: 'ACTIVE' as UserStatus,
+    creditScore: 100,
+    profileCompleted: true,
   },
 ]
 

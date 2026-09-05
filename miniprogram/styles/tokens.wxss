@@ -1,0 +1,41 @@
+page {
+  /* Brand / State Colors */
+  --kc-primary: #315ef6;
+  --kc-primary-hover: #234cd9;
+  --kc-primary-light: #eaf0ff;
+
+  --kc-success: #18a058;
+  --kc-success-light: #e8f7ee;
+
+  --kc-warning: #e98b16;
+  --kc-warning-light: #fff7eb;
+
+  --kc-danger: #e5484d;
+  --kc-danger-light: #fff0f0;
+
+  /* Neutrals & Text */
+  --kc-text-primary: #171a1d;
+  --kc-text-secondary: #737a87;
+  --kc-text-muted: #9aa0ac;
+  --kc-text-inverse: #ffffff;
+
+  /* Backgrounds & Surfaces */
+  --kc-bg: #f6f7f9;
+  --kc-surface: #ffffff;
+  --kc-surface-subtle: #f8f9fb;
+  --kc-border: #eceef2;
+  --kc-border-subtle: #f0f2f5;
+
+  /* Radius */
+  --kc-radius-sm: 8rpx;
+  --kc-radius-md: 14rpx;
+  --kc-radius-lg: 20rpx;
+  --kc-radius-xl: 28rpx;
+  --kc-radius-full: 9999rpx;
+
+  /* Shadows */
+  --kc-shadow-sm: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  --kc-shadow-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  --kc-shadow-lg: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
+  --kc-shadow-primary: 0 6rpx 20rpx rgba(49, 94, 246, 0.28);
+}

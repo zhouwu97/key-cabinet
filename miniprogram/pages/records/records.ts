@@ -3,7 +3,6 @@ import {
   borrowService,
   userService,
   keyService,
-  operationService,
 } from '../../services/index'
 import { Reservation, ReservationStatus } from '../../models/reservation'
 import { BorrowRecord, BorrowRecordStatus, isRecordOverdue } from '../../models/borrow-record'
@@ -13,27 +12,9 @@ import {
   RESERVATION_STATUS_TONE,
   getBorrowRecordDisplayStatus,
 } from '../../constants/labels'
-import { DeviceOperationAction } from '../../models/device-operation'
+import { formatDateTime, formatTime } from '../../utils/date'
 
-type TabType = 'CURRENT' | 'RESERVATIONS' | 'HISTORY' | 'EXCEPTION'
-
-function formatDateTime(timestamp?: number): string {
-  if (!timestamp) return '-'
-  const date = new Date(timestamp)
-  const m = (date.getMonth() + 1).toString().padStart(2, '0')
-  const d = date.getDate().toString().padStart(2, '0')
-  const h = date.getHours().toString().padStart(2, '0')
-  const min = date.getMinutes().toString().padStart(2, '0')
-  return `${m}-${d} ${h}:${min}`
-}
-
-function formatTime(timestamp?: number): string {
-  if (!timestamp) return '--:--'
-  const date = new Date(timestamp)
-  const h = date.getHours().toString().padStart(2, '0')
-  const min = date.getMinutes().toString().padStart(2, '0')
-  return `${h}:${min}`
-}
+type TabType = 'CURRENT' | 'HISTORY' | 'EXCEPTION'
 
 export interface ReservationViewModel extends Reservation {
   keyName: string
@@ -58,8 +39,9 @@ export interface BorrowViewModel extends BorrowRecord {
 Page({
   data: {
     activeTab: 'CURRENT' as TabType,
-    reservations: [] as ReservationViewModel[],
+    activeReservations: [] as ReservationViewModel[],
     currentBorrows: [] as BorrowViewModel[],
+    currentTotalCount: 0,
     historyBorrows: [] as BorrowViewModel[],
     exceptionBorrows: [] as BorrowViewModel[],
     keyMap: {} as Record<string, Key>,
@@ -78,8 +60,9 @@ Page({
 
   checkInitialTab() {
     try {
-      const initialTab = wx.getStorageSync('kcab_records_initial_tab')
+      let initialTab = wx.getStorageSync('kcab_records_initial_tab')
       if (initialTab) {
+        if (initialTab === 'RESERVATIONS') initialTab = 'CURRENT'
         this.setData({ activeTab: initialTab as TabType })
         wx.removeStorageSync('kcab_records_initial_tab')
       }
@@ -112,17 +95,24 @@ Page({
         return key ? `${key.roomNo} ${key.name}` : keyId
       }
 
-      // 格式化预约 ViewModel
-      const reservations: ReservationViewModel[] = rawReservations.map(r => ({
-        ...r,
-        keyName: getKeyName(r.keyId),
-        pickupWindowText: `${formatDateTime(r.pickupWindowStart)} - ${formatTime(r.pickupWindowEnd)}`,
-        expectedReturnText: formatDateTime(r.expectedReturnAt),
-        statusLabel: RESERVATION_STATUS_LABEL[r.status] || '未知',
-        statusTone: RESERVATION_STATUS_TONE[r.status] || 'gray',
-        canPickup: r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.APPROVED,
-        canCancel: r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.PENDING,
-      }))
+      // 格式化当前有效待履约预约
+      const activeReservations: ReservationViewModel[] = rawReservations
+        .filter(
+          r =>
+            r.status === ReservationStatus.ACTIVE ||
+            r.status === ReservationStatus.APPROVED ||
+            r.status === ReservationStatus.PENDING,
+        )
+        .map(r => ({
+          ...r,
+          keyName: getKeyName(r.keyId),
+          pickupWindowText: `${formatDateTime(r.pickupWindowStart)} - ${formatTime(r.pickupWindowEnd)}`,
+          expectedReturnText: formatDateTime(r.expectedReturnAt),
+          statusLabel: RESERVATION_STATUS_LABEL[r.status] || '待取钥',
+          statusTone: RESERVATION_STATUS_TONE[r.status] || 'blue',
+          canPickup: r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.APPROVED,
+          canCancel: r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.PENDING,
+        }))
 
       // 格式化借还 ViewModel
       const mapBorrowViewModel = (b: BorrowRecord): BorrowViewModel => {
@@ -144,6 +134,7 @@ Page({
         }
       }
 
+      // 借用中与归还中
       const currentBorrows: BorrowViewModel[] = rawBorrowRecords
         .filter(
           r =>
@@ -153,17 +144,20 @@ Page({
         )
         .map(mapBorrowViewModel)
 
+      // 历史完成
       const historyBorrows: BorrowViewModel[] = rawBorrowRecords
         .filter(r => r.status === BorrowRecordStatus.COMPLETED)
         .map(mapBorrowViewModel)
 
+      // 异常与逾期
       const exceptionBorrows: BorrowViewModel[] = rawBorrowRecords
         .filter(r => isRecordOverdue(r) || r.status === BorrowRecordStatus.EXCEPTION)
         .map(mapBorrowViewModel)
 
       this.setData({
-        reservations,
+        activeReservations,
         currentBorrows,
+        currentTotalCount: activeReservations.length + currentBorrows.length,
         historyBorrows,
         exceptionBorrows,
         keyMap,
@@ -181,39 +175,17 @@ Page({
     this.setData({ activeTab: tab })
   },
 
-  goKeys() {
-    wx.switchTab({ url: '/pages/keys/keys' })
-  },
-
-  async onReservationPickup(e: any) {
+  // 预约卡片「现场取钥」 -> 统一路由至扫码核验页
+  onReservationPickup(e: any) {
     const { id: rsvId, keyId } = e.detail
-    try {
-      const user = await userService.getCurrentUser()
-      if (!user) return
-
-      const key = this.data.keyMap[keyId]
-      if (!key) return
-
-      wx.showLoading({ title: '正在建立会话...' })
-      const op = await operationService.startOperation({
-        action: DeviceOperationAction.PICKUP,
-        userId: user.id,
-        keyId,
-        deviceId: key.deviceId,
-        slotId: key.slotId,
-        reservationId: rsvId,
-      })
-      wx.hideLoading()
-
-      wx.navigateTo({
-        url: `/pages/operation/operation?operationId=${op.id}`,
-      })
-    } catch (e: any) {
-      wx.hideLoading()
-      wx.showToast({ title: e.message || '发起取钥失败', icon: 'none' })
-    }
+    const key = this.data.keyMap[keyId]
+    const deviceId = key?.deviceId || 'CAB001'
+    wx.navigateTo({
+      url: `/pages/scan/scan?mode=PICKUP&reservationId=${rsvId}&keyId=${keyId}&expectedDeviceId=${deviceId}`,
+    })
   },
 
+  // 取消预约
   async onReservationCancel(e: any) {
     const { id: rsvId } = e.detail
     try {
@@ -233,32 +205,17 @@ Page({
     }
   },
 
-  async onBorrowReturn(e: any) {
+  // 借用卡片「归还」 -> 统一路由至扫码核验页
+  onBorrowReturn(e: any) {
     const { id: borrowId, keyId } = e.detail
-    try {
-      const user = await userService.getCurrentUser()
-      if (!user) return
+    const key = this.data.keyMap[keyId]
+    const deviceId = key?.deviceId || 'CAB001'
+    wx.navigateTo({
+      url: `/pages/scan/scan?mode=RETURN&borrowRecordId=${borrowId}&keyId=${keyId}&expectedDeviceId=${deviceId}`,
+    })
+  },
 
-      const key = this.data.keyMap[keyId]
-      if (!key) return
-
-      wx.showLoading({ title: '正在开启归还口...' })
-      const op = await operationService.startOperation({
-        action: DeviceOperationAction.RETURN,
-        userId: user.id,
-        keyId,
-        deviceId: key.deviceId,
-        slotId: key.slotId,
-        borrowRecordId: borrowId,
-      })
-      wx.hideLoading()
-
-      wx.navigateTo({
-        url: `/pages/operation/operation?operationId=${op.id}`,
-      })
-    } catch (e: any) {
-      wx.hideLoading()
-      wx.showToast({ title: e.message || '发起归还失败', icon: 'none' })
-    }
+  goKeys() {
+    wx.switchTab({ url: '/pages/keys/keys' })
   },
 })

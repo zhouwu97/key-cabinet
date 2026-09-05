@@ -1,60 +1,100 @@
 <view class="page">
-  <view wx:if="{{loading}}" class="loading-state">
-    <text>加载中...</text>
+  <view wx:if="{{loading}}" class="loading-state card">
+    <text>正在加载钥匙信息...</text>
   </view>
 
   <view wx:else>
-    <view class="card">
-      <view class="card-title">预约信息</view>
-
-      <view class="info-row">
-        <text class="muted">钥匙</text>
-        <text>{{key.roomNo}} {{key.name}}</text>
+    <!-- 钥匙基本信息头卡片 -->
+    <view class="key-header-card card">
+      <view class="key-header-row">
+        <view class="key-room-title">{{key.roomNo}} · {{key.name}}</view>
+        <view class="avail-badge">● 可预约</view>
       </view>
-
-      <view class="info-row">
-        <text class="muted">位置</text>
-        <text>{{key.deviceId === 'CAB001' ? '一号钥匙柜（信息楼）' : key.deviceId}}</text>
+      <view class="key-cabinet-info">
+        <text class="cab-loc">信息楼 · 1号柜 (CAB001)</text>
+        <text class="cab-dot">·</text>
+        <text class="cab-slot">槽位 {{key.slotId}}</text>
       </view>
     </view>
 
-    <view class="card">
-      <view class="card-title">使用信息</view>
-
-      <view class="form-row">
-        <text class="label">用途</text>
+    <!-- 预约核心表单卡片 -->
+    <view class="card form-card">
+      <!-- 借用用途 -->
+      <view class="form-group">
+        <view class="form-label">
+          <text class="label-title">借用用途</text>
+          <text class="label-req">*</text>
+        </view>
+        <view class="tag-selector">
+          <view
+            wx:for="{{purposeTags}}"
+            wx:key="*this"
+            class="purpose-tag {{selectedTag === item ? 'tag-selected' : ''}}"
+            bindtap="onSelectTag"
+            data-tag="{{item}}"
+          >
+            {{item}}
+          </view>
+        </view>
         <textarea
-          class="textarea"
-          placeholder="请输入钥匙用途"
+          class="purpose-input"
+          placeholder="请输入具体用途说明..."
+          placeholder-class="input-ph"
           value="{{purpose}}"
           bindinput="onPurposeInput"
           maxlength="100"
         />
       </view>
 
-      <view class="form-row">
-        <text class="label">预计时长</text>
-        <picker mode="selector" range="{{[1,2,3,4,5,6,7,8]}}" value="{{duration - 1}}" bindchange="onDurationChange">
-          <view class="picker">{{duration}} 小时</view>
+      <!-- 取钥时间说明 -->
+      <view class="info-cell">
+        <text class="cell-label">到柜取钥窗口</text>
+        <text class="cell-val">{{pickupWindowText}} (30分钟)</text>
+      </view>
+
+      <!-- 预计归还时间 -->
+      <view class="form-group">
+        <view class="form-label">
+          <text class="label-title">预计归还时间</text>
+          <text class="label-req">*</text>
+        </view>
+        <picker
+          mode="time"
+          value="{{returnTime}}"
+          start="08:00"
+          end="23:00"
+          bindchange="onReturnTimeChange"
+        >
+          <view class="picker-selector">
+            <text class="picker-text">{{returnDateText}} {{returnTime}}</text>
+            <text class="picker-arrow">修改时间 ›</text>
+          </view>
         </picker>
       </view>
-    </view>
 
-    <view class="card">
-      <view class="card-title">注意事项</view>
-      <view class="muted">
-        <view>1. 预约成功后请在有效期内取钥</view>
-        <view>2. 请按时归还钥匙</view>
-        <view>3. 禁止私自转借</view>
-        <view>4. 如需取消预约，请在"借还记录"页面操作</view>
+      <!-- 审批方式 -->
+      <view class="info-cell">
+        <text class="cell-label">审批方式</text>
+        <view class="cell-tag-green">免审批 · 信用良好自动放行</view>
       </view>
     </view>
 
-    <view
-      class="btn-primary center"
-      bindtap="submitReservation"
-    >
-      {{submitting ? '提交中...' : '确认预约'}}
+    <!-- 守则同意与确认 -->
+    <view class="rules-row" bindtap="toggleRulesAgree">
+      <view class="checkbox {{agreedRules ? 'checked' : ''}}">
+        <text wx:if="{{agreedRules}}">✓</text>
+      </view>
+      <text class="rules-text">我已阅读并同意《实验室钥匙借用与安全守则》</text>
+    </view>
+
+    <view class="submit-wrap">
+      <button
+        class="btn-primary center submit-btn {{submitting || !agreedRules ? 'disabled' : ''}}"
+        loading="{{submitting}}"
+        bindtap="submitReservation"
+      >
+        确认预约
+      </button>
     </view>
   </view>
 </view>

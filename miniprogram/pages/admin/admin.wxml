@@ -1,42 +1,80 @@
 <view class="page">
-  <view class="card">
-    <view class="card-title">硬件诊断与协议调试控制台</view>
-    <view class="muted">
-      用于开发、答辩与现场联调：模拟硬件故障注入、协议时序流转及 10 物理槽位在位实时监控。
+  <!-- 管理中心头部 -->
+  <view class="card admin-header-card">
+    <view class="admin-title">管理中心</view>
+    <view class="admin-sub">
+      钥匙柜运行台账、业务审核与硬件开发诊断控制台
     </view>
   </view>
 
-  <!-- 故障场景注入 -->
-  <view class="card">
-    <view class="card-title">全局 Mock 故障场景注入</view>
-    <picker
-      range="{{scenarios}}"
-      range-key="label"
-      value="{{scenarioIndex}}"
-      bindchange="onScenarioChange"
-    >
-      <view class="picker-box">
-        <text class="muted">当前模式：</text>
-        <text class="picker-value">{{scenarios[scenarioIndex].label}}</text>
+  <!-- 管理业务功能导航网格 -->
+  <view class="admin-grid-card card">
+    <view class="grid-card-title">业务管理概览</view>
+    <view class="admin-metric-grid">
+      <view class="metric-item">
+        <view class="metric-val tone-green">0</view>
+        <view class="metric-label">待审批预约</view>
+        <view class="metric-sub">免审批放行</view>
       </view>
-    </picker>
+      <view class="metric-item">
+        <view class="metric-val tone-blue">1</view>
+        <view class="metric-label">当前借用中</view>
+        <view class="metric-sub">运行正常</view>
+      </view>
+      <view class="metric-item">
+        <view class="metric-val">0</view>
+        <view class="metric-label">逾期未还</view>
+        <view class="metric-sub">无风险记录</view>
+      </view>
+      <view class="metric-item">
+        <view class="metric-val">10</view>
+        <view class="metric-label">钥匙总数</view>
+        <view class="metric-sub">7 把在柜可用</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 开发诊断板块 -->
+  <view class="card">
+    <view class="section-title-row">
+      <view class="card-title mb-0">开发诊断控制台</view>
+      <view class="dev-badge">诊断调试</view>
+    </view>
     <view class="muted small mt-8">
-      切换后，小程序发起的所有取钥/归还操作将按照该异常时序执行。
+      用于开发联调与设备排障：模拟硬件故障注入、协议时序流转及 10 物理槽位在位实时监控。
     </view>
 
-    <view class="test-btn-grid mt-16">
-      <view class="btn-primary small-btn" bindtap="triggerDemoPickup">
-        ▶ 发起测试取钥 (103)
+    <!-- 故障场景注入 -->
+    <view class="scenario-box mt-16">
+      <picker
+        range="{{scenarios}}"
+        range-key="label"
+        value="{{scenarioIndex}}"
+        bindchange="onScenarioChange"
+      >
+        <view class="picker-box">
+          <text class="muted">当前故障注入场景：</text>
+          <text class="picker-value">{{scenarios[scenarioIndex].label}}</text>
+        </view>
+      </picker>
+      <view class="muted small mt-8">
+        注入后，所有取钥/归还操作将按照该特定异常时序与错误码执行。
       </view>
-      <view class="btn-primary small-btn" bindtap="triggerDemoReturn">
-        ▶ 发起测试归还 (104)
+
+      <view class="test-btn-grid mt-16">
+        <view class="btn-primary small-btn" bindtap="triggerDemoPickup">
+          ▶ 测试取钥 (103)
+        </view>
+        <view class="btn-primary small-btn" bindtap="triggerDemoReturn">
+          ▶ 测试归还 (104)
+        </view>
       </view>
     </view>
   </view>
 
   <!-- 槽位在位监控 -->
   <view class="card">
-    <view class="card-title">一号钥匙柜 (CAB001) 10 物理槽位监控</view>
+    <view class="card-title">一号钥匙柜 (CAB001) 物理槽位在位监控</view>
     <view class="slot-grid">
       <view
         wx:for="{{slots}}"

@@ -21,30 +21,46 @@
           dot="{{true}}"
         />
       </view>
-      <view class="user-meta">{{user.studentNo || '--'}}</view>
+      <view class="user-meta">{{user.studentNo || '--'}} · {{user.department || '未绑定学院'}}</view>
     </view>
   </view>
 
-  <!-- 用户借用与履约统计看板 -->
+  <!-- 用户借用与履约真实统计看板 -->
   <view class="stats-card">
     <view class="stats-item" bindtap="goCurrentBorrows">
       <view class="stats-value {{currentBorrowCount > 0 ? 'tone-blue' : ''}}">{{currentBorrowCount}}</view>
-      <view class="stats-label">当前借用中</view>
+      <view class="stats-label">借用中</view>
     </view>
     <view class="stats-divider"></view>
     <view class="stats-item" bindtap="goReservations">
       <view class="stats-value {{activeReservationCount > 0 ? 'tone-orange' : ''}}">{{activeReservationCount}}</view>
-      <view class="stats-label">待履约预约</view>
+      <view class="stats-label">待取钥</view>
     </view>
     <view class="stats-divider"></view>
     <view class="stats-item" bindtap="goHistory">
       <view class="stats-value">{{totalBorrowCount}}</view>
-      <view class="stats-label">累计借用次数</view>
+      <view class="stats-label">累计借用</view>
     </view>
     <view class="stats-divider"></view>
     <view class="stats-item">
-      <view class="stats-value tone-green">100%</view>
-      <view class="stats-label">准时归还率</view>
+      <view class="stats-value tone-blue">{{user.creditScore || 100}}</view>
+      <view class="stats-label">信用分</view>
+    </view>
+  </view>
+
+  <!-- 个人身份与认证 -->
+  <view class="menu-section card">
+    <view class="menu-item" bindtap="goIdentityBind">
+      <view class="menu-item-left">
+        <text class="menu-icon">🪪</text>
+        <text class="menu-text">身份认证信息</text>
+      </view>
+      <view class="menu-item-right">
+        <text class="tag-dev" style="background:#eaf0ff; color:#315ef6;">
+          {{user.profileCompleted ? '已认证' : '去完善'}}
+        </text>
+        <text class="menu-arrow">›</text>
+      </view>
     </view>
   </view>
 
@@ -75,23 +91,26 @@
     </view>
   </view>
 
-  <!-- 管理员与系统控制台 -->
-  <view class="menu-section card">
+  <!-- 管理员与系统控制台 (仅管理员可见) -->
+  <view wx:if="{{user.role === 'ADMIN'}}" class="menu-section card">
     <view class="menu-item" bindtap="goAdmin">
       <view class="menu-item-left">
         <text class="menu-icon">🛠️</text>
-        <text class="menu-text">硬件诊断与协议调试控制台</text>
+        <text class="menu-text">管理中心 · 开发诊断控制台</text>
       </view>
       <view class="menu-item-right">
-        <text class="tag-dev">诊断模式</text>
+        <text class="tag-dev">管理员</text>
         <text class="menu-arrow">›</text>
       </view>
     </view>
+  </view>
 
+  <!-- 系统版本与说明 -->
+  <view class="menu-section card">
     <view class="menu-item" bindtap="showAbout">
       <view class="menu-item-left">
         <text class="menu-icon">ℹ️</text>
-        <text class="menu-text">关于系统 (v0.3.0)</text>
+        <text class="menu-text">关于系统 (v0.4.1-auth-ui-ready)</text>
       </view>
       <text class="menu-arrow">›</text>
     </view>

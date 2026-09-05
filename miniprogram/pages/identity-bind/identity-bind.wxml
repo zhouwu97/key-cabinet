@@ -1,0 +1,97 @@
+<view class="page">
+  <view class="bind-header card">
+    <view class="bind-title">完善身份信息</view>
+    <view class="bind-desc">绑定校园师生真实身份，方可进行钥匙柜预约、扫码取钥与归还。</view>
+  </view>
+
+  <view class="card form-card">
+    <view class="form-item">
+      <view class="form-label">
+        <text class="label-text">真实姓名</text>
+        <text class="required">*</text>
+      </view>
+      <input
+        class="form-input"
+        placeholder="请输入您的真实姓名"
+        placeholder-class="placeholder"
+        value="{{name}}"
+        bindinput="onInputName"
+        maxlength="20"
+      />
+    </view>
+
+    <view class="form-item">
+      <view class="form-label">
+        <text class="label-text">学号 / 教工号</text>
+        <text class="required">*</text>
+      </view>
+      <input
+        class="form-input"
+        placeholder="例如：20230001"
+        placeholder-class="placeholder"
+        value="{{studentNo}}"
+        bindinput="onInputStudentNo"
+        maxlength="30"
+      />
+    </view>
+
+    <view class="form-item">
+      <view class="form-label">
+        <text class="label-text">所属学院 / 部门</text>
+        <text class="required">*</text>
+      </view>
+      <input
+        class="form-input"
+        placeholder="例如：计算机与人工智能学院"
+        placeholder-class="placeholder"
+        value="{{department}}"
+        bindinput="onInputDepartment"
+        maxlength="50"
+      />
+      <view class="quick-tags">
+        <view
+          wx:for="{{departmentSuggestions}}"
+          wx:key="*this"
+          class="tag {{department === item ? 'tag-active' : ''}}"
+          bindtap="onSelectDepartment"
+          data-dep="{{item}}"
+        >
+          {{item}}
+        </view>
+      </view>
+    </view>
+
+    <view class="form-item">
+      <view class="form-label">
+        <text class="label-text">联系手机</text>
+        <text class="optional">（用于逾期紧急通知）</text>
+      </view>
+      <input
+        class="form-input"
+        type="number"
+        placeholder="请输入11位手机号码"
+        placeholder-class="placeholder"
+        value="{{phone}}"
+        bindinput="onInputPhone"
+        maxlength="11"
+      />
+    </view>
+  </view>
+
+  <view class="notice-card card">
+    <view class="notice-title">认证须知</view>
+    <view class="notice-item">1. 学号/工号将作为权限校验与借还台账记录依据；</view>
+    <view class="notice-item">2. 提交后若需变更，请联系实验室管理员核验后修改；</view>
+    <view class="notice-item">3. 初始信用分值为 100 分，请遵守实验室借还守则。</view>
+  </view>
+
+  <view class="submit-btn-wrap">
+    <button
+      class="btn-primary center submit-btn {{submitting ? 'disabled' : ''}}"
+      loading="{{submitting}}"
+      bindtap="onSubmit"
+    >
+      完成认证并开始使用
+    </button>
+  </view>
+</view>

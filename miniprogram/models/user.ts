@@ -11,6 +11,7 @@ export interface User {
   status: UserStatus
   department?: string
   creditScore: number
+  profileCompleted?: boolean
   createdAt?: string
   updatedAt?: string
 }

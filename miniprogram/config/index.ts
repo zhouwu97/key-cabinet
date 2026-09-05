@@ -1,26 +1,33 @@
 /**
- * API 配置
+ * 应用数据模式
  */
-export interface ApiConfig {
+export type DataMode = 'mock' | 'api'
+
+/**
+ * 应用配置接口
+ */
+export interface AppConfig {
   apiBaseURL: string
+  dataMode: DataMode
 }
 
 /**
- * 开发环境配置
+ * 开发环境配置（默认使用 Mock，可切换为 'api' 连接本地 Go 后端）
  */
-const devConfig: ApiConfig = {
+export const devConfig: AppConfig = {
   apiBaseURL: 'http://localhost:8080',
+  dataMode: 'mock',
 }
 
 /**
  * 生产环境配置
  */
-const prodConfig: ApiConfig = {
+export const prodConfig: AppConfig = {
   apiBaseURL: 'https://api.yourdomain.com',
+  dataMode: 'api',
 }
 
 /**
- * 当前配置
- * TODO: 根据编译环境自动切换
+ * 当前生效配置
  */
-export const currentConfig: ApiConfig = devConfig
+export const currentConfig: AppConfig = devConfig

@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+
 	"github.com/zhouwu97/key-cabinet/server/internal/config"
 	"github.com/zhouwu97/key-cabinet/server/internal/infrastructure/postgres"
+	"github.com/zhouwu97/key-cabinet/server/internal/infrastructure/wechat"
 	"github.com/zhouwu97/key-cabinet/server/internal/platform/jwt"
+	"github.com/zhouwu97/key-cabinet/server/internal/service"
 	"github.com/zhouwu97/key-cabinet/server/internal/transport/http"
 	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/handler"
 )
@@ -27,12 +30,23 @@ func main() {
 	// Initialize JWT service
 	tokenService := jwt.NewTokenService(cfg.JWT.Secret, cfg.JWT.Expiration)
 
+	// Initialize repositories
+	userRepo := postgres.NewUserRepository(db)
+
+	// Initialize infrastructure clients
+	wechatClient := wechat.NewClient(cfg.Wechat.AppID, cfg.Wechat.AppSecret)
+
+	// Initialize domain services
+	authService := service.NewAuthService(userRepo, wechatClient, tokenService, cfg.JWT.Expiration)
+
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db)
+	authHandler := handler.NewAuthHandler(authService)
 
 	// Setup router
 	router := http.SetupRouter(http.RouterConfig{
 		HealthHandler: healthHandler,
+		AuthHandler:   authHandler,
 		TokenService:  tokenService,
 	})
 

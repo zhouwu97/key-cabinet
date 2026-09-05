@@ -2,13 +2,14 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/zhouwu97/key-cabinet/server/internal/platform/jwt"
 	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/handler"
 	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/middleware"
-	"github.com/zhouwu97/key-cabinet/server/internal/platform/jwt"
 )
 
 type RouterConfig struct {
 	HealthHandler *handler.HealthHandler
+	AuthHandler   *handler.AuthHandler
 	TokenService  *jwt.TokenService
 }
 
@@ -24,16 +25,20 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	// API v1 - Public
 	v1Public := r.Group("/api/v1")
 	{
-		// Auth endpoints will be added in Sprint 4.2
-		_ = v1Public
+		if cfg.AuthHandler != nil {
+			v1Public.POST("/auth/wechat-login", cfg.AuthHandler.WechatLogin)
+		}
 	}
 
 	// API v1 - Protected
 	v1Protected := r.Group("/api/v1")
 	v1Protected.Use(middleware.AuthMiddleware(cfg.TokenService))
 	{
-		// Protected endpoints will be added in Sprint 4.3+
-		_ = v1Protected
+		if cfg.AuthHandler != nil {
+			v1Protected.GET("/me", cfg.AuthHandler.GetMe)
+			v1Protected.PATCH("/me", cfg.AuthHandler.UpdateProfile)
+			v1Protected.PUT("/me", cfg.AuthHandler.UpdateProfile)
+		}
 	}
 
 	// Admin routes
@@ -41,8 +46,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	admin.Use(middleware.AuthMiddleware(cfg.TokenService))
 	admin.Use(middleware.AdminMiddleware())
 	{
-		// Admin endpoints will be added in Sprint 4.5+
-		_ = admin
+		admin.GET("/health", cfg.HealthHandler.Check)
 	}
 
 	return r

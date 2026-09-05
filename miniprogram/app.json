@@ -4,6 +4,7 @@
     "pages/keys/keys",
     "pages/records/records",
     "pages/profile/profile",
+    "pages/identity-bind/identity-bind",
     "pages/key-detail/key-detail",
     "pages/reservation-create/reservation-create",
     "pages/borrow/borrow",
@@ -15,18 +16,38 @@
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "智能钥匙管理",
-    "backgroundColor": "#f5f6f8"
+    "backgroundColor": "#f6f7f9"
   },
   "tabBar": {
-    "color": "#8a919f",
-    "selectedColor": "#2f6bff",
+    "color": "#737a87",
+    "selectedColor": "#315ef6",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
-      { "pagePath": "pages/home/home", "text": "首页" },
-      { "pagePath": "pages/keys/keys", "text": "钥匙" },
-      { "pagePath": "pages/records/records", "text": "记录" },
-      { "pagePath": "pages/profile/profile", "text": "我的" }
+      {
+        "pagePath": "pages/home/home",
+        "text": "首页",
+        "iconPath": "assets/icons/tabbar/home.png",
+        "selectedIconPath": "assets/icons/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/keys/keys",
+        "text": "钥匙",
+        "iconPath": "assets/icons/tabbar/key.png",
+        "selectedIconPath": "assets/icons/tabbar/key-active.png"
+      },
+      {
+        "pagePath": "pages/records/records",
+        "text": "记录",
+        "iconPath": "assets/icons/tabbar/record.png",
+        "selectedIconPath": "assets/icons/tabbar/record-active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "assets/icons/tabbar/profile.png",
+        "selectedIconPath": "assets/icons/tabbar/profile-active.png"
+      }
     ]
   },
   "style": "v2",

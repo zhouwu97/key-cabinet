@@ -1,33 +1,26 @@
 <view class="page">
-  <!-- 顶部 Tab 导航 -->
+  <!-- 顶部 3 Tab 导航 -->
   <view class="tab-bar">
     <view
       class="tab-item {{activeTab === 'CURRENT' ? 'tab-item-active' : ''}}"
       bindtap="onTabChange"
       data-tab="CURRENT"
     >
-      借用中 ({{currentBorrows.length}})
-    </view>
-    <view
-      class="tab-item {{activeTab === 'RESERVATIONS' ? 'tab-item-active' : ''}}"
-      bindtap="onTabChange"
-      data-tab="RESERVATIONS"
-    >
-      我的预约 ({{reservations.length}})
+      当前 ({{currentTotalCount}})
     </view>
     <view
       class="tab-item {{activeTab === 'HISTORY' ? 'tab-item-active' : ''}}"
       bindtap="onTabChange"
       data-tab="HISTORY"
     >
-      已归还 ({{historyBorrows.length}})
+      历史 ({{historyBorrows.length}})
     </view>
     <view
       class="tab-item {{activeTab === 'EXCEPTION' ? 'tab-item-active' : ''}}"
       bindtap="onTabChange"
       data-tab="EXCEPTION"
     >
-      逾期/异常 ({{exceptionBorrows.length}})
+      异常 ({{exceptionBorrows.length}})
     </view>
   </view>
 
@@ -37,58 +30,59 @@
     <view class="loading-text">正在加载台账记录...</view>
   </view>
 
-  <!-- 2. 当前借用 TAB (CURRENT) -->
+  <!-- 2. 当前任务 TAB (CURRENT: 待取钥 + 借用中 + 归还中) -->
   <view wx:elif="{{activeTab === 'CURRENT'}}">
-    <view wx:if="{{currentBorrows.length === 0}}" class="card">
+    <view wx:if="{{currentTotalCount === 0}}" class="card">
       <empty-state
         icon="🔑"
-        title="当前无进行中的借用"
-        description="您当前没有借出中的钥匙，如需使用请前往找钥匙预约"
+        title="当前无进行中的借还任务"
+        description="您当前没有待取钥预约或借出中的钥匙，如需使用请前往找钥匙"
         actionText="去预约钥匙"
         bindaction="goKeys"
       />
     </view>
+
     <view wx:else>
-      <view wx:for="{{currentBorrows}}" wx:key="id">
-        <borrow-card
-          borrow="{{item}}"
-          showReturnBtn="{{true}}"
-          bindreturn="onBorrowReturn"
+      <!-- 待取钥预约区 -->
+      <view wx:if="{{activeReservations.length > 0}}" class="record-group">
+        <section-header
+          title="待取钥预约 ({{activeReservations.length}})"
+          subTitle="请按时到柜扫码取钥"
         />
+        <view wx:for="{{activeReservations}}" wx:key="id">
+          <reservation-card
+            reservation="{{item}}"
+            showActions="{{true}}"
+            bindpickup="onReservationPickup"
+            bindcancel="onReservationCancel"
+          />
+        </view>
+      </view>
+
+      <!-- 借用中 / 归还中区 -->
+      <view wx:if="{{currentBorrows.length > 0}}" class="record-group">
+        <section-header
+          title="借用与归还中 ({{currentBorrows.length}})"
+          subTitle="请留意归还时间，归还请到柜扫码"
+        />
+        <view wx:for="{{currentBorrows}}" wx:key="id">
+          <borrow-card
+            borrow="{{item}}"
+            showReturnBtn="{{true}}"
+            bindreturn="onBorrowReturn"
+          />
+        </view>
       </view>
     </view>
   </view>
 
-  <!-- 3. 我的预约 TAB (RESERVATIONS) -->
-  <view wx:elif="{{activeTab === 'RESERVATIONS'}}">
-    <view wx:if="{{reservations.length === 0}}" class="card">
-      <empty-state
-        icon="📅"
-        title="暂无有效预约"
-        description="您可以提前预约所需实验室或会议室钥匙"
-        actionText="找钥匙预约"
-        bindaction="goKeys"
-      />
-    </view>
-    <view wx:else>
-      <view wx:for="{{reservations}}" wx:key="id">
-        <reservation-card
-          reservation="{{item}}"
-          showActions="{{true}}"
-          bindpickup="onReservationPickup"
-          bindcancel="onReservationCancel"
-        />
-      </view>
-    </view>
-  </view>
-
-  <!-- 4. 历史归还 TAB (HISTORY) -->
+  <!-- 3. 历史记录 TAB (HISTORY) -->
   <view wx:elif="{{activeTab === 'HISTORY'}}">
     <view wx:if="{{historyBorrows.length === 0}}" class="card">
       <empty-state
         icon="📋"
-        title="暂无已归还记录"
-        description="完成借还结算后的台账记录将在此展示"
+        title="暂无历史归还记录"
+        description="您完成的钥匙借还台账记录将在此展示"
       />
     </view>
     <view wx:else>
@@ -101,20 +95,24 @@
     </view>
   </view>
 
-  <!-- 5. 异常/逾期 TAB (EXCEPTION) -->
+  <!-- 4. 逾期/异常 TAB (EXCEPTION) -->
   <view wx:elif="{{activeTab === 'EXCEPTION'}}">
     <view wx:if="{{exceptionBorrows.length === 0}}" class="card">
       <empty-state
-        icon="🎉"
-        title="信用良好！"
-        description="暂无逾期或异常未结记录，请继续保持准时借还守则"
+        icon="✅"
+        title="太棒了，暂无异常与逾期"
+        description="您的钥匙使用守约记录良好，请继续保持良好的借还习惯"
       />
     </view>
     <view wx:else>
+      <view class="exception-alert">
+        <text class="alert-icon">⚠️</text>
+        <text class="alert-text">以下钥匙记录处于逾期或异常状态，请尽快扫码归还或联系管理员</text>
+      </view>
       <view wx:for="{{exceptionBorrows}}" wx:key="id">
         <borrow-card
           borrow="{{item}}"
-          showReturnBtn="{{true}}"
+          showReturnBtn="{{item.canReturn}}"
           bindreturn="onBorrowReturn"
         />
       </view>

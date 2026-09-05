@@ -1,27 +1,71 @@
+/* 首页主容器 */
 .page {
   padding: 24rpx;
-  background-color: #f5f6f8;
+  background-color: var(--kc-bg, #f6f7f9);
   min-height: 100vh;
   box-sizing: border-box;
 }
 
+/* 用户问候与待办卡片 */
+.user-greeting-card {
+  background: #ffffff;
+  border-radius: var(--kc-radius-lg, 20rpx);
+  padding: 28rpx 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: var(--kc-shadow-sm, 0 2rpx 8rpx rgba(0, 0, 0, 0.04));
+  border: 1rpx solid var(--kc-border-subtle, #f0f2f5);
+}
+
+.greeting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.greeting-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: var(--kc-text-primary, #171a1d);
+  margin-bottom: 8rpx;
+}
+
+.greeting-sub {
+  font-size: 26rpx;
+  color: var(--kc-text-secondary, #737a87);
+}
+
+.pending-num {
+  color: var(--kc-primary, #315ef6);
+  font-weight: 700;
+  font-size: 30rpx;
+}
+
+.bind-prompt-tag {
+  font-size: 24rpx;
+  color: var(--kc-primary, #315ef6);
+  background-color: var(--kc-primary-light, #eaf0ff);
+  padding: 8rpx 20rpx;
+  border-radius: var(--kc-radius-full, 9999rpx);
+  font-weight: 500;
+}
+
 /* P0: 活跃操作横幅 */
 .active-op-card {
-  background: linear-gradient(135deg, #1f4788 0%, #2f6bff 100%);
-  border-radius: 20rpx;
+  background: linear-gradient(135deg, #183884 0%, #315ef6 100%);
+  border-radius: var(--kc-radius-lg, 20rpx);
   padding: 28rpx 32rpx;
-  margin-bottom: 28rpx;
+  margin-bottom: 24rpx;
   color: #ffffff;
-  box-shadow: 0 8rpx 24rpx rgba(47, 107, 255, 0.25);
+  box-shadow: 0 8rpx 24rpx rgba(49, 94, 246, 0.28);
   animation: op-glow 2.5s infinite alternate ease-in-out;
 }
 
 @keyframes op-glow {
   0% {
-    box-shadow: 0 4rpx 16rpx rgba(47, 107, 255, 0.2);
+    box-shadow: 0 4rpx 16rpx rgba(49, 94, 246, 0.2);
   }
   100% {
-    box-shadow: 0 8rpx 28rpx rgba(47, 107, 255, 0.45);
+    box-shadow: 0 8rpx 28rpx rgba(49, 94, 246, 0.45);
   }
 }
 
@@ -43,7 +87,7 @@
 .active-op-title {
   font-size: 26rpx;
   font-weight: 500;
-  opacity: 0.9;
+  opacity: 0.95;
   flex: 1;
 }
 
@@ -52,118 +96,200 @@
   background-color: rgba(255, 255, 255, 0.2);
   padding: 4rpx 12rpx;
   border-radius: 999rpx;
-  letter-spacing: 1rpx;
 }
 
 .active-op-body {
-  margin-bottom: 16rpx;
+  margin-bottom: 14rpx;
 }
 
 .active-op-name {
-  font-size: 34rpx;
+  font-size: 32rpx;
   font-weight: 700;
   margin-right: 12rpx;
 }
 
 .active-op-action {
-  font-size: 28rpx;
+  font-size: 26rpx;
   opacity: 0.9;
 }
 
 .active-op-btn {
   font-size: 24rpx;
   opacity: 0.85;
-  text-align: right;
-  font-weight: 500;
 }
 
-/* 欢迎卡片 */
-.welcome-card {
-  background: #ffffff;
-  border-radius: 20rpx;
+/* P4: 核心扫码行动大卡片 */
+.scan-cta-card {
+  background: linear-gradient(135deg, #315ef6 0%, #1c45d6 100%);
+  border-radius: var(--kc-radius-lg, 20rpx);
   padding: 32rpx;
   margin-bottom: 28rpx;
-  box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.03);
+  color: #ffffff;
+  box-shadow: 0 8rpx 20rpx rgba(49, 94, 246, 0.3);
+  transition: transform 0.15s ease;
 }
 
-.welcome-title {
-  font-size: 36rpx;
+.scan-cta-card:active {
+  transform: scale(0.985);
+}
+
+.scan-cta-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.scan-cta-title {
+  font-size: 34rpx;
   font-weight: 700;
-  color: #1f2329;
+  margin-bottom: 8rpx;
   letter-spacing: 0.5rpx;
 }
 
-.welcome-sub {
-  font-size: 26rpx;
-  color: #8a919f;
-  margin-top: 8rpx;
+.scan-cta-desc {
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.85);
 }
 
-/* 模块区块 */
+.scan-cta-badge {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  background-color: rgba(255, 255, 255, 0.2);
+  padding: 12rpx 24rpx;
+  border-radius: var(--kc-radius-full, 9999rpx);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.scan-cta-icon {
+  font-size: 30rpx;
+}
+
+/* 区块通用样式 */
 .section-block {
   margin-bottom: 28rpx;
 }
 
-/* 快捷服务网格 */
-.quick-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20rpx;
+/* 快捷入口 (横向简约) */
+.quick-row {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 28rpx 16rpx;
+  margin-bottom: 0;
+  border-radius: var(--kc-radius-lg, 20rpx);
 }
 
-.quick-item {
-  background-color: #ffffff;
-  border-radius: 16rpx;
-  padding: 28rpx 24rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
+.quick-col {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  transition: transform 0.15s ease;
+  align-items: center;
+  gap: 12rpx;
 }
 
-.quick-item:active {
-  transform: scale(0.98);
+.quick-icon-circle {
+  width: 88rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  border-radius: 44rpx;
+  font-size: 40rpx;
 }
 
-.quick-icon-wrap {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 16rpx;
+.bg-blue {
+  background-color: var(--kc-primary-light, #eaf0ff);
+}
+
+.bg-orange {
+  background-color: var(--kc-warning-light, #fff7eb);
+}
+
+.bg-purple {
+  background-color: #f3edff;
+}
+
+.quick-label {
+  font-size: 24rpx;
+  font-weight: 500;
+  color: var(--kc-text-primary, #171a1d);
+}
+
+/* P6: 设备状态降级 */
+.device-section {
+  margin-top: 12rpx;
+  margin-bottom: 40rpx;
+}
+
+.compact-device-bar {
   display: flex;
   align-items: center;
-  justify-content: center;
-  margin-bottom: 16rpx;
+  justify-content: space-between;
+  padding: 22rpx 28rpx;
+  margin-bottom: 0;
+  border-radius: var(--kc-radius-md, 14rpx);
+  background-color: #ffffff;
 }
 
-.quick-icon {
-  font-size: 36rpx;
+.device-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
 }
 
-.icon-blue {
-  background-color: #eaf1ff;
+.device-status-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
 }
 
-.icon-green {
-  background-color: #e6f8f1;
+.device-status-dot.online {
+  background-color: var(--kc-success, #18a058);
+  box-shadow: 0 0 6rpx var(--kc-success, #18a058);
 }
 
-.icon-orange {
-  background-color: #fff4e8;
-}
-
-.icon-purple {
-  background-color: #f4efff;
-}
-
-.quick-title {
-  font-size: 28rpx;
+.device-bar-name {
+  font-size: 26rpx;
   font-weight: 600;
-  color: #1f2329;
+  color: var(--kc-text-primary, #171a1d);
 }
 
-.quick-desc {
-  font-size: 22rpx;
-  color: #8a919f;
-  margin-top: 4rpx;
+.device-bar-stat {
+  font-size: 24rpx;
+  color: var(--kc-text-secondary, #737a87);
+}
+
+.device-bar-loc {
+  font-size: 24rpx;
+  color: var(--kc-text-muted, #9aa0ac);
+}
+
+.device-alert-card {
+  border-left: 8rpx solid var(--kc-danger, #e5484d);
+  background-color: #fff2f0;
+  padding: 24rpx 28rpx;
+  border-radius: var(--kc-radius-md, 14rpx);
+}
+
+.alert-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 8rpx;
+}
+
+.alert-icon {
+  font-size: 28rpx;
+}
+
+.alert-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #cf1322;
+}
+
+.alert-desc {
+  font-size: 24rpx;
+  color: #5c0011;
+  line-height: 1.5;
 }

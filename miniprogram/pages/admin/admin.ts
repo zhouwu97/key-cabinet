@@ -28,8 +28,20 @@ Page({
     loading: true,
   },
 
-  onShow() {
-    this.loadAdminData()
+  async onShow() {
+    try {
+      const user = await userService.getCurrentUser()
+      if (!user || user.role !== 'ADMIN') {
+        wx.showToast({ title: '无管理员访问权限', icon: 'none' })
+        setTimeout(() => {
+          wx.switchTab({ url: '/pages/home/home' })
+        }, 1200)
+        return
+      }
+      this.loadAdminData()
+    } catch (e) {
+      wx.switchTab({ url: '/pages/home/home' })
+    }
   },
 
   async loadAdminData() {

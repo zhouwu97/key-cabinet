@@ -1,6 +1,6 @@
 .page {
   padding: 24rpx;
-  background-color: #f5f6f8;
+  background-color: var(--kc-bg, #f6f7f9);
   min-height: 100vh;
   box-sizing: border-box;
 }
@@ -8,29 +8,56 @@
 /* 顶部 Tab 栏 */
 .tab-bar {
   display: flex;
-  background-color: #ffffff;
-  border-radius: 16rpx;
+  background-color: var(--kc-surface, #ffffff);
+  border-radius: var(--kc-radius-lg, 20rpx);
   padding: 8rpx;
   margin-bottom: 24rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.03);
+  box-shadow: var(--kc-shadow-sm, 0 2rpx 8rpx rgba(0, 0, 0, 0.04));
+  border: 1rpx solid var(--kc-border-subtle, #f0f2f5);
 }
 
 .tab-item {
   flex: 1;
   text-align: center;
-  padding: 16rpx 4rpx;
+  padding: 18rpx 4rpx;
   font-size: 26rpx;
   font-weight: 500;
-  color: #646a73;
-  border-radius: 12rpx;
+  color: var(--kc-text-secondary, #737a87);
+  border-radius: var(--kc-radius-md, 14rpx);
   transition: all 0.2s ease;
 }
 
 .tab-item-active {
-  background-color: #2f6bff;
+  background-color: var(--kc-primary, #315ef6);
   color: #ffffff;
   font-weight: 600;
-  box-shadow: 0 4rpx 12rpx rgba(47, 107, 255, 0.2);
+  box-shadow: 0 4rpx 14rpx rgba(49, 94, 246, 0.25);
+}
+
+.record-group {
+  margin-bottom: 28rpx;
+}
+
+.exception-alert {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background-color: #fff2f0;
+  border: 1rpx solid #ffccc7;
+  border-radius: var(--kc-radius-md, 14rpx);
+  padding: 16rpx 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.alert-icon {
+  font-size: 28rpx;
+}
+
+.alert-text {
+  font-size: 24rpx;
+  color: #cf1322;
+  line-height: 1.4;
+  flex: 1;
 }
 
 .center-loading {

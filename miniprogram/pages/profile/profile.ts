@@ -112,13 +112,22 @@ Page({
   showAbout() {
     wx.showModal({
       title: '智能钥匙自助借还系统',
-      content: '版本：v0.3.0-product-ready\n架构：WeChat MiniProgram + Cloud Backend + MQTT ESP32 Cabinet\n状态：Mock 闭环 & 协议冻结完毕',
+      content:
+        '版本：v0.4.1-auth-ui-ready\n架构：WeChat MiniProgram + Go Gin Backend + PostgreSQL + MQTT Cabinet\n状态：微信真实认证 + 现场扫码对柜借还主链就绪',
       showCancel: false,
       confirmText: '确定',
     })
   },
 
+  goIdentityBind() {
+    wx.navigateTo({ url: '/pages/identity-bind/identity-bind' })
+  },
+
   goAdmin() {
+    if (this.data.user?.role !== 'ADMIN') {
+      wx.showToast({ title: '无权访问管理中心', icon: 'none' })
+      return
+    }
     wx.navigateTo({ url: '/pages/admin/admin' })
   },
 })

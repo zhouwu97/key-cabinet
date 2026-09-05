@@ -39,7 +39,7 @@
 - Mock Service（v0.4）→ HttpService（v0.5+）
 
 ### 后端（Go）
-- **语言**: Go 1.23+
+- **语言**: Go 1.26.2
 - **Web 框架**: Gin
 - **ORM**: GORM
 - **数据库**: PostgreSQL 14+
@@ -170,7 +170,7 @@ ALTER TABLE reservations
 ADD CONSTRAINT reservations_no_overlap
 EXCLUDE USING gist (
   key_id WITH =,
-  tstzrange(start_time, end_time) WITH &&
+  tstzrange(pickup_window_start, expected_return_at) WITH &&
 );
 ```
 
