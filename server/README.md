@@ -201,20 +201,31 @@ GET /api/v1/operations/:id
 ## Environment Variables
 
 ```bash
+# Runtime environment. Mock login is only valid outside production and must be explicit.
+KC_APP_ENV=development
+KC_WECHAT_MOCK_ENABLED=true
+
 # Server
-PORT=8080
+KC_SERVER_PORT=8080
 
 # Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/keycabinet?sslmode=disable
+KC_DATABASE_HOST=localhost
+KC_DATABASE_PORT=5432
+KC_DATABASE_USER=postgres
+KC_DATABASE_PASSWORD=postgres
+KC_DATABASE_DBNAME=keycabinet
+KC_DATABASE_SSLMODE=disable
 
 # JWT
-JWT_SECRET=your-secret-key
-JWT_EXPIRATION=86400
+KC_JWT_SECRET=your-secret-key
+KC_JWT_EXPIRATION=86400
 
 # WeChat (Sprint 4.2+)
-WECHAT_APP_ID=your-app-id
-WECHAT_APP_SECRET=your-app-secret
+KC_WECHAT_APP_ID=your-app-id
+KC_WECHAT_APP_SECRET=your-app-secret
 ```
+
+`APP_ENV`、`JWT_SECRET` 等未加 `KC_` 前缀的变量仍兼容读取，但部署配置统一使用 `KC_` 前缀。生产环境必须关闭 `KC_WECHAT_MOCK_ENABLED`，并提供真实微信凭据和非占位 JWT 密钥，否则服务会拒绝启动。
 
 ## Testing Strategy
 

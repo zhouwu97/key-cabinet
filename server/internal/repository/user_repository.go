@@ -44,3 +44,10 @@ type UserRepository interface {
 	FindIdentity(ctx context.Context, provider, subject string) (*UserIdentity, error)
 	CreateIdentity(ctx context.Context, identity *UserIdentity) error
 }
+
+// UserRegistrationRepository 为首次登录提供用户与身份的原子创建能力。
+// 保留独立方法是为了兼容已有的查询/更新仓储实现；生产仓储应实现该接口。
+type UserRegistrationRepository interface {
+	UserRepository
+	CreateWithIdentity(ctx context.Context, user *User, identity *UserIdentity) error
+}

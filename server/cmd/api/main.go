@@ -34,7 +34,7 @@ func main() {
 	userRepo := postgres.NewUserRepository(db)
 
 	// Initialize infrastructure clients
-	wechatClient := wechat.NewClient(cfg.Wechat.AppID, cfg.Wechat.AppSecret)
+	wechatClient := wechat.NewClient(cfg.Wechat.AppID, cfg.Wechat.AppSecret, cfg.Wechat.MockEnabled)
 
 	// Initialize domain services
 	authService := service.NewAuthService(userRepo, wechatClient, tokenService, cfg.JWT.Expiration)

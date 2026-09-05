@@ -34,8 +34,8 @@
     </view>
   </view>
 
-  <!-- 开发诊断板块 -->
-  <view class="card">
+  <!-- 开发诊断板块仅对 Mock 数据模式开放，避免 API 模式误操作本地假数据。 -->
+  <view wx:if="{{isMockMode}}" class="card">
     <view class="section-title-row">
       <view class="card-title mb-0">开发诊断控制台</view>
       <view class="dev-badge">诊断调试</view>
@@ -90,7 +90,7 @@
     </view>
   </view>
 
-  <view class="btn-ghost center mt-16" bindtap="resetMockData">
+  <view wx:if="{{isMockMode}}" class="btn-ghost center mt-16" bindtap="resetMockData">
     重置所有 Mock 数据为初始状态
   </view>
 </view>

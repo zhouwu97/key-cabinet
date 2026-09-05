@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"gorm.io/gorm"
 	"github.com/zhouwu97/key-cabinet/server/internal/repository"
+	"gorm.io/gorm"
 )
 
 type PostgresUserRepository struct {
@@ -62,4 +62,17 @@ func (r *PostgresUserRepository) FindIdentity(ctx context.Context, provider, sub
 
 func (r *PostgresUserRepository) CreateIdentity(ctx context.Context, identity *repository.UserIdentity) error {
 	return r.db.WithContext(ctx).Create(identity).Error
+}
+
+func (r *PostgresUserRepository) CreateWithIdentity(
+	ctx context.Context,
+	user *repository.User,
+	identity *repository.UserIdentity,
+) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(user).Error; err != nil {
+			return err
+		}
+		return tx.Create(identity).Error
+	})
 }

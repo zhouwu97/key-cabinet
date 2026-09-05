@@ -14,8 +14,9 @@ import (
 
 // MockUserRepository implements in-memory repository for unit testing
 type MockUserRepository struct {
-	users      map[string]*repository.User
-	identities map[string]*repository.UserIdentity
+	users                map[string]*repository.User
+	identities           map[string]*repository.UserIdentity
+	failIdentityCreation bool
 }
 
 func NewMockUserRepository() *MockUserRepository {
@@ -59,9 +60,23 @@ func (m *MockUserRepository) CreateIdentity(ctx context.Context, identity *repos
 	return nil
 }
 
+func (m *MockUserRepository) CreateWithIdentity(
+	ctx context.Context,
+	user *repository.User,
+	identity *repository.UserIdentity,
+) error {
+	if m.failIdentityCreation {
+		return assert.AnError
+	}
+	if err := m.Create(ctx, user); err != nil {
+		return err
+	}
+	return m.CreateIdentity(ctx, identity)
+}
+
 func TestAuthService_WechatLogin_NewAndExistingUser(t *testing.T) {
 	repo := NewMockUserRepository()
-	wechatClient := wechat.NewClient("", "") // dev mode
+	wechatClient := wechat.NewClient("", "", true) // 显式开启开发 Mock
 	tokenService := jwt.NewTokenService("test-secret-with-sufficient-length!!", 3600)
 	authSvc := service.NewAuthService(repo, wechatClient, tokenService, 3600)
 
@@ -75,6 +90,9 @@ func TestAuthService_WechatLogin_NewAndExistingUser(t *testing.T) {
 	assert.NotEmpty(t, res1.User.ID)
 	assert.Equal(t, "USER", res1.User.Role)
 	assert.Equal(t, false, res1.User.ProfileCompleted)
+	for _, identity := range repo.identities {
+		assert.NotContains(t, identity.Metadata, "session_key")
+	}
 
 	// Validate token
 	claims, err := tokenService.Validate(res1.AccessToken)
@@ -103,4 +121,17 @@ func TestAuthService_WechatLogin_NewAndExistingUser(t *testing.T) {
 	assert.Equal(t, "张三", updated.Name)
 	assert.Equal(t, "2023001", updated.StudentNo)
 	assert.Equal(t, true, updated.ProfileCompleted)
+}
+
+func TestAuthService_WechatLogin_AtomicRegistrationFailure(t *testing.T) {
+	repo := NewMockUserRepository()
+	repo.failIdentityCreation = true
+	wechatClient := wechat.NewClient("", "", true)
+	tokenService := jwt.NewTokenService("test-secret-with-sufficient-length!!", 3600)
+	authSvc := service.NewAuthService(repo, wechatClient, tokenService, 3600)
+
+	_, err := authSvc.WechatLogin(context.Background(), "mock_atomic_failure")
+	require.Error(t, err)
+	assert.Empty(t, repo.users)
+	assert.Empty(t, repo.identities)
 }

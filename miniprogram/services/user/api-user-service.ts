@@ -10,7 +10,8 @@ export class ApiUserService implements UserService {
     try {
       // 先尝试从本地缓存读取
       const cached = wx.getStorageSync('user')
-      if (cached) {
+      const token = wx.getStorageSync('accessToken')
+      if (cached && token) {
         return cached as User
       }
 

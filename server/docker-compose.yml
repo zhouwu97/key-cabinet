@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:14-alpine
@@ -32,7 +30,10 @@ services:
       - KC_DATABASE_PASSWORD=postgres
       - KC_DATABASE_DBNAME=keycabinet
       - KC_JWT_SECRET=docker-development-secret-change-in-production
+      - KC_APP_ENV=development
+      - KC_WECHAT_MOCK_ENABLED=true
       - KC_DEVICE_GATEWAY_TYPE=mock
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/keycabinet?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy

@@ -10,18 +10,15 @@ jobs:
   frontend:
     name: Frontend Check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./miniprogram
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '24'
           cache: 'npm'
-          cache-dependency-path: miniprogram/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -106,16 +103,27 @@ jobs:
         run: go test ./... -v -cover
 
   docker-build:
-    name: Docker Build Test
+    name: Docker Compose Smoke Test
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: docker build -t keycabinet-api:test ./server
+      - name: Start services
+        run: docker compose -f server/docker-compose.yml up -d --build
 
-      - name: Check image size
+      - name: Verify API health
         run: |
-          docker images keycabinet-api:test
-          echo "Docker image built successfully"
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:8080/health | grep -q '"status":"ok"'; then
+              echo "API health check passed"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose -f server/docker-compose.yml logs
+          exit 1
+
+      - name: Stop services
+        if: always()
+        run: docker compose -f server/docker-compose.yml down --volumes

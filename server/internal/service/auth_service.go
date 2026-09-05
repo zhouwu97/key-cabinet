@@ -105,14 +105,11 @@ func (s *authService) WechatLogin(ctx context.Context, jsCode string) (*LoginRes
 			UpdatedAt:        now,
 		}
 
-		if err := s.userRepo.Create(ctx, user); err != nil {
-			return nil, errors.WrapWithCode(err, errors.CodeInternalError, "failed to create user")
+		metadata := make(map[string]string)
+		if session.UnionID != "" {
+			metadata["unionid"] = session.UnionID
 		}
-
-		metaBytes, _ := json.Marshal(map[string]interface{}{
-			"session_key": session.SessionKey,
-			"unionid":    session.UnionID,
-		})
+		metaBytes, _ := json.Marshal(metadata)
 
 		newIdentity := &repository.UserIdentity{
 			ID:        "ident_" + generateUUID()[:12],
@@ -123,8 +120,18 @@ func (s *authService) WechatLogin(ctx context.Context, jsCode string) (*LoginRes
 			CreatedAt: now,
 		}
 
-		if err := s.userRepo.CreateIdentity(ctx, newIdentity); err != nil {
-			return nil, errors.WrapWithCode(err, errors.CodeInternalError, "failed to create user identity")
+		if registrationRepo, ok := s.userRepo.(repository.UserRegistrationRepository); ok {
+			if err := registrationRepo.CreateWithIdentity(ctx, user, newIdentity); err != nil {
+				return nil, errors.WrapWithCode(err, errors.CodeInternalError, "failed to create user registration")
+			}
+		} else {
+			// 兼容仅用于测试的旧仓储；生产 PostgreSQL 仓储走上面的事务路径。
+			if err := s.userRepo.Create(ctx, user); err != nil {
+				return nil, errors.WrapWithCode(err, errors.CodeInternalError, "failed to create user")
+			}
+			if err := s.userRepo.CreateIdentity(ctx, newIdentity); err != nil {
+				return nil, errors.WrapWithCode(err, errors.CodeInternalError, "failed to create user identity")
+			}
 		}
 	}
 

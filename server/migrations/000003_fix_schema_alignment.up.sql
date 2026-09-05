@@ -72,12 +72,15 @@ ALTER TABLE reservations ADD COLUMN pickup_window_start TIMESTAMPTZ;
 ALTER TABLE reservations ADD COLUMN pickup_window_end TIMESTAMPTZ;
 ALTER TABLE reservations ADD COLUMN expected_return_at TIMESTAMPTZ;
 
+-- 旧排他约束依赖 start_time/end_time，删除旧列前必须先移除它。
+ALTER TABLE reservations DROP CONSTRAINT IF EXISTS reservations_no_overlap;
+
 -- Migrate existing data: start_time -> pickup_window_start
 -- Assume 2-hour pickup window and end_time as expected return
 UPDATE reservations SET
-  pickup_window_start = start_time,
-  pickup_window_end = start_time + INTERVAL '2 hours',
-  expected_return_at = end_time
+  pickup_window_start = start_time AT TIME ZONE 'UTC',
+  pickup_window_end = (start_time + INTERVAL '2 hours') AT TIME ZONE 'UTC',
+  expected_return_at = end_time AT TIME ZONE 'UTC'
 WHERE pickup_window_start IS NULL;
 
 -- Make new fields NOT NULL after migration

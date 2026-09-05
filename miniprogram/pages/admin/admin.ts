@@ -4,6 +4,7 @@ import {
   userService,
   operationService,
 } from '../../services/index'
+import { currentConfig } from '../../config/index'
 import { KeySlot } from '../../models/key-slot'
 import { Key } from '../../models/key'
 import { MockScenario, MOCK_SCENARIO_LABEL } from '../../mocks/mock-scenarios'
@@ -25,6 +26,7 @@ Page({
     scenarios: Object.entries(MOCK_SCENARIO_LABEL).map(([key, label]) => ({ key, label })),
     currentScenario: MockScenario.SUCCESS,
     scenarioIndex: 0,
+    isMockMode: currentConfig.dataMode === 'mock',
     loading: true,
   },
 
@@ -52,7 +54,9 @@ Page({
         keyService.getKeys(),
       ])
 
-      const currentScenario = deviceService.getGlobalScenario()
+      const currentScenario = this.data.isMockMode
+        ? deviceService.getGlobalScenario()
+        : MockScenario.SUCCESS
       const scenarioIndex = this.data.scenarios.findIndex(s => s.key === currentScenario)
 
       this.setData({
@@ -69,6 +73,7 @@ Page({
   },
 
   onScenarioChange(e: any) {
+    if (!this.data.isMockMode) return
     const idx = parseInt(e.detail.value)
     const item = this.data.scenarios[idx]
     if (item) {
@@ -82,6 +87,7 @@ Page({
   },
 
   async triggerDemoPickup() {
+    if (!this.data.isMockMode) return
     try {
       const user = await userService.getCurrentUser()
       if (!user) return
@@ -109,6 +115,7 @@ Page({
   },
 
   async triggerDemoReturn() {
+    if (!this.data.isMockMode) return
     try {
       const user = await userService.getCurrentUser()
       if (!user) return
@@ -136,6 +143,7 @@ Page({
   },
 
   async resetMockData() {
+    if (!this.data.isMockMode) return
     try {
       const res = await wx.showModal({
         title: '重置 Mock 数据',

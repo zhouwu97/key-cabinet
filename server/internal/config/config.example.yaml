@@ -1,3 +1,5 @@
+app_env: development # development / test / production
+
 server:
   port: 8080
   mode: debug # debug, release
@@ -19,11 +21,10 @@ jwt:
 wechat:
   app_id: your-wechat-app-id
   app_secret: your-wechat-app-secret
+  mock_enabled: true
 
 device:
-  type: mock # mock, mqtt
-  mqtt:
-    broker: tcp://localhost:1883
-    client_id: key-cabinet-server
-    username: ""
-    password: ""
+  gateway_type: mock # mock / mqtt
+  mqtt_broker: tcp://localhost:1883
+  mqtt_username: ""
+  mqtt_password: ""

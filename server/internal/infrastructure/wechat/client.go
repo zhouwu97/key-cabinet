@@ -24,15 +24,17 @@ type Client interface {
 }
 
 type WechatClient struct {
-	appID      string
-	appSecret  string
-	httpClient *http.Client
+	appID       string
+	appSecret   string
+	mockEnabled bool
+	httpClient  *http.Client
 }
 
-func NewClient(appID, appSecret string) Client {
+func NewClient(appID, appSecret string, mockEnabled bool) Client {
 	return &WechatClient{
-		appID:     appID,
-		appSecret: appSecret,
+		appID:       appID,
+		appSecret:   appSecret,
+		mockEnabled: mockEnabled,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -40,14 +42,12 @@ func NewClient(appID, appSecret string) Client {
 }
 
 func (c *WechatClient) Code2Session(ctx context.Context, jsCode string) (*SessionResult, error) {
-	// Dev/Mock fallback:
-	// If AppID/Secret is not configured, or if the code starts with mock_ or dev_
-	isDevMode := c.appID == "" || c.appSecret == "" ||
-		c.appSecret == "your-wechat-app-secret" ||
-		strings.HasPrefix(jsCode, "mock_") ||
-		strings.HasPrefix(jsCode, "dev_")
+	// Mock 只在配置显式开启且使用开发测试 code，或开发环境尚未配置微信凭据时生效。
+	isMockCode := strings.HasPrefix(jsCode, "mock_") || strings.HasPrefix(jsCode, "dev_")
+	isDevFallback := c.mockEnabled && (c.appID == "" || c.appSecret == "" ||
+		c.appID == "your-wechat-app-id" || c.appSecret == "your-wechat-app-secret")
 
-	if isDevMode {
+	if c.mockEnabled && (isMockCode || isDevFallback) {
 		h := md5.Sum([]byte(jsCode))
 		mockOpenID := fmt.Sprintf("wx_mock_%s", hex.EncodeToString(h[:8]))
 		return &SessionResult{
@@ -57,6 +57,9 @@ func (c *WechatClient) Code2Session(ctx context.Context, jsCode string) (*Sessio
 			ErrCode:    0,
 			ErrMsg:     "ok",
 		}, nil
+	}
+	if c.appID == "" || c.appSecret == "" {
+		return nil, fmt.Errorf("wechat credentials are not configured")
 	}
 
 	url := fmt.Sprintf(

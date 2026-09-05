@@ -1,3 +1,5 @@
+import { currentConfig } from '../config/index'
+
 /**
  * API 统一响应格式（成功）
  */
@@ -38,13 +40,17 @@ export interface RequestOptions {
  * - 解包 ApiResponse.data
  */
 export class HttpClient {
-  private baseURL = 'http://localhost:8080'
+  private baseURL: string
   private refreshing = false
+
+  constructor(baseURL: string) {
+    this.baseURL = baseURL.replace(/\/+$/, '')
+  }
 
   /**
    * 发起 HTTP 请求
    */
-  async request<T>(options: RequestOptions): Promise<T> {
+  async request<T>(options: RequestOptions, retryOnUnauthorized = true): Promise<T> {
     const token = wx.getStorageSync('accessToken')
 
     try {
@@ -64,13 +70,13 @@ export class HttpClient {
       })
 
       // 401 Token 失效，自动重新登录
-      if (res.statusCode === 401 && !this.refreshing) {
+      if (res.statusCode === 401 && retryOnUnauthorized && !this.refreshing && !options.url.includes('/auth/')) {
         this.refreshing = true
         try {
           await this.refreshAuth()
           this.refreshing = false
           // 重试原请求
-          return this.request(options)
+          return this.request(options, false)
         } catch (e) {
           this.refreshing = false
           throw e
@@ -112,8 +118,8 @@ export class HttpClient {
    * 设置 BaseURL（用于环境切换）
    */
   setBaseURL(url: string) {
-    this.baseURL = url
+    this.baseURL = url.replace(/\/+$/, '')
   }
 }
 
-export const httpClient = new HttpClient()
+export const httpClient = new HttpClient(currentConfig.apiBaseURL)
