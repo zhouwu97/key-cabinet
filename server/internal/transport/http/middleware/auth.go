@@ -1,11 +1,11 @@
 package middleware
 
 import (
-	"net/http"
-	"strings"
 	"github.com/gin-gonic/gin"
 	"github.com/zhouwu97/key-cabinet/server/internal/platform/jwt"
 	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/dto"
+	"net/http"
+	"strings"
 )
 
 func AuthMiddleware(tokenService *jwt.TokenService) gin.HandlerFunc {

@@ -1,8 +1,8 @@
 package jwt
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestGenerateAndValidate(t *testing.T) {

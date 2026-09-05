@@ -1,10 +1,10 @@
 package integration
 
 import (
-	"testing"
-	"gorm.io/gorm"
 	"github.com/zhouwu97/key-cabinet/server/internal/config"
 	"github.com/zhouwu97/key-cabinet/server/internal/infrastructure/postgres"
+	"gorm.io/gorm"
+	"testing"
 )
 
 func setupTestDB(t *testing.T) *gorm.DB {

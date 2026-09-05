@@ -1,9 +1,9 @@
 package postgres
 
 import (
-	"testing"
 	"github.com/stretchr/testify/assert"
 	"github.com/zhouwu97/key-cabinet/server/internal/config"
+	"testing"
 )
 
 func TestNewDatabase(t *testing.T) {

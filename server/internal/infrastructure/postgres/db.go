@@ -2,11 +2,11 @@ package postgres
 
 import (
 	"fmt"
-	"time"
+	"github.com/zhouwu97/key-cabinet/server/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"github.com/zhouwu97/key-cabinet/server/internal/config"
+	"time"
 )
 
 func NewDatabase(cfg config.DatabaseConfig) (*gorm.DB, error) {

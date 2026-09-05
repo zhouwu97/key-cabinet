@@ -1,13 +1,13 @@
 package integration
 
 import (
+	"github.com/stretchr/testify/assert"
+	"github.com/zhouwu97/key-cabinet/server/internal/platform/jwt"
+	transportHttp "github.com/zhouwu97/key-cabinet/server/internal/transport/http"
+	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/handler"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"github.com/stretchr/testify/assert"
-	transportHttp "github.com/zhouwu97/key-cabinet/server/internal/transport/http"
-	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/handler"
-	"github.com/zhouwu97/key-cabinet/server/internal/platform/jwt"
 )
 
 func TestHealthCheck(t *testing.T) {

@@ -2,8 +2,8 @@ package errors
 
 import (
 	"errors"
-	"testing"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestNew(t *testing.T) {

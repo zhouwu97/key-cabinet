@@ -1,11 +1,11 @@
 package handler
 
 import (
+	"github.com/gin-gonic/gin"
+	"github.com/zhouwu97/key-cabinet/server/internal/infrastructure/postgres"
+	"gorm.io/gorm"
 	"net/http"
 	"time"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-	"github.com/zhouwu97/key-cabinet/server/internal/infrastructure/postgres"
 )
 
 type HealthHandler struct {

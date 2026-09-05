@@ -1,13 +1,13 @@
 package integration
 
 import (
-	"net/http"
-	"net/http/httptest"
-	"testing"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/zhouwu97/key-cabinet/server/internal/platform/jwt"
 	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/middleware"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 )
 
 func TestAuthMiddleware_NoToken(t *testing.T) {
