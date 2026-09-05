@@ -86,4 +86,6 @@ export interface StartOperationInput {
   deviceId: string
   reservationId?: string
   borrowRecordId?: string
+  /** 客户端重试时复用同一个请求ID，确保后端幂等。 */
+  requestId?: string
 }

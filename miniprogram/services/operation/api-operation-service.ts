@@ -72,16 +72,17 @@ export class ApiOperationService implements OperationService {
 
   async startOperation(input: StartOperationInput, _scenario?: MockScenario): Promise<DeviceOperation> {
     const action = input.action === DeviceOperationAction.PICKUP ? 'pickup' : 'return'
+    const clientRequestId = input.requestId || generateRequestId()
     const body =
       input.action === DeviceOperationAction.PICKUP
         ? {
             reservationId: input.reservationId,
-            clientRequestId: generateRequestId(),
+            clientRequestId,
           }
         : {
             borrowRecordId: input.borrowRecordId,
             deviceId: input.deviceId,
-            clientRequestId: generateRequestId(),
+            clientRequestId,
           }
     const operation = await httpClient.request<ApiOperation>({
       url: `/api/v1/device-operations/${action}`,

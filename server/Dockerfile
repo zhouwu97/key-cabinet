@@ -7,6 +7,8 @@ RUN apk add --no-cache git make
 
 # Copy go mod files
 COPY go.mod go.sum ./
+# 国内网络环境下优先使用镜像，避免构建阶段等待公共代理超时。
+ENV GOPROXY=https://goproxy.cn,direct
 RUN go mod download
 
 # Copy source code

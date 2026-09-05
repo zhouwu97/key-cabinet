@@ -153,22 +153,34 @@ GET /api/v1/me
 ```http
 GET /api/v1/keys
 GET /api/v1/keys/:id
+GET /api/v1/keys/:id/slot
+GET /api/v1/keys/:id/availability
 ```
 
 #### Reservations (Sprint 4.4+)
 ```http
 POST /api/v1/reservations
-GET /api/v1/reservations
+GET /api/v1/me/reservations
 GET /api/v1/reservations/:id
-DELETE /api/v1/reservations/:id
+POST /api/v1/reservations/:id/cancel
 ```
 
-#### Operations (Sprint 4.6+)
+#### Borrow Records
 ```http
-POST /api/v1/operations/pickup
-POST /api/v1/operations/return
-GET /api/v1/operations/:id
+GET /api/v1/me/borrow-records
+GET /api/v1/borrow-records/:id
 ```
+
+#### Device Operations (Sprint 4.6+)
+```http
+POST /api/v1/device-operations/pickup
+POST /api/v1/device-operations/return
+GET /api/v1/device-operations/active
+GET /api/v1/device-operations/:id
+POST /api/v1/device-operations/:id/cancel
+```
+
+取钥匙和还钥匙接口返回 `202 Accepted`，客户端应使用返回的操作 ID 轮询操作状态；`clientRequestId` 用于重复提交幂等。
 
 ## Architecture Decisions
 
@@ -204,6 +216,7 @@ GET /api/v1/operations/:id
 # Runtime environment. Mock login is only valid outside production and must be explicit.
 KC_APP_ENV=development
 KC_WECHAT_MOCK_ENABLED=true
+KC_DEVICE_GATEWAY_TYPE=mock
 
 # Server
 KC_SERVER_PORT=8080
@@ -224,6 +237,8 @@ KC_JWT_EXPIRATION=86400
 KC_WECHAT_APP_ID=your-app-id
 KC_WECHAT_APP_SECRET=your-app-secret
 ```
+
+开发环境当前提供 Mock 微信登录和 Mock 设备网关；接入真实设备前需配置网关实现并关闭 Mock。借还逾期状态由 API 进程内定时任务每 5 分钟检查一次。
 
 `APP_ENV`、`JWT_SECRET` 等未加 `KC_` 前缀的变量仍兼容读取，但部署配置统一使用 `KC_` 前缀。生产环境必须关闭 `KC_WECHAT_MOCK_ENABLED`，并提供真实微信凭据和非占位 JWT 密钥，否则服务会拒绝启动。
 

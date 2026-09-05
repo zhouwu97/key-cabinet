@@ -161,7 +161,7 @@ export class MockOperationService implements OperationService {
       // 5. 构建可持久化的 DeviceOperation 实体
       const operation: DeviceOperation = {
         id: this.generateOperationId(),
-        requestId: generateRequestId(),
+        requestId: input.requestId || generateRequestId(),
         action: input.action,
         userId: input.userId,
         keyId: input.keyId,
