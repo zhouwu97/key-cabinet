@@ -24,6 +24,68 @@ func (r *PostgresOperationRepository) Create(ctx context.Context, operation *rep
 	return r.db.WithContext(ctx).Table(operation.TableName()).Create(operationPersistenceValues(operation)).Error
 }
 
+func (r *PostgresOperationRepository) PreparePickup(ctx context.Context, borrow *repository.BorrowRecord, operation *repository.DeviceOperation) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(borrow).Error; err != nil {
+			return err
+		}
+		return prepareOperationTx(tx, operation)
+	})
+}
+
+func (r *PostgresOperationRepository) PrepareReturn(ctx context.Context, borrowRecordID, userID string, operation *repository.DeviceOperation) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		now := operation.CreatedAt
+		result := tx.Model(&repository.BorrowRecord{}).
+			Where("id = ? AND user_id = ? AND status = ?", borrowRecordID, userID, "BORROWED").
+			Updates(map[string]interface{}{"status": "RETURNING", "updated_at": now})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return repository.ErrOperationInvalidState
+		}
+		return prepareOperationTx(tx, operation)
+	})
+}
+
+func prepareOperationTx(tx *gorm.DB, operation *repository.DeviceOperation) error {
+	operation.Status = "AUTHORIZED"
+	if err := tx.Table(operation.TableName()).Create(operationPersistenceValues(operation)).Error; err != nil {
+		return err
+	}
+	if err := createEventTx(tx, operation.ID, "REQUEST_RECEIVED", operation.CreatedAt); err != nil {
+		return err
+	}
+	return createEventTx(tx, operation.ID, "AUTH_CONFIRMED", operation.CreatedAt)
+}
+
+func (r *PostgresOperationRepository) BeginExecution(ctx context.Context, operationID string, now time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		operation, err := lockOperation(tx, operationID)
+		if err != nil {
+			return err
+		}
+		if isTerminalOperationStatus(operation.Status) {
+			return repository.ErrOperationTerminal
+		}
+		if operation.Status != "AUTHORIZED" {
+			return repository.ErrOperationInvalidState
+		}
+		now = normalizedNow(now)
+		result := tx.Model(&repository.DeviceOperation{}).
+			Where("id = ? AND status = ?", operationID, "AUTHORIZED").
+			Updates(map[string]interface{}{"status": "EXECUTING", "sent_at": now, "updated_at": now})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return repository.ErrOperationInvalidState
+		}
+		return createEventTx(tx, operationID, "COMMAND_DISPATCHING", now)
+	})
+}
+
 func (r *PostgresOperationRepository) FindByID(ctx context.Context, id string) (*repository.DeviceOperation, error) {
 	var operation repository.DeviceOperation
 	err := r.db.WithContext(ctx).First(&operation, "id = ?", id).Error
@@ -81,6 +143,14 @@ func (r *PostgresOperationRepository) FindActiveByKeyID(ctx context.Context, key
 
 func (r *PostgresOperationRepository) FindActiveByUserID(ctx context.Context, userID string) (*repository.DeviceOperation, error) {
 	return r.findActive(ctx, "user_id = ?", userID)
+}
+
+func (r *PostgresOperationRepository) FindExpired(ctx context.Context, before time.Time) ([]*repository.DeviceOperation, error) {
+	var operations []*repository.DeviceOperation
+	err := r.db.WithContext(ctx).
+		Where("status IN ? AND COALESCE(sent_at, initiated_at, created_at) < ?", []string{"CREATED", "AUTHORIZED", "SENT", "EXECUTING"}, before.UTC()).
+		Order("created_at ASC").Find(&operations).Error
+	return operations, err
 }
 
 func (r *PostgresOperationRepository) Update(ctx context.Context, operation *repository.DeviceOperation) error {
@@ -146,8 +216,14 @@ func (r *PostgresOperationRepository) CompletePickup(ctx context.Context, operat
 		if operation.Status == "SUCCESS" {
 			return nil
 		}
+		if isTerminalOperationStatus(operation.Status) {
+			return nil
+		}
 		if operation.Action != "PICKUP" {
 			return fmt.Errorf("operation %s is not a pickup", operationID)
+		}
+		if operation.Status != "EXECUTING" && operation.Status != "SENT" {
+			return repository.ErrOperationInvalidState
 		}
 		now = normalizedNow(now)
 
@@ -192,8 +268,14 @@ func (r *PostgresOperationRepository) CompleteReturn(ctx context.Context, operat
 		if operation.Status == "SUCCESS" {
 			return nil
 		}
+		if isTerminalOperationStatus(operation.Status) {
+			return nil
+		}
 		if operation.Action != "RETURN" {
 			return fmt.Errorf("operation %s is not a return", operationID)
+		}
+		if operation.Status != "EXECUTING" && operation.Status != "SENT" {
+			return repository.ErrOperationInvalidState
 		}
 		now = normalizedNow(now)
 		if operation.BorrowRecordID == "" {
@@ -248,7 +330,7 @@ func (r *PostgresOperationRepository) Fail(ctx context.Context, operationID, err
 	})
 }
 
-func (r *PostgresOperationRepository) Cancel(ctx context.Context, operationID string, now time.Time) error {
+func (r *PostgresOperationRepository) Timeout(ctx context.Context, operationID string, now time.Time) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		operation, err := lockOperation(tx, operationID)
 		if err != nil {
@@ -256,6 +338,36 @@ func (r *PostgresOperationRepository) Cancel(ctx context.Context, operationID st
 		}
 		if isTerminalOperationStatus(operation.Status) {
 			return nil
+		}
+		now = normalizedNow(now)
+		if operation.BorrowRecordID != "" {
+			borrowStatus := "EXCEPTION"
+			if operation.Action == "RETURN" {
+				borrowStatus = "BORROWED"
+			}
+			if err := tx.Model(&repository.BorrowRecord{}).
+				Where("id = ? AND status IN ?", operation.BorrowRecordID, []string{"BORROWING", "RETURNING"}).
+				Updates(map[string]interface{}{
+					"status": borrowStatus, "notes": "设备操作超时", "updated_at": now,
+				}).Error; err != nil {
+				return err
+			}
+		}
+		if err := updateOperationStatus(tx, operationID, "TIMEOUT", "OPERATION_TIMEOUT", "device operation timed out", now); err != nil {
+			return err
+		}
+		return createEventTx(tx, operationID, "TIMEOUT", now)
+	})
+}
+
+func (r *PostgresOperationRepository) Cancel(ctx context.Context, operationID string, now time.Time) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		operation, err := lockOperation(tx, operationID)
+		if err != nil {
+			return err
+		}
+		if isTerminalOperationStatus(operation.Status) {
+			return repository.ErrOperationTerminal
 		}
 		now = normalizedNow(now)
 		if operation.BorrowRecordID != "" {

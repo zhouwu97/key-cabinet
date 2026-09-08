@@ -2,7 +2,13 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
+)
+
+var (
+	ErrOperationTerminal     = errors.New("operation is already terminal")
+	ErrOperationInvalidState = errors.New("operation state transition is not allowed")
 )
 
 type DeviceOperation struct {
@@ -45,6 +51,9 @@ func (OperationEvent) TableName() string {
 
 type OperationRepository interface {
 	Create(ctx context.Context, op *DeviceOperation) error
+	PreparePickup(ctx context.Context, borrow *BorrowRecord, op *DeviceOperation) error
+	PrepareReturn(ctx context.Context, borrowRecordID, userID string, op *DeviceOperation) error
+	BeginExecution(ctx context.Context, operationID string, now time.Time) error
 	FindByID(ctx context.Context, id string) (*DeviceOperation, error)
 	FindByRequestID(ctx context.Context, requestID string) (*DeviceOperation, error)
 	FindByReservationID(ctx context.Context, reservationID string) ([]*DeviceOperation, error)
@@ -52,10 +61,12 @@ type OperationRepository interface {
 	FindActiveByDeviceID(ctx context.Context, deviceID string) (*DeviceOperation, error)
 	FindActiveByKeyID(ctx context.Context, keyID string) (*DeviceOperation, error)
 	FindActiveByUserID(ctx context.Context, userID string) (*DeviceOperation, error)
+	FindExpired(ctx context.Context, before time.Time) ([]*DeviceOperation, error)
 	Update(ctx context.Context, op *DeviceOperation) error
 	CreateEvent(ctx context.Context, event *OperationEvent) error
 	CompletePickup(ctx context.Context, operationID string, now time.Time) error
 	CompleteReturn(ctx context.Context, operationID string, now time.Time) error
 	Fail(ctx context.Context, operationID, errorCode, errorMessage string, now time.Time) error
 	Cancel(ctx context.Context, operationID string, now time.Time) error
+	Timeout(ctx context.Context, operationID string, now time.Time) error
 }

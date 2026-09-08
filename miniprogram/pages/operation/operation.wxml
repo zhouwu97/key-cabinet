@@ -84,5 +84,11 @@
       <view class="error-action-desc">{{errorMessage || '设备响应异常，请重新发起或联系现场管理员'}}</view>
       <view class="btn-primary mt-16" bindtap="goHome">返回首页重新发起</view>
     </view>
+
+	<view wx:else class="card">
+	  <view class="btn-ghost" bindtap="cancelOperation">
+		{{cancelling ? '正在请求设备停止…' : '取消本次操作'}}
+	  </view>
+	</view>
   </view>
 </view>

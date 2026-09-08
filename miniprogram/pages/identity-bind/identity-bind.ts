@@ -88,7 +88,7 @@ Page({
       })
 
       wx.hideLoading()
-      wx.showToast({ title: '认证成功', icon: 'success' })
+		wx.showToast({ title: '资料已提交，等待核验', icon: 'none', duration: 2000 })
 
       setTimeout(() => {
         const pages = getCurrentPages()

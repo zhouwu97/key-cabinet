@@ -1,4 +1,4 @@
-import { userService, borrowService, reservationService } from '../../services/index'
+import { userService, borrowService, reservationService, deviceService } from '../../services/index'
 import { User } from '../../models/user'
 import { BorrowRecordStatus } from '../../models/borrow-record'
 import { ReservationStatus } from '../../models/reservation'
@@ -89,14 +89,19 @@ Page({
     })
   },
 
-  showLocationsModal() {
-    wx.showModal({
-      title: '钥匙柜分布位置',
-      content:
-        '● 1号钥匙柜 (CAB001)：信息楼 1F 门厅东侧 (在线服务中)\n● 2号钥匙柜 (CAB002)：工程实训楼 1F 入口 (建设中)',
-      showCancel: false,
-      confirmText: '我知道了',
-    })
+	async showLocationsModal() {
+		try {
+			const devices = await deviceService.listDevices()
+			const content = devices.length
+				? devices
+					.map(device => `● ${device.name || device.id}：${device.location || '位置未提供'}（${device.status === 'ONLINE' ? '在线' : '不可用'}）`)
+					.join('\n')
+				: '暂未获取到钥匙柜信息'
+			wx.showModal({ title: '钥匙柜分布位置', content, showCancel: false, confirmText: '我知道了' })
+		} catch (error) {
+			console.error('加载钥匙柜位置失败', error)
+			wx.showToast({ title: '暂时无法获取柜机信息', icon: 'none' })
+		}
   },
 
   showRulesModal() {
@@ -113,7 +118,7 @@ Page({
     wx.showModal({
       title: '智能钥匙自助借还系统',
       content:
-        '版本：v0.4.1-auth-ui-ready\n架构：WeChat MiniProgram + Go Gin Backend + PostgreSQL + MQTT Cabinet\n状态：微信真实认证 + 现场扫码对柜借还主链就绪',
+		'阶段：真实系统收口\n架构：WeChat MiniProgram + Go Gin Backend + PostgreSQL\n状态：软件借还闭环已完成，MQTT 实体柜机网关待接入',
       showCancel: false,
       confirmText: '确定',
     })

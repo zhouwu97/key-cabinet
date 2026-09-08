@@ -11,6 +11,7 @@ import { ReservationStatus } from '../../models/reservation'
 import { BorrowRecordStatus } from '../../models/borrow-record'
 import { Key } from '../../models/key'
 import { Device } from '../../models/device'
+import { currentConfig } from '../../config/index'
 
 Page({
   data: {
@@ -22,9 +23,10 @@ Page({
     key: null as Key | null,
     device: null as Device | null,
     userName: '',
-    cabinetName: '1号钥匙柜',
-    cabinetLocation: '信息楼 1F 大厅东侧',
-    isOnline: true,
+	cabinetName: '设备信息待获取',
+	cabinetLocation: '位置未提供',
+	isOnline: false,
+	showMockTools: currentConfig.dataMode === 'mock',
     scannedCabinetId: '',
     verified: false,
     verifyError: '',
@@ -36,7 +38,7 @@ Page({
     const reservationId = options.reservationId || ''
     const borrowRecordId = options.borrowRecordId || ''
     const keyId = options.keyId || ''
-    const expectedDeviceId = options.expectedDeviceId || 'CAB001'
+	const expectedDeviceId = options.expectedDeviceId || ''
 
     this.setData({
       mode,
@@ -51,19 +53,24 @@ Page({
 
   async loadContext() {
     try {
-      const [user, key, device] = await Promise.all([
+		const [user, key] = await Promise.all([
         userService.getCurrentUser(),
         this.data.keyId ? keyService.getKeyById(this.data.keyId) : Promise.resolve(null),
-        deviceService.getDeviceStatus(this.data.expectedDeviceId || 'CAB001'),
       ])
+		const expectedDeviceId = this.data.expectedDeviceId || key?.deviceId || ''
+		const device = expectedDeviceId
+			? await deviceService.getDeviceStatus(expectedDeviceId)
+			: null
 
       this.setData({
+			expectedDeviceId,
         userName: user?.name || '',
         key: key || null,
         device: device || null,
-        cabinetName: device?.name || '1号钥匙柜',
-        cabinetLocation: '信息楼 1F 大厅东侧',
+		cabinetName: device?.name || '设备信息待获取',
+		cabinetLocation: device?.location || '位置未提供',
         isOnline: device?.status === 'ONLINE',
+			verifyError: expectedDeviceId ? '' : '当前任务没有绑定柜机，无法开始现场操作',
       })
     } catch (e) {
       console.error('加载核验上下文失败', e)
@@ -87,9 +94,10 @@ Page({
     })
   },
 
-  // 开发/测试模拟扫码识别 CAB001
+	// 模拟入口只在 Mock 环境显示，API 模式不注入固定设备编号。
   simulateScanSuccess() {
-    this.handleScanRawResult(JSON.stringify({ cabinetId: this.data.expectedDeviceId || 'CAB001' }))
+		if (!this.data.showMockTools || !this.data.expectedDeviceId) return
+		this.handleScanRawResult(JSON.stringify({ cabinetId: this.data.expectedDeviceId }))
   },
 
   // 解析扫码内容
@@ -99,7 +107,7 @@ Page({
       const parsed = JSON.parse(raw)
       cabinetId = parsed.cabinetId || parsed.deviceId || ''
     } catch {
-      // 纯字符串格式 CAB001
+		// 永久二维码只用于选择设备；最终授权始终由服务端按预约、用户和槽位关系判断。
       cabinetId = raw.trim()
     }
 
@@ -130,7 +138,10 @@ Page({
       }
 
       // 2. 验证扫码设备 == 当前钥匙所在柜
-      const expected = this.data.expectedDeviceId || this.data.key?.deviceId || 'CAB001'
+		const expected = this.data.expectedDeviceId || this.data.key?.deviceId || ''
+		if (!expected) {
+			throw new Error('当前任务没有绑定目标柜机，请联系管理员检查钥匙配置')
+		}
       if (scannedCabinetId !== expected) {
         throw new Error(`设备不匹配！目标钥匙存放在 [${expected}]，您扫描的是 [${scannedCabinetId}]，请前往指定钥匙柜扫码`)
       }
@@ -159,13 +170,19 @@ Page({
       if (this.data.mode === 'PICKUP' && this.data.reservationId) {
         const reservations = await reservationService.getUserReservations(user.id)
         const rsv = reservations.find(r => r.id === this.data.reservationId)
-        if (rsv && rsv.status !== ReservationStatus.ACTIVE && rsv.status !== ReservationStatus.APPROVED) {
+		if (!rsv) {
+			throw new Error('未找到当前预约，可能已被取消或不属于当前用户')
+		}
+		if (rsv.status !== ReservationStatus.ACTIVE && rsv.status !== ReservationStatus.APPROVED) {
           throw new Error('当前预约状态不可取钥（已取消、已过期或已完成）')
         }
       } else if (this.data.mode === 'RETURN' && this.data.borrowRecordId) {
         const borrows = await borrowService.getUserBorrowRecords(user.id)
         const record = borrows.find(b => b.id === this.data.borrowRecordId)
-        if (record && record.status === BorrowRecordStatus.COMPLETED) {
+		if (!record) {
+			throw new Error('未找到当前借用记录，无法发起归还')
+		}
+		if (record.status === BorrowRecordStatus.COMPLETED) {
           throw new Error('该笔借用记录已归还，无需重复操作')
         }
       }
@@ -175,8 +192,8 @@ Page({
       // 核验通过，展示确认卡片
       this.setData({
         scannedCabinetId,
-        cabinetName: device.name || '1号钥匙柜',
-        cabinetLocation: '信息楼 1F 大厅东侧',
+		cabinetName: device.name || scannedCabinetId,
+		cabinetLocation: device.location || '位置未提供',
         isOnline: true,
         verified: true,
         verifyError: '',
@@ -213,9 +230,18 @@ Page({
       }
 
       const key = this.data.key
-      const keyId = this.data.keyId || key?.id || 'KEY001'
-      const deviceId = this.data.scannedCabinetId || this.data.expectedDeviceId || 'CAB001'
-      const slotId = key?.slotId || 'SLOT01'
+		const keyId = this.data.keyId || key?.id || ''
+		const deviceId = this.data.scannedCabinetId || this.data.expectedDeviceId || ''
+		const slotId = key?.slotId || ''
+		if (!keyId || !deviceId || !slotId) {
+			throw new Error('钥匙、柜机或槽位信息不完整，无法发起设备操作')
+		}
+		if (this.data.mode === 'PICKUP' && !this.data.reservationId) {
+			throw new Error('缺少有效预约，无法发起取钥操作')
+		}
+		if (this.data.mode === 'RETURN' && !this.data.borrowRecordId) {
+			throw new Error('缺少借用记录，无法发起归还操作')
+		}
 
       wx.showLoading({ title: '正在建立柜机连接...' })
 

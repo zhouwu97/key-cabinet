@@ -20,6 +20,19 @@ export interface ApiError {
   timestamp: string
 }
 
+/** 保留服务端错误语义，页面可按错误码给出准确提示。 */
+export class ApiException extends Error {
+  constructor(
+    public readonly httpStatus: number,
+    public readonly errorCode: string,
+    message: string,
+    public readonly timestamp?: string,
+  ) {
+    super(message)
+    this.name = 'ApiException'
+  }
+}
+
 /**
  * HTTP 请求配置
  */
@@ -41,7 +54,7 @@ export interface RequestOptions {
  */
 export class HttpClient {
   private baseURL: string
-  private refreshing = false
+  private refreshPromise: Promise<void> | null = null
 
   constructor(baseURL: string) {
     this.baseURL = baseURL.replace(/\/+$/, '')
@@ -52,6 +65,13 @@ export class HttpClient {
    */
   async request<T>(options: RequestOptions, retryOnUnauthorized = true): Promise<T> {
     const token = wx.getStorageSync('accessToken')
+	const isAuthRequest = options.url.includes('/auth/')
+
+	// 页面可能早于 App.onLaunch 的登录完成；无 token 时直接复用同一登录任务。
+	if (!token && retryOnUnauthorized && !isAuthRequest) {
+		await this.ensureAuthenticated()
+		return this.request(options, false)
+	}
 
     try {
       const res = await new Promise<WechatMiniprogram.RequestSuccessCallbackResult>((resolve, reject) => {
@@ -70,30 +90,33 @@ export class HttpClient {
       })
 
       // 401 Token 失效，自动重新登录
-      if (res.statusCode === 401 && retryOnUnauthorized && !this.refreshing && !options.url.includes('/auth/')) {
-        this.refreshing = true
-        try {
-          await this.refreshAuth()
-          this.refreshing = false
-          // 重试原请求
-          return this.request(options, false)
-        } catch (e) {
-          this.refreshing = false
-          throw e
-        }
+		if (res.statusCode === 401 && retryOnUnauthorized && !isAuthRequest) {
+			await this.ensureAuthenticated()
+			return this.request(options, false)
       }
 
       // HTTP 错误
       if (res.statusCode >= 400) {
         const error = res.data as ApiError
-        throw new Error(error?.message || `请求失败 (${res.statusCode})`)
+		throw new ApiException(
+			res.statusCode,
+			error?.errorCode || 'HTTP_ERROR',
+			error?.message || `请求失败 (${res.statusCode})`,
+			error?.timestamp,
+		)
       }
 
       // 成功响应，解包 data
       const response = res.data as ApiResponse<T>
       if (response && typeof response === 'object' && 'code' in response) {
         if (response.code !== 0) {
-          throw new Error(response.message || '业务错误')
+			const businessError = response as unknown as Partial<ApiError>
+			throw new ApiException(
+				res.statusCode,
+				businessError.errorCode || 'BUSINESS_ERROR',
+				response.message || '业务错误',
+				businessError.timestamp,
+			)
         }
         return response.data
       }
@@ -113,6 +136,15 @@ export class HttpClient {
     const { authService } = await import('../services/auth/auth-service')
     await authService.login()
   }
+
+	private ensureAuthenticated(): Promise<void> {
+		if (!this.refreshPromise) {
+			this.refreshPromise = this.refreshAuth().finally(() => {
+				this.refreshPromise = null
+			})
+		}
+		return this.refreshPromise
+	}
 
   /**
    * 设置 BaseURL（用于环境切换）

@@ -33,4 +33,13 @@ export interface Reservation {
   approvedAt?: number
   usedAt?: number
   cancelledAt?: number
+	reviewedAt?: number
+	reviewedBy?: string
+	rejectionReason?: string
+	userName?: string
+	studentNo?: string
+	keyName?: string
+	roomNo?: string
+	deviceId?: string
+	deviceName?: string
 }

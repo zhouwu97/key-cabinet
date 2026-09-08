@@ -30,6 +30,8 @@ type AuthService interface {
 	WechatLogin(ctx context.Context, jsCode string) (*LoginResult, error)
 	GetMe(ctx context.Context, userID string) (*repository.User, error)
 	UpdateProfile(ctx context.Context, userID string, req UpdateProfileRequest) (*repository.User, error)
+	ListPendingIdentityVerifications(ctx context.Context) ([]*repository.User, error)
+	VerifyIdentity(ctx context.Context, adminID, userID string) (*repository.User, error)
 }
 
 type authService struct {
@@ -134,6 +136,9 @@ func (s *authService) WechatLogin(ctx context.Context, jsCode string) (*LoginRes
 			}
 		}
 	}
+	if user.Status != "ACTIVE" {
+		return nil, errors.New(errors.CodeForbidden, "user account is disabled")
+	}
 
 	token, err := s.tokenService.Generate(user.ID, user.Role)
 	if err != nil {
@@ -145,6 +150,35 @@ func (s *authService) WechatLogin(ctx context.Context, jsCode string) (*LoginRes
 		ExpiresIn:   s.jwtExpireSec,
 		User:        user,
 	}, nil
+}
+
+func (s *authService) ListPendingIdentityVerifications(ctx context.Context) ([]*repository.User, error) {
+	adminRepo, ok := s.userRepo.(repository.UserAdminRepository)
+	if !ok {
+		return nil, errors.New(errors.CodeInternalError, "identity verification is not supported by repository")
+	}
+	users, err := adminRepo.ListPendingVerification(ctx)
+	if err != nil {
+		return nil, errors.WrapWithCode(err, errors.CodeInternalError, "failed to query pending identity verifications")
+	}
+	return users, nil
+}
+
+func (s *authService) VerifyIdentity(ctx context.Context, adminID, userID string) (*repository.User, error) {
+	if adminID == "" || userID == "" {
+		return nil, errors.New(errors.CodeInvalidInput, "admin id and user id are required")
+	}
+	adminRepo, ok := s.userRepo.(repository.UserAdminRepository)
+	if !ok {
+		return nil, errors.New(errors.CodeInternalError, "identity verification is not supported by repository")
+	}
+	if err := adminRepo.VerifyIdentity(ctx, userID, adminID, time.Now().UTC()); err != nil {
+		if err == repository.ErrIdentityConflict {
+			return nil, errors.New(errors.CodeConflict, "student number is already bound to a verified identity")
+		}
+		return nil, errors.WrapWithCode(err, errors.CodeInvalidState, "user profile is not ready for verification")
+	}
+	return s.GetMe(ctx, userID)
 }
 
 func (s *authService) GetMe(ctx context.Context, userID string) (*repository.User, error) {
@@ -176,6 +210,10 @@ func (s *authService) UpdateProfile(ctx context.Context, userID string, req Upda
 		return nil, errors.New(errors.CodeNotFound, "user not found")
 	}
 
+	identityChanged :=
+		(req.Name != "" && req.Name != user.Name) ||
+			(req.StudentNo != "" && req.StudentNo != user.StudentNo) ||
+			(req.Department != "" && req.Department != user.Department)
 	if req.Name != "" {
 		user.Name = req.Name
 	}
@@ -192,6 +230,11 @@ func (s *authService) UpdateProfile(ctx context.Context, userID string, req Upda
 	// Mark profile completed if name and studentNo are both filled
 	if user.Name != "" && user.Name != "微信用户" && user.StudentNo != "" {
 		user.ProfileCompleted = true
+	}
+	if identityChanged {
+		user.IdentityVerified = false
+		user.IdentityVerifiedAt = nil
+		user.IdentityVerifiedBy = nil
 	}
 
 	user.UpdatedAt = time.Now()

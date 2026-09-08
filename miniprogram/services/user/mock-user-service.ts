@@ -69,6 +69,7 @@ export class MockUserService implements UserService {
             ...this.currentUser,
             ...data,
             profileCompleted: true,
+			identityVerified: true,
           }
         } else {
           this.currentUser = {
@@ -81,6 +82,7 @@ export class MockUserService implements UserService {
             status: 'ACTIVE',
             creditScore: 100,
             profileCompleted: true,
+			identityVerified: true,
           }
         }
         this.saveToStorage()

@@ -2,16 +2,20 @@ import {
   keyService,
   reservationService,
   userService,
+	deviceService,
 } from '../../services/index'
 import { Key } from '../../models/key'
 import { CreateReservationParams } from '../../services/reservation/index'
 import { OperationErrorCode } from '../../models/operation-error'
 import { formatTime } from '../../utils/date'
+import { ApiException } from '../../api/http-client'
 
 Page({
   data: {
     keyId: '',
     key: null as Key | null,
+	deviceName: '设备信息待获取',
+	deviceLocation: '位置未提供',
     purposeTags: ['实验教学', '设备调试', '会议/答辩', '自习开发'],
     selectedTag: '实验教学',
     purpose: '实验教学：课程专项实验上机使用',
@@ -60,7 +64,15 @@ Page({
         return
       }
 
-      this.setData({ key, loading: false })
+		const device = key.deviceId
+			? await deviceService.getDeviceStatus(key.deviceId).catch(() => null)
+			: null
+		this.setData({
+			key,
+			deviceName: device?.name || key.deviceId || '未绑定柜机',
+			deviceLocation: device?.location || '位置未提供',
+			loading: false,
+		})
     } catch (e) {
       console.error('加载钥匙信息失败', e)
       this.setData({ loading: false })
@@ -118,6 +130,14 @@ Page({
         this.setData({ submitting: false })
         return
       }
+		if (!user.identityVerified) {
+			wx.showToast({
+				title: user.profileCompleted ? '身份资料尚待管理员核验' : '请先完善身份资料',
+				icon: 'none',
+			})
+			this.setData({ submitting: false })
+			return
+		}
 
       const now = Date.now()
       const [hStr, mStr] = returnTime.split(':')
@@ -150,13 +170,14 @@ Page({
     } catch (e: any) {
       console.error('预约失败', e)
       let msg = '预约失败'
-      if (e.message === OperationErrorCode.RESERVATION_CONFLICT) {
+		const errorCode = e instanceof ApiException ? e.errorCode : e.message
+		if (errorCode === OperationErrorCode.RESERVATION_CONFLICT) {
         msg = '所选时间段该钥匙已被他人预约'
-      } else if (e.message === OperationErrorCode.KEY_ALREADY_BORROWED) {
+		} else if (errorCode === OperationErrorCode.KEY_ALREADY_BORROWED) {
         msg = '该钥匙当前已被借出'
-      } else if (e.message === OperationErrorCode.KEY_NOT_AVAILABLE) {
+		} else if (errorCode === OperationErrorCode.KEY_NOT_AVAILABLE) {
         msg = '该钥匙当前不可预约'
-      } else if (e.message === OperationErrorCode.DEVICE_OFFLINE) {
+		} else if (errorCode === OperationErrorCode.DEVICE_OFFLINE) {
         msg = '所属钥匙柜离线，暂时无法预约'
       } else if (e.message) {
         msg = e.message

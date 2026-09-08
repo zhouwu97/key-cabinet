@@ -11,6 +11,10 @@ import { MockScenario, MOCK_SCENARIO_LABEL } from '../../mocks/mock-scenarios'
 import { KEY_PRESENCE_LABEL } from '../../constants/labels'
 import { KeyPresenceState } from '../../models/key-presence'
 import { DeviceOperationAction } from '../../models/device-operation'
+import { Reservation } from '../../models/reservation'
+import { User } from '../../models/user'
+import { Device } from '../../models/device'
+import { httpClient } from '../../api/http-client'
 import {
   MOCK_KEYS,
   MOCK_KEY_SLOTS,
@@ -27,6 +31,12 @@ Page({
     currentScenario: MockScenario.SUCCESS,
     scenarioIndex: 0,
     isMockMode: currentConfig.dataMode === 'mock',
+	devices: [] as Device[],
+	selectedDeviceName: '设备信息待获取',
+	pendingReservations: [] as Reservation[],
+	pendingUsers: [] as User[],
+	borrowedKeyCount: 0,
+	availableKeyCount: 0,
     loading: true,
   },
 
@@ -49,10 +59,20 @@ Page({
   async loadAdminData() {
     try {
       this.setData({ loading: true })
-      const [slots, keys] = await Promise.all([
-        keyService.getDeviceSlots('CAB001'),
-        keyService.getKeys(),
-      ])
+		const [devices, keys] = await Promise.all([
+			deviceService.listDevices(),
+			keyService.getKeys(),
+		])
+		const selectedDevice = devices[0] || null
+		const slots = selectedDevice
+			? await keyService.getDeviceSlots(selectedDevice.id)
+			: []
+		const [pendingReservations, pendingUsers] = this.data.isMockMode
+			? [[], []]
+			: await Promise.all([
+				httpClient.request<Reservation[]>({ url: '/admin/reservations/pending' }),
+				httpClient.request<User[]>({ url: '/admin/users/pending-verification' }),
+			])
 
       const currentScenario = this.data.isMockMode
         ? deviceService.getGlobalScenario()
@@ -62,6 +82,12 @@ Page({
       this.setData({
         slots,
         keys,
+		devices,
+		selectedDeviceName: selectedDevice?.name || selectedDevice?.id || '设备信息待获取',
+		pendingReservations,
+		pendingUsers,
+		borrowedKeyCount: keys.filter(key => key.status === 'BORROWED' || key.status === 'OVERDUE').length,
+		availableKeyCount: keys.filter(key => key.status === 'AVAILABLE').length,
         currentScenario,
         scenarioIndex: scenarioIndex >= 0 ? scenarioIndex : 0,
         loading: false,
@@ -71,6 +97,50 @@ Page({
       this.setData({ loading: false })
     }
   },
+
+	async approveReservation(e: any) {
+		const id = e.currentTarget.dataset.id
+		try {
+			await httpClient.request({ url: `/admin/reservations/${encodeURIComponent(id)}/approve`, method: 'POST' })
+			wx.showToast({ title: '已批准预约', icon: 'success' })
+			await this.loadAdminData()
+		} catch (error: any) {
+			wx.showToast({ title: error.message || '审批失败', icon: 'none' })
+		}
+	},
+
+	async rejectReservation(e: any) {
+		const id = e.currentTarget.dataset.id
+		const result = await wx.showModal({
+			title: '拒绝预约',
+			content: '',
+			editable: true,
+			placeholderText: '请输入拒绝原因',
+		})
+		if (!result.confirm || !result.content?.trim()) return
+		try {
+			await httpClient.request({
+				url: `/admin/reservations/${encodeURIComponent(id)}/reject`,
+				method: 'POST',
+				data: { reason: result.content.trim() },
+			})
+			wx.showToast({ title: '已拒绝预约', icon: 'success' })
+			await this.loadAdminData()
+		} catch (error: any) {
+			wx.showToast({ title: error.message || '审批失败', icon: 'none' })
+		}
+	},
+
+	async verifyIdentity(e: any) {
+		const id = e.currentTarget.dataset.id
+		try {
+			await httpClient.request({ url: `/admin/users/${encodeURIComponent(id)}/verify-identity`, method: 'POST' })
+			wx.showToast({ title: '身份已核验', icon: 'success' })
+			await this.loadAdminData()
+		} catch (error: any) {
+			wx.showToast({ title: error.message || '核验失败', icon: 'none' })
+		}
+	},
 
   onScenarioChange(e: any) {
     if (!this.data.isMockMode) return

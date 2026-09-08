@@ -21,6 +21,11 @@ type Reservation struct {
 	ApprovedAt        *time.Time `gorm:"column:approved_at" json:"approvedAt,omitempty"`
 	UsedAt            *time.Time `gorm:"column:used_at" json:"usedAt,omitempty"`
 	CancelledAt       *time.Time `gorm:"column:cancelled_at" json:"cancelledAt,omitempty"`
+	ReviewedBy        *string    `gorm:"column:reviewed_by" json:"reviewedBy,omitempty"`
+	ReviewedAt        *time.Time `gorm:"column:reviewed_at" json:"reviewedAt,omitempty"`
+	RejectionReason   string     `gorm:"column:rejection_reason" json:"rejectionReason,omitempty"`
+	UserName          string     `gorm:"column:user_name;->" json:"userName,omitempty"`
+	StudentNo         string     `gorm:"column:student_no;->" json:"studentNo,omitempty"`
 	CreatedAt         time.Time  `gorm:"column:created_at" json:"createdAt"`
 	UpdatedAt         time.Time  `gorm:"column:updated_at" json:"updatedAt"`
 }
@@ -41,4 +46,10 @@ type ReservationRepository interface {
 	List(ctx context.Context, filter ReservationListFilter) ([]*Reservation, error)
 	FindConflicts(ctx context.Context, keyID string, startTime, endTime time.Time) ([]*Reservation, error)
 	Update(ctx context.Context, r *Reservation) error
+}
+
+type ReservationAdminRepository interface {
+	ReservationRepository
+	Review(ctx context.Context, id, adminID string, approved bool, reason string, now time.Time) error
+	ExpireBefore(ctx context.Context, now time.Time) (int64, error)
 }

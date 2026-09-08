@@ -16,6 +16,7 @@ function normalizeReservation(data: Reservation & Record<string, unknown>): Rese
     approvedAt: data.approvedAt === undefined ? undefined : toTimestamp(data.approvedAt),
     usedAt: data.usedAt === undefined ? undefined : toTimestamp(data.usedAt),
     cancelledAt: data.cancelledAt === undefined ? undefined : toTimestamp(data.cancelledAt),
+	reviewedAt: data.reviewedAt === undefined ? undefined : toTimestamp(data.reviewedAt),
   }
 }
 

@@ -2,21 +2,27 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
+var ErrIdentityConflict = errors.New("verified identity already exists")
+
 type User struct {
-	ID               string    `gorm:"primaryKey;column:id" json:"id"`
-	Name             string    `gorm:"column:name" json:"name"`
-	StudentNo        string    `gorm:"column:student_no" json:"studentNo"`
-	Phone            string    `gorm:"column:phone" json:"phone"`
-	Department       string    `gorm:"column:department" json:"department"`
-	Role             string    `gorm:"column:role;default:USER" json:"role"`
-	Status           string    `gorm:"column:status;default:ACTIVE" json:"status"`
-	CreditScore      int       `gorm:"column:credit_score;default:100" json:"creditScore"`
-	ProfileCompleted bool      `gorm:"column:profile_completed;default:false" json:"profileCompleted"`
-	CreatedAt        time.Time `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
-	UpdatedAt        time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
+	ID                 string     `gorm:"primaryKey;column:id" json:"id"`
+	Name               string     `gorm:"column:name" json:"name"`
+	StudentNo          string     `gorm:"column:student_no" json:"studentNo"`
+	Phone              string     `gorm:"column:phone" json:"phone"`
+	Department         string     `gorm:"column:department" json:"department"`
+	Role               string     `gorm:"column:role;default:USER" json:"role"`
+	Status             string     `gorm:"column:status;default:ACTIVE" json:"status"`
+	CreditScore        int        `gorm:"column:credit_score;default:100" json:"creditScore"`
+	ProfileCompleted   bool       `gorm:"column:profile_completed;default:false" json:"profileCompleted"`
+	IdentityVerified   bool       `gorm:"column:identity_verified;default:false" json:"identityVerified"`
+	IdentityVerifiedAt *time.Time `gorm:"column:identity_verified_at" json:"identityVerifiedAt,omitempty"`
+	IdentityVerifiedBy *string    `gorm:"column:identity_verified_by" json:"identityVerifiedBy,omitempty"`
+	CreatedAt          time.Time  `gorm:"column:created_at;autoCreateTime" json:"createdAt"`
+	UpdatedAt          time.Time  `gorm:"column:updated_at;autoUpdateTime" json:"updatedAt"`
 }
 
 func (User) TableName() string {
@@ -43,6 +49,12 @@ type UserRepository interface {
 	Update(ctx context.Context, user *User) error
 	FindIdentity(ctx context.Context, provider, subject string) (*UserIdentity, error)
 	CreateIdentity(ctx context.Context, identity *UserIdentity) error
+}
+
+type UserAdminRepository interface {
+	UserRepository
+	ListPendingVerification(ctx context.Context) ([]*User, error)
+	VerifyIdentity(ctx context.Context, userID, adminID string, now time.Time) error
 }
 
 // UserRegistrationRepository 为首次登录提供用户与身份的原子创建能力。

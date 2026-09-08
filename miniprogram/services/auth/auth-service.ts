@@ -23,10 +23,21 @@ export interface IAuthService {
  * 真实认证服务（对接后端 API）
  */
 export class AuthService implements IAuthService {
+	private loginPromise: Promise<LoginResponse> | null = null
+
   /**
    * 微信登录
    */
-  async login(): Promise<LoginResponse> {
+	login(): Promise<LoginResponse> {
+		if (!this.loginPromise) {
+			this.loginPromise = this.performLogin().finally(() => {
+				this.loginPromise = null
+			})
+		}
+		return this.loginPromise
+	}
+
+	private async performLogin(): Promise<LoginResponse> {
     // 1. 调用微信登录获取 code
     const { code } = await wx.login()
 

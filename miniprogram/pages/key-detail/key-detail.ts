@@ -1,4 +1,4 @@
-import { keyService, reservationService, userService } from '../../services/index'
+import { keyService, reservationService, userService, deviceService } from '../../services/index'
 import { Key } from '../../models/key'
 import { KeySlot } from '../../models/key-slot'
 import { KEY_STATUS_LABEL, KEY_STATUS_TONE, KEY_PRESENCE_LABEL } from '../../constants/labels'
@@ -8,7 +8,7 @@ Page({
     keyId: '',
     key: null as Key | null,
     slot: null as KeySlot | null,
-    deviceName: '1号钥匙柜 (信息楼一楼大厅)',
+	deviceName: '设备信息待获取',
     statusLabel: '',
     statusTone: 'gray',
     presenceLabel: '未知',
@@ -41,14 +41,18 @@ Page({
         return
       }
 
-      const slot = await keyService.getKeySlot(key.slotId || key.id).catch(() => null)
-      const canReserve = await reservationService.canReserveKey(keyId).catch(() => false)
+		const [slot, keyAvailable, device] = await Promise.all([
+			keyService.getKeySlot(key.slotId || key.id).catch(() => null),
+			reservationService.canReserveKey(keyId).catch(() => false),
+			key.deviceId ? deviceService.getDeviceStatus(key.deviceId).catch(() => null) : Promise.resolve(null),
+		])
+		const canReserve = keyAvailable && Boolean(user?.identityVerified)
       const isAdminOrDev = user?.role === 'ADMIN'
 
       const statusLabel = KEY_STATUS_LABEL[key.status] || '未知'
       const statusTone = KEY_STATUS_TONE[key.status] || 'gray'
       const presenceLabel = slot ? (KEY_PRESENCE_LABEL[slot.presence] || '未知') : '离柜'
-      const deviceName = key.deviceId === 'CAB001' ? '1号钥匙柜 (信息楼一楼大厅)' : key.deviceId
+		const deviceName = device?.name || key.deviceId || '未绑定柜机'
 
       this.setData({
         key,

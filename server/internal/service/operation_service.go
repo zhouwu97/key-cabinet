@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ type OperationService interface {
 	GetOperation(ctx context.Context, userID, operationID string) (*repository.DeviceOperation, error)
 	GetActiveOperation(ctx context.Context, userID string) (*repository.DeviceOperation, error)
 	CancelOperation(ctx context.Context, userID, operationID string) error
+	ExpireTimedOutOperations(ctx context.Context, now time.Time, timeout time.Duration) (int, error)
 }
 
 type operationService struct {
@@ -26,6 +28,7 @@ type operationService struct {
 	deviceRepo     repository.DeviceRepository
 	slotRepo       repository.SlotRepository
 	deviceGateway  device.DeviceGateway
+	userRepo       repository.UserRepository
 }
 
 func NewOperationService(
@@ -36,6 +39,7 @@ func NewOperationService(
 	deviceRepo repository.DeviceRepository,
 	slotRepo repository.SlotRepository,
 	deviceGateway device.DeviceGateway,
+	userRepo repository.UserRepository,
 ) OperationService {
 	service := &operationService{
 		operationRepo:  operationRepo,
@@ -45,6 +49,7 @@ func NewOperationService(
 		deviceRepo:     deviceRepo,
 		slotRepo:       slotRepo,
 		deviceGateway:  deviceGateway,
+		userRepo:       userRepo,
 	}
 	deviceGateway.RegisterEventHandler(service)
 	return service
@@ -56,6 +61,13 @@ func (s *operationService) StartPickup(ctx context.Context, userID, reservationI
 	requestID = strings.TrimSpace(requestID)
 	if userID == "" || reservationID == "" || requestID == "" {
 		return nil, apperrors.New(apperrors.CodeInvalidInput, "reservation id and client request id are required")
+	}
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query operation user")
+	}
+	if user == nil || user.Status != "ACTIVE" || !user.IdentityVerified {
+		return nil, apperrors.New(apperrors.CodeForbidden, "verified active identity is required for pickup")
 	}
 	if existing, err := s.findIdempotent(ctx, userID, requestID); existing != nil || err != nil {
 		return existing, err
@@ -69,7 +81,7 @@ func (s *operationService) StartPickup(ctx context.Context, userID, reservationI
 	if reservation.Status == "APPROVED" && now.Before(reservation.PickupWindowStart) {
 		return nil, apperrors.New(apperrors.CodeTooEarly, "pickup window has not started")
 	}
-	if reservation.Status == "ACTIVE" && now.After(reservation.PickupWindowEnd) {
+	if (reservation.Status == "ACTIVE" || reservation.Status == "APPROVED") && now.After(reservation.PickupWindowEnd) {
 		return nil, apperrors.New(apperrors.CodeExpired, "reservation pickup window has expired")
 	}
 	if reservation.Status != "ACTIVE" && reservation.Status != "APPROVED" {
@@ -96,9 +108,23 @@ func (s *operationService) StartPickup(ctx context.Context, userID, reservationI
 		return nil, err
 	}
 
-	borrow, err := s.borrowSvc.CreateBorrowing(ctx, userID, key.ID, key.DeviceID, slot.ID, reservation.ID, reservation.Purpose, reservation.ExpectedReturnAt)
-	if err != nil {
-		return nil, err
+	if activeBorrow, lookupErr := s.borrowSvc.GetActiveBorrowByKey(ctx, key.ID); lookupErr != nil {
+		return nil, lookupErr
+	} else if activeBorrow != nil {
+		return nil, apperrors.New(apperrors.CodeConflict, "key already has an active borrow record")
+	}
+	borrow := &repository.BorrowRecord{
+		ID:               "bor_" + generateUUID()[:12],
+		ReservationID:    reservation.ID,
+		UserID:           userID,
+		KeyID:            key.ID,
+		DeviceID:         key.DeviceID,
+		SlotID:           slot.ID,
+		Status:           "BORROWING",
+		ExpectedReturnAt: reservation.ExpectedReturnAt.UTC(),
+		Purpose:          strings.TrimSpace(reservation.Purpose),
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 	operation := &repository.DeviceOperation{
 		ID:             "op_" + generateUUID()[:12],
@@ -110,11 +136,14 @@ func (s *operationService) StartPickup(ctx context.Context, userID, reservationI
 		SlotID:         slot.ID,
 		KeyID:          key.ID,
 		Action:         "PICKUP",
-		Status:         "CREATED",
+		Status:         "AUTHORIZED",
 		CreatedAt:      now,
 		StartedAt:      &now,
 	}
-	return s.createAndDispatch(ctx, operation, func() error {
+	if err := s.operationRepo.PreparePickup(ctx, borrow, operation); err != nil {
+		return s.resolvePrepareError(ctx, operation, err)
+	}
+	return s.dispatchPrepared(ctx, operation, func() error {
 		return s.deviceGateway.StartPickup(ctx, device.DeviceCommand{
 			OperationID: operation.ID,
 			DeviceID:    operation.DeviceID,
@@ -159,8 +188,8 @@ func (s *operationService) StartReturn(ctx context.Context, userID, borrowRecord
 	if err := s.ensureNoActiveOperation(ctx, deviceID, key.ID, ""); err != nil {
 		return nil, err
 	}
-	if _, err := s.borrowSvc.BeginReturn(ctx, userID, borrow.ID); err != nil {
-		return nil, err
+	if borrow.Status != "BORROWED" {
+		return nil, apperrors.New(apperrors.CodeInvalidState, "borrow record cannot be returned in its current state")
 	}
 
 	now := time.Now().UTC()
@@ -173,11 +202,14 @@ func (s *operationService) StartReturn(ctx context.Context, userID, borrowRecord
 		SlotID:         slot.ID,
 		KeyID:          key.ID,
 		Action:         "RETURN",
-		Status:         "CREATED",
+		Status:         "AUTHORIZED",
 		CreatedAt:      now,
 		StartedAt:      &now,
 	}
-	result, err := s.createAndDispatch(ctx, operation, func() error {
+	if err := s.operationRepo.PrepareReturn(ctx, borrow.ID, userID, operation); err != nil {
+		return s.resolvePrepareError(ctx, operation, err)
+	}
+	result, err := s.dispatchPrepared(ctx, operation, func() error {
 		return s.deviceGateway.StartReturn(ctx, device.DeviceCommand{
 			OperationID: operation.ID,
 			DeviceID:    operation.DeviceID,
@@ -185,9 +217,6 @@ func (s *operationService) StartReturn(ctx context.Context, userID, borrowRecord
 			Type:        operation.Action,
 		})
 	})
-	if err != nil {
-		_ = s.borrowSvc.MarkOperationFailed(ctx, borrow.ID, err.Error())
-	}
 	return result, err
 }
 
@@ -221,10 +250,64 @@ func (s *operationService) CancelOperation(ctx context.Context, userID, operatio
 	if isTerminalOperation(operation.Status) {
 		return apperrors.New(apperrors.CodeInvalidState, "operation is already finished")
 	}
+	if operation.Status == "SENT" || operation.Status == "EXECUTING" {
+		err := s.deviceGateway.AbortOperation(ctx, device.DeviceCommand{
+			OperationID: operation.ID,
+			DeviceID:    operation.DeviceID,
+			SlotID:      operation.SlotID,
+			Type:        operation.Action,
+		})
+		if err != nil && !errors.Is(err, device.ErrOperationNotRunning) {
+			return apperrors.WrapWithCode(err, apperrors.CodeConflict, "device is executing and cannot be safely cancelled")
+		}
+		if errors.Is(err, device.ErrOperationNotRunning) {
+			latest, lookupErr := s.operationRepo.FindByID(ctx, operation.ID)
+			if lookupErr != nil {
+				return apperrors.WrapWithCode(lookupErr, apperrors.CodeInternalError, "failed to confirm operation status")
+			}
+			if latest == nil || isTerminalOperation(latest.Status) {
+				return apperrors.New(apperrors.CodeInvalidState, "operation has already finished")
+			}
+			return apperrors.New(apperrors.CodeConflict, "device operation can no longer be aborted safely")
+		}
+	}
 	if err := s.operationRepo.Cancel(ctx, operation.ID, time.Now().UTC()); err != nil {
+		if errors.Is(err, repository.ErrOperationTerminal) {
+			return apperrors.New(apperrors.CodeInvalidState, "operation has already finished")
+		}
 		return apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to cancel operation")
 	}
 	return nil
+}
+
+func (s *operationService) ExpireTimedOutOperations(ctx context.Context, now time.Time, timeout time.Duration) (int, error) {
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	if timeout <= 0 {
+		return 0, apperrors.New(apperrors.CodeInvalidInput, "operation timeout must be positive")
+	}
+	operations, err := s.operationRepo.FindExpired(ctx, now.Add(-timeout))
+	if err != nil {
+		return 0, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query timed out operations")
+	}
+	expired := 0
+	for _, operation := range operations {
+		if operation == nil {
+			continue
+		}
+		_ = s.deviceGateway.AbortOperation(ctx, device.DeviceCommand{
+			OperationID: operation.ID,
+			DeviceID:    operation.DeviceID,
+			SlotID:      operation.SlotID,
+			Type:        operation.Action,
+		})
+		if err := s.operationRepo.Timeout(ctx, operation.ID, now); err != nil {
+			return expired, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to time out operation")
+		}
+		expired++
+	}
+	return expired, nil
 }
 
 func (s *operationService) OnPickupSuccess(ctx context.Context, event device.DeviceEvent) error {
@@ -335,8 +418,8 @@ func (s *operationService) ensureNoActiveOperation(ctx context.Context, deviceID
 	return nil
 }
 
-func (s *operationService) createAndDispatch(ctx context.Context, operation *repository.DeviceOperation, dispatch func() error) (*repository.DeviceOperation, error) {
-	if err := s.operationRepo.Create(ctx, operation); err != nil {
+func (s *operationService) resolvePrepareError(ctx context.Context, operation *repository.DeviceOperation, err error) (*repository.DeviceOperation, error) {
+	if err != nil {
 		if existing, lookupErr := s.operationRepo.FindByRequestID(ctx, operation.RequestID); lookupErr == nil && existing != nil {
 			if existing.UserID != operation.UserID {
 				return nil, apperrors.New(apperrors.CodeForbidden, "operation request belongs to another user")
@@ -346,31 +429,24 @@ func (s *operationService) createAndDispatch(ctx context.Context, operation *rep
 		if strings.Contains(strings.ToLower(err.Error()), "active_device") || strings.Contains(strings.ToLower(err.Error()), "active_key") {
 			return nil, apperrors.New(apperrors.CodeConflict, "device or key already has an active operation")
 		}
-		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to create device operation")
+		if errors.Is(err, repository.ErrOperationInvalidState) {
+			return nil, apperrors.New(apperrors.CodeInvalidState, "borrow record state changed before operation could start")
+		}
+		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to prepare device operation")
 	}
-	if err := s.operationRepo.CreateEvent(ctx, &repository.OperationEvent{OperationID: operation.ID, Type: "RECEIVED", OccurredAt: *operation.StartedAt}); err != nil {
-		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to record operation event")
+	return nil, nil
+}
+
+func (s *operationService) dispatchPrepared(ctx context.Context, operation *repository.DeviceOperation, dispatch func() error) (*repository.DeviceOperation, error) {
+	now := time.Now().UTC()
+	if err := s.operationRepo.BeginExecution(ctx, operation.ID, now); err != nil {
+		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to begin device operation")
 	}
-	operation.Status = "AUTHORIZED"
-	if err := s.operationRepo.Update(ctx, operation); err != nil {
-		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to authorize operation")
-	}
-	if err := s.operationRepo.CreateEvent(ctx, &repository.OperationEvent{OperationID: operation.ID, Type: "AUTH_CONFIRMED", OccurredAt: time.Now().UTC()}); err != nil {
-		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to record authorization event")
-	}
+	operation.Status = "EXECUTING"
+	operation.SentAt = &now
 	if err := dispatch(); err != nil {
 		_ = s.operationRepo.Fail(ctx, operation.ID, "DEVICE_COMMAND_FAILED", err.Error(), time.Now().UTC())
 		return nil, apperrors.WrapWithCode(err, apperrors.CodeServiceUnavailable, "failed to send device command")
-	}
-	now := time.Now().UTC()
-	operation.Status = "EXECUTING"
-	operation.SentAt = &now
-	operation.AckAt = nil
-	if err := s.operationRepo.Update(ctx, operation); err != nil {
-		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to update operation status")
-	}
-	if err := s.operationRepo.CreateEvent(ctx, &repository.OperationEvent{OperationID: operation.ID, Type: "POSITIONING", OccurredAt: now}); err != nil {
-		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to record device event")
 	}
 	return operation, nil
 }

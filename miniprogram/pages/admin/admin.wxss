@@ -87,3 +87,39 @@
 .slot-status {
   font-size: 18rpx;
 }
+
+.review-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 20rpx;
+	padding: 22rpx 0;
+	border-bottom: 1rpx solid #eef0f3;
+}
+
+.review-main {
+	min-width: 0;
+	flex: 1;
+}
+
+.review-actions {
+	display: flex;
+	gap: 14rpx;
+}
+
+.review-approve,
+.review-reject {
+	padding: 12rpx 18rpx;
+	border-radius: 10rpx;
+	font-size: 24rpx;
+}
+
+.review-approve {
+	color: #fff;
+	background: #2f6bff;
+}
+
+.review-reject {
+	color: #c2410c;
+	background: #fff1e8;
+}

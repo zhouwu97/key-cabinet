@@ -83,6 +83,15 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	admin.Use(middleware.AdminMiddleware())
 	{
 		admin.GET("/health", cfg.HealthHandler.Check)
+		if cfg.ReservationHandler != nil {
+			admin.GET("/reservations/pending", cfg.ReservationHandler.ListPending)
+			admin.POST("/reservations/:id/approve", cfg.ReservationHandler.Approve)
+			admin.POST("/reservations/:id/reject", cfg.ReservationHandler.Reject)
+		}
+		if cfg.AuthHandler != nil {
+			admin.GET("/users/pending-verification", cfg.AuthHandler.ListPendingIdentityVerifications)
+			admin.POST("/users/:id/verify-identity", cfg.AuthHandler.VerifyIdentity)
+		}
 	}
 
 	return r

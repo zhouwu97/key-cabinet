@@ -131,6 +131,11 @@
   border-radius: 8rpx;
 }
 
+.cell-tag-orange {
+	color: #b45309;
+	font-size: 24rpx;
+}
+
 .picker-selector {
   display: flex;
   justify-content: space-between;

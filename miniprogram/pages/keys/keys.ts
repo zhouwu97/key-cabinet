@@ -36,16 +36,21 @@ Page({
     try {
       this.setData({ loading: true, hasError: false })
       
-      const [rawKeys, device] = await Promise.all([
+		const [rawKeys, devices] = await Promise.all([
         keyService.getKeys(),
-        deviceService.getDeviceStatus('CAB001').catch(() => null),
+		deviceService.listDevices(),
       ])
 
-      const isCabinetOffline = device ? device.status === DeviceStatus.OFFLINE : false
+		const deviceMap = new Map(devices.map(device => [device.id, device]))
+		const relatedDeviceIds = new Set(rawKeys.map(key => key.deviceId).filter(Boolean))
+		const isCabinetOffline = [...relatedDeviceIds].some(deviceId => {
+			const device = deviceMap.get(deviceId)
+			return !device || device.status === DeviceStatus.OFFLINE
+		})
 
       const keys: KeyViewModel[] = rawKeys.map(k => ({
         ...k,
-        deviceName: k.deviceId === 'CAB001' ? '1号钥匙柜 (信息楼)' : k.deviceId,
+		deviceName: deviceMap.get(k.deviceId)?.name || k.deviceId || '未绑定柜机',
         statusLabel: KEY_STATUS_LABEL[k.status] || '未知',
         statusTone: KEY_STATUS_TONE[k.status] || 'gray',
       }))

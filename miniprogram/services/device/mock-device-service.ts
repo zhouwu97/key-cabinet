@@ -50,6 +50,11 @@ export class MockDeviceService implements DeviceService {
     return this.busyDevices.has(deviceId)
   }
 
+	async listDevices(): Promise<Device[]> {
+		const devices: Device[] = wx.getStorageSync(STORAGE_KEYS.DEVICES) || MOCK_DEVICES
+		return devices.map(device => ({ ...device }))
+	}
+
   async getDeviceStatus(deviceId: string): Promise<Device> {
     const devices: Device[] = wx.getStorageSync(STORAGE_KEYS.DEVICES) || MOCK_DEVICES
     const target = devices.find(d => d.id === deviceId) ?? {

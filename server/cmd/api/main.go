@@ -54,10 +54,12 @@ func main() {
 	authService := service.NewAuthService(userRepo, wechatClient, tokenService, cfg.JWT.Expiration)
 	keyService := service.NewKeyService(keyRepo, slotRepo)
 	deviceService := service.NewDeviceService(deviceRepo, slotRepo)
-	reservationService := service.NewReservationService(reservationRepo, keyRepo, deviceRepo, borrowRepo)
+	reservationService := service.NewReservationService(reservationRepo, keyRepo, deviceRepo, borrowRepo, userRepo)
 	borrowService := service.NewBorrowService(borrowRepo)
-	operationService := service.NewOperationService(operationRepo, reservationService, borrowService, keyRepo, deviceRepo, slotRepo, deviceGateway)
+	operationService := service.NewOperationService(operationRepo, reservationService, borrowService, keyRepo, deviceRepo, slotRepo, deviceGateway, userRepo)
 	startOverdueScheduler(borrowService)
+	startOperationTimeoutScheduler(operationService)
+	startReservationExpiryScheduler(reservationService)
 
 	// Initialize handlers
 	healthHandler := handler.NewHealthHandler(db)
@@ -107,6 +109,50 @@ func startOverdueScheduler(borrowService service.BorrowService) {
 		}
 		check()
 		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			check()
+		}
+	}()
+}
+
+// 超时任务将长期无响应的操作收敛到终态，避免设备或钥匙一直被活动操作占用。
+func startOperationTimeoutScheduler(operationService service.OperationService) {
+	const operationTimeout = 2 * time.Minute
+	go func() {
+		check := func() {
+			expired, err := operationService.ExpireTimedOutOperations(context.Background(), time.Now().UTC(), operationTimeout)
+			if err != nil {
+				log.Printf("failed to expire timed out device operations: %v", err)
+				return
+			}
+			if expired > 0 {
+				log.Printf("expired %d timed out device operations", expired)
+			}
+		}
+		check()
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			check()
+		}
+	}()
+}
+
+func startReservationExpiryScheduler(reservationService service.ReservationService) {
+	go func() {
+		check := func() {
+			expired, err := reservationService.ExpireReservations(context.Background(), time.Now().UTC())
+			if err != nil {
+				log.Printf("failed to expire reservations: %v", err)
+				return
+			}
+			if expired > 0 {
+				log.Printf("expired %d reservations", expired)
+			}
+		}
+		check()
+		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
 			check()

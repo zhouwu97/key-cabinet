@@ -18,6 +18,7 @@ interface ReservationViewModel {
   keyId: string
   keyName: string
   roomNo: string
+	deviceId: string
   pickupWindowStartText: string
   pickupWindowEndText: string
   statusLabel: string
@@ -73,10 +74,12 @@ Page({
     normalBorrows: [] as BorrowViewModel[],
 
     // P6: 设备状态
-    deviceName: '1号钥匙柜',
-    deviceOnline: true,
-    availableSlotCount: 7,
-    totalSlotCount: 10,
+	deviceName: '设备信息待获取',
+	deviceLocation: '',
+	deviceOnline: false,
+	deviceStatsKnown: false,
+	availableSlotCount: 0,
+	totalSlotCount: 0,
   },
 
   onShow() {
@@ -110,15 +113,12 @@ Page({
         this.setData({ activeOperation: null, activeOperationKey: null })
       }
 
-      // 3. 检查设备状态 (P6)
-      const device = await deviceService.getDeviceStatus('CAB001')
-      const isOnline = device ? device.status === 'ONLINE' : true
-
       if (user) {
-        const [reservations, borrows, allKeys] = await Promise.all([
+		const [reservations, borrows, allKeys, devices] = await Promise.all([
           reservationService.getUserReservations(user.id),
           borrowService.getCurrentBorrows(user.id),
           keyService.getKeys(),
+			deviceService.listDevices(),
         ])
 
         const keyMap = new Map<string, Key>()
@@ -137,11 +137,12 @@ Page({
               ...r,
               keyName: key?.name || r.keyId,
               roomNo: key?.roomNo || '',
+				deviceId: key?.deviceId || '',
               pickupWindowStartText: formatTime(r.pickupWindowStart),
               pickupWindowEndText: formatTime(r.pickupWindowEnd),
               statusLabel: r.status === ReservationStatus.APPROVED ? '已审批通过' : '待现场取钥',
               statusTone: 'blue',
-              canPickup: true,
+				canPickup: Boolean(user.identityVerified),
               canCancel: true,
             }
           })
@@ -171,22 +172,37 @@ Page({
           }
         })
 
-        const availableSlotCount = allKeys.filter(k => k.status === 'AVAILABLE').length
         const pendingTaskCount =
           overdueBorrows.length +
           activeReservations.length +
           normalBorrows.length +
           (isOpInProgress ? 1 : 0)
+		const preferredDeviceId =
+			activeOp?.deviceId ||
+			activeReservations[0]?.deviceId ||
+			overdueBorrows[0]?.deviceId ||
+			normalBorrows[0]?.deviceId ||
+			devices[0]?.id ||
+			''
+		const device = devices.find(item => item.id === preferredDeviceId) || null
+		const relatedKeys = preferredDeviceId
+			? allKeys.filter(key => key.deviceId === preferredDeviceId)
+			: []
+		const availableSlotCount =
+			device?.availableSlots ?? relatedKeys.filter(key => key.status === 'AVAILABLE').length
+		const totalSlotCount = device?.totalSlots ?? relatedKeys.length
 
         this.setData({
           user,
           userName: user.name || '师生',
           greetingText,
           pendingTaskCount,
-          deviceName: device?.name || '1号钥匙柜 (信息楼)',
-          deviceOnline: isOnline,
-          availableSlotCount: availableSlotCount || 7,
-          totalSlotCount: allKeys.length || 10,
+			deviceName: device?.name || '设备信息待获取',
+			deviceLocation: device?.location || '',
+			deviceOnline: device?.status === 'ONLINE',
+			deviceStatsKnown: Boolean(device),
+			availableSlotCount,
+			totalSlotCount,
           activeOperation: isOpInProgress ? activeOp : null,
           activeOperationKey: activeOpKey,
           overdueBorrows,
@@ -200,8 +216,10 @@ Page({
           userName: '访客',
           greetingText,
           pendingTaskCount: 0,
-          deviceName: device?.name || '1号钥匙柜 (信息楼)',
-          deviceOnline: isOnline,
+			deviceName: '设备信息待获取',
+			deviceLocation: '',
+			deviceOnline: false,
+			deviceStatsKnown: false,
           activeOperation: null,
           activeOperationKey: null,
           overdueBorrows: [],
@@ -231,22 +249,20 @@ Page({
     if (this.data.overdueBorrows.length > 0) {
       const b = this.data.overdueBorrows[0]
       wx.navigateTo({
-        url: `/pages/scan/scan?mode=RETURN&borrowRecordId=${b.id}&keyId=${b.keyId}&expectedDeviceId=${b.deviceId || 'CAB001'}`,
+		url: `/pages/scan/scan?mode=RETURN&borrowRecordId=${b.id}&keyId=${b.keyId}&expectedDeviceId=${b.deviceId}`,
       })
     } else if (this.data.activeReservations.length > 0) {
       const r = this.data.activeReservations[0]
       wx.navigateTo({
-        url: `/pages/scan/scan?mode=PICKUP&reservationId=${r.id}&keyId=${r.keyId}&expectedDeviceId=CAB001`,
+		url: `/pages/scan/scan?mode=PICKUP&reservationId=${r.id}&keyId=${r.keyId}&expectedDeviceId=${r.deviceId}`,
       })
     } else if (this.data.normalBorrows.length > 0) {
       const b = this.data.normalBorrows[0]
       wx.navigateTo({
-        url: `/pages/scan/scan?mode=RETURN&borrowRecordId=${b.id}&keyId=${b.keyId}&expectedDeviceId=${b.deviceId || 'CAB001'}`,
+		url: `/pages/scan/scan?mode=RETURN&borrowRecordId=${b.id}&keyId=${b.keyId}&expectedDeviceId=${b.deviceId}`,
       })
     } else {
-      wx.navigateTo({
-        url: '/pages/scan/scan?mode=PICKUP&expectedDeviceId=CAB001',
-      })
+		wx.showToast({ title: '暂无可执行的借还任务', icon: 'none' })
     }
   },
 
@@ -255,7 +271,8 @@ Page({
     const { id: rsvId, keyId } = e.detail
     try {
       const key = await keyService.getKeyById(keyId)
-      const deviceId = key?.deviceId || 'CAB001'
+		const deviceId = key?.deviceId
+		if (!deviceId) throw new Error('钥匙尚未绑定可用柜机')
       wx.navigateTo({
         url: `/pages/scan/scan?mode=PICKUP&reservationId=${rsvId}&keyId=${keyId}&expectedDeviceId=${deviceId}`,
       })
@@ -289,7 +306,8 @@ Page({
     const { id: borrowId, keyId } = e.detail
     try {
       const key = await keyService.getKeyById(keyId)
-      const deviceId = key?.deviceId || 'CAB001'
+		const deviceId = key?.deviceId
+		if (!deviceId) throw new Error('钥匙尚未绑定可用柜机')
       wx.navigateTo({
         url: `/pages/scan/scan?mode=RETURN&borrowRecordId=${borrowId}&keyId=${keyId}&expectedDeviceId=${deviceId}`,
       })

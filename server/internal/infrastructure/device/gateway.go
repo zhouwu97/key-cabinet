@@ -2,8 +2,11 @@ package device
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+var ErrOperationNotRunning = errors.New("device operation is not running")
 
 type DeviceCommand struct {
 	OperationID string
@@ -30,6 +33,7 @@ type DeviceStatus struct {
 type DeviceGateway interface {
 	StartPickup(ctx context.Context, cmd DeviceCommand) error
 	StartReturn(ctx context.Context, cmd DeviceCommand) error
+	AbortOperation(ctx context.Context, cmd DeviceCommand) error
 	GetDeviceStatus(ctx context.Context, deviceID string) (*DeviceStatus, error)
 	RegisterEventHandler(handler DeviceEventHandler)
 }

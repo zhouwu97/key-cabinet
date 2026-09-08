@@ -14,10 +14,10 @@
     </view>
     <view class="user-info">
       <view class="user-name-row">
-        <text class="user-name">{{user.name || '张三'}}</text>
+		<text class="user-name">{{user.name || '未填写姓名'}}</text>
         <status-badge
-          text="{{user.role === 'ADMIN' ? '系统管理员' : '认证师生'}}"
-          tone="{{user.role === 'ADMIN' ? 'blue' : 'green'}}"
+		  text="{{user.role === 'ADMIN' ? '系统管理员' : (user.identityVerified ? '身份已核验' : '身份待核验')}}"
+		  tone="{{user.role === 'ADMIN' ? 'blue' : (user.identityVerified ? 'green' : 'orange')}}"
           dot="{{true}}"
         />
       </view>
@@ -43,7 +43,7 @@
     </view>
     <view class="stats-divider"></view>
     <view class="stats-item">
-      <view class="stats-value tone-blue">{{user.creditScore || 100}}</view>
+	  <view class="stats-value tone-blue">{{user.creditScore}}</view>
       <view class="stats-label">信用分</view>
     </view>
   </view>
@@ -57,7 +57,7 @@
       </view>
       <view class="menu-item-right">
         <text class="tag-dev" style="background:#eaf0ff; color:#315ef6;">
-          {{user.profileCompleted ? '已认证' : '去完善'}}
+		  {{user.identityVerified ? '已核验' : (user.profileCompleted ? '待管理员核验' : '去完善')}}
         </text>
         <text class="menu-arrow">›</text>
       </view>

@@ -9,11 +9,11 @@
         </view>
       </view>
       <view
-        wx:if="{{user && !user.profileCompleted}}"
+		wx:if="{{user && !user.identityVerified}}"
         class="bind-prompt-tag"
         bindtap="goIdentityBind"
       >
-        去完善身份 ›
+		{{user.profileCompleted ? '身份待核验 ›' : '去完善身份 ›'}}
       </view>
     </view>
   </view>
@@ -130,9 +130,10 @@
       <view class="device-bar-left">
         <text class="device-status-dot online"></text>
         <text class="device-bar-name">{{deviceName}}</text>
-        <text class="device-bar-stat">● 在线 · {{availableSlotCount}}/{{totalSlotCount}} 钥匙可用</text>
+		<text wx:if="{{deviceStatsKnown}}" class="device-bar-stat">● 在线 · {{availableSlotCount}}/{{totalSlotCount}} 钥匙可用</text>
+		<text wx:else class="device-bar-stat">● 在线 · 数量暂未获取</text>
       </view>
-      <text class="device-bar-loc">信息楼 1F</text>
+	  <text class="device-bar-loc">{{deviceLocation || '位置未提供'}}</text>
     </view>
 
     <!-- 异常状态：升级警告卡片 -->

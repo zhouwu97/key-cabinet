@@ -2,7 +2,7 @@
   <!-- 离线状态提示横幅 (Offline State) -->
   <view wx:if="{{isCabinetOffline}}" class="offline-banner">
     <text class="offline-icon">⚠️</text>
-    <text class="offline-text">当前 1 号钥匙柜离线，仍可浏览钥匙但暂无法现场取钥</text>
+	<text class="offline-text">部分钥匙柜离线或信息缺失，仍可浏览钥匙但暂无法现场取钥</text>
   </view>
 
   <!-- 搜索输入框 -->

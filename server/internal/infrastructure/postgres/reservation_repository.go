@@ -7,6 +7,7 @@ import (
 
 	"github.com/zhouwu97/key-cabinet/server/internal/repository"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type PostgresReservationRepository struct {
@@ -83,12 +84,15 @@ func (r *PostgresReservationRepository) Update(ctx context.Context, reservation 
 			"approved_at":         reservation.ApprovedAt,
 			"used_at":             reservation.UsedAt,
 			"cancelled_at":        reservation.CancelledAt,
+			"reviewed_by":         reservation.ReviewedBy,
+			"reviewed_at":         reservation.ReviewedAt,
+			"rejection_reason":    reservation.RejectionReason,
 			"updated_at":          reservation.UpdatedAt,
 		}).Error; err != nil {
 			return err
 		}
 
-		if reservation.Status != "CANCELLED" {
+		if reservation.Status != "CANCELLED" && reservation.Status != "REJECTED" && reservation.Status != "EXPIRED" {
 			return nil
 		}
 		var activeCount int64
@@ -106,13 +110,111 @@ func (r *PostgresReservationRepository) Update(ctx context.Context, reservation 
 	})
 }
 
+func (r *PostgresReservationRepository) Review(ctx context.Context, id, adminID string, approved bool, reason string, now time.Time) error {
+	expired := false
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var reservation repository.Reservation
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&reservation, "id = ?", id).Error; err != nil {
+			return err
+		}
+		if reservation.Status != "PENDING" {
+			return repository.ErrOperationInvalidState
+		}
+		if !now.Before(reservation.PickupWindowEnd) {
+			if err := tx.Model(&repository.Reservation{}).Where("id = ?", id).
+				Updates(map[string]interface{}{"status": "EXPIRED", "updated_at": now.UTC()}).Error; err != nil {
+				return err
+			}
+			if err := releaseKeyIfUnreserved(tx, reservation.KeyID); err != nil {
+				return err
+			}
+			expired = true
+			return nil
+		}
+		var user repository.User
+		if err := tx.First(&user, "id = ?", reservation.UserID).Error; err != nil {
+			return err
+		}
+		if user.Status != "ACTIVE" || !user.IdentityVerified {
+			return repository.ErrOperationInvalidState
+		}
+		status := "REJECTED"
+		values := map[string]interface{}{
+			"status": status, "reviewed_by": adminID, "reviewed_at": now.UTC(),
+			"rejection_reason": reason, "updated_at": now.UTC(),
+		}
+		if approved {
+			status = "APPROVED"
+			values["status"] = status
+			values["approved_at"] = now.UTC()
+			values["rejection_reason"] = ""
+		}
+		if err := tx.Model(&repository.Reservation{}).Where("id = ? AND status = ?", id, "PENDING").Updates(values).Error; err != nil {
+			return err
+		}
+		if approved {
+			return nil
+		}
+		return releaseKeyIfUnreserved(tx, reservation.KeyID)
+	})
+	if err == nil && expired {
+		return repository.ErrOperationInvalidState
+	}
+	return err
+}
+
+func (r *PostgresReservationRepository) ExpireBefore(ctx context.Context, now time.Time) (int64, error) {
+	var expiredCount int64
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var reservations []*repository.Reservation
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("status IN ? AND pickup_window_end < ?", []string{"PENDING", "APPROVED", "ACTIVE"}, now.UTC()).
+			Find(&reservations).Error; err != nil {
+			return err
+		}
+		for _, reservation := range reservations {
+			result := tx.Model(&repository.Reservation{}).
+				Where("id = ? AND status IN ?", reservation.ID, []string{"PENDING", "APPROVED", "ACTIVE"}).
+				Updates(map[string]interface{}{"status": "EXPIRED", "updated_at": now.UTC()})
+			if result.Error != nil {
+				return result.Error
+			}
+			expiredCount += result.RowsAffected
+			if result.RowsAffected > 0 {
+				if err := releaseKeyIfUnreserved(tx, reservation.KeyID); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	return expiredCount, err
+}
+
+func releaseKeyIfUnreserved(tx *gorm.DB, keyID string) error {
+	var activeCount int64
+	if err := tx.Model(&repository.Reservation{}).
+		Where("key_id = ? AND status IN ?", keyID, []string{"PENDING", "APPROVED", "ACTIVE"}).
+		Count(&activeCount).Error; err != nil {
+		return err
+	}
+	if activeCount == 0 {
+		return tx.Model(&repository.Key{}).
+			Where("id = ? AND status = ?", keyID, "RESERVED").
+			Update("status", "AVAILABLE").Error
+	}
+	return nil
+}
+
 func (r *PostgresReservationRepository) reservationQuery(ctx context.Context) *gorm.DB {
 	return r.db.WithContext(ctx).
 		Table("reservations").
 		Select(`reservations.*, keys.name AS key_name, keys.room_no AS room_no,
-			keys.device_id AS device_id, devices.name AS device_name`).
+			keys.device_id AS device_id, devices.name AS device_name,
+			users.name AS user_name, users.student_no AS student_no`).
 		Joins("LEFT JOIN keys ON keys.id = reservations.key_id").
-		Joins("LEFT JOIN devices ON devices.id = keys.device_id")
+		Joins("LEFT JOIN devices ON devices.id = keys.device_id").
+		Joins("LEFT JOIN users ON users.id = reservations.user_id")
 }
 
 func isReservationActiveStatus(status string) bool {

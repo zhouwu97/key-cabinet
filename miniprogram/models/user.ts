@@ -12,6 +12,8 @@ export interface User {
   department?: string
   creditScore: number
   profileCompleted?: boolean
+	identityVerified?: boolean
+	identityVerifiedAt?: string
   createdAt?: string
   updatedAt?: string
 }

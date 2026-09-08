@@ -42,8 +42,11 @@ export type DeviceAction = 'PICKUP' | 'RETURN'
 export interface Device {
   id: string
   name: string
+	location?: string
   status: DeviceStatus
   lastHeartbeat: number
+	totalSlots?: number
+	availableSlots?: number
 }
 
 export interface DeviceCommandMessage {

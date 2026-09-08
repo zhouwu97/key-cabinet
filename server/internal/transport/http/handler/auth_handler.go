@@ -75,3 +75,25 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 
 	c.JSON(http.StatusOK, dto.NewSuccessResponse(user))
 }
+
+func (h *AuthHandler) ListPendingIdentityVerifications(c *gin.Context) {
+	users, err := h.authService.ListPendingIdentityVerifications(c.Request.Context())
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.NewSuccessResponse(users))
+}
+
+func (h *AuthHandler) VerifyIdentity(c *gin.Context) {
+	adminID, ok := currentUserID(c)
+	if !ok {
+		return
+	}
+	user, err := h.authService.VerifyIdentity(c.Request.Context(), adminID, c.Param("id"))
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.NewSuccessResponse(user))
+}

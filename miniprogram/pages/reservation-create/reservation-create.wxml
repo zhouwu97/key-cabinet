@@ -11,7 +11,7 @@
         <view class="avail-badge">● 可预约</view>
       </view>
       <view class="key-cabinet-info">
-        <text class="cab-loc">信息楼 · 1号柜 (CAB001)</text>
+		<text class="cab-loc">{{deviceName}} · {{deviceLocation}}</text>
         <text class="cab-dot">·</text>
         <text class="cab-slot">槽位 {{key.slotId}}</text>
       </view>
@@ -75,7 +75,9 @@
       <!-- 审批方式 -->
       <view class="info-cell">
         <text class="cell-label">审批方式</text>
-        <view class="cell-tag-green">免审批 · 信用良好自动放行</view>
+		<view class="{{key.requiresApproval ? 'cell-tag-orange' : 'cell-tag-green'}}">
+		  {{key.requiresApproval ? '需要管理员审批' : '免审批 · 即约即取'}}
+		</view>
       </view>
     </view>
 

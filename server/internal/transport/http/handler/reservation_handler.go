@@ -112,6 +112,45 @@ func (h *ReservationHandler) Availability(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.NewSuccessResponse(gin.H{"available": available}))
 }
 
+func (h *ReservationHandler) ListPending(c *gin.Context) {
+	reservations, err := h.reservationService.ListPendingReservations(c.Request.Context())
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.NewSuccessResponse(reservations))
+}
+
+func (h *ReservationHandler) Approve(c *gin.Context) {
+	h.review(c, true)
+}
+
+func (h *ReservationHandler) Reject(c *gin.Context) {
+	h.review(c, false)
+}
+
+func (h *ReservationHandler) review(c *gin.Context, approved bool) {
+	adminID, ok := currentUserID(c)
+	if !ok {
+		return
+	}
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if !approved {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.Error(errors.New(errors.CodeInvalidInput, "rejection reason is required"))
+			return
+		}
+	}
+	reservation, err := h.reservationService.ReviewReservation(c.Request.Context(), adminID, c.Param("id"), approved, req.Reason)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.NewSuccessResponse(reservation))
+}
+
 func parseTimeQuery(value string) (time.Time, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {

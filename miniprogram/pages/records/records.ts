@@ -110,7 +110,9 @@ Page({
           expectedReturnText: formatDateTime(r.expectedReturnAt),
           statusLabel: RESERVATION_STATUS_LABEL[r.status] || '待取钥',
           statusTone: RESERVATION_STATUS_TONE[r.status] || 'blue',
-          canPickup: r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.APPROVED,
+		  canPickup:
+			Boolean(user.identityVerified) &&
+			(r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.APPROVED),
           canCancel: r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.PENDING,
         }))
 
@@ -179,7 +181,11 @@ Page({
   onReservationPickup(e: any) {
     const { id: rsvId, keyId } = e.detail
     const key = this.data.keyMap[keyId]
-    const deviceId = key?.deviceId || 'CAB001'
+	const deviceId = key?.deviceId
+	if (!deviceId) {
+		wx.showToast({ title: '钥匙尚未绑定柜机', icon: 'none' })
+		return
+	}
     wx.navigateTo({
       url: `/pages/scan/scan?mode=PICKUP&reservationId=${rsvId}&keyId=${keyId}&expectedDeviceId=${deviceId}`,
     })
@@ -209,7 +215,11 @@ Page({
   onBorrowReturn(e: any) {
     const { id: borrowId, keyId } = e.detail
     const key = this.data.keyMap[keyId]
-    const deviceId = key?.deviceId || 'CAB001'
+	const deviceId = key?.deviceId
+	if (!deviceId) {
+		wx.showToast({ title: '钥匙尚未绑定柜机', icon: 'none' })
+		return
+	}
     wx.navigateTo({
       url: `/pages/scan/scan?mode=RETURN&borrowRecordId=${borrowId}&keyId=${keyId}&expectedDeviceId=${deviceId}`,
     })

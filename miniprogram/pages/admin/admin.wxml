@@ -12,27 +12,54 @@
     <view class="grid-card-title">业务管理概览</view>
     <view class="admin-metric-grid">
       <view class="metric-item">
-        <view class="metric-val tone-green">0</view>
+		<view class="metric-val tone-green">{{pendingReservations.length}}</view>
         <view class="metric-label">待审批预约</view>
-        <view class="metric-sub">免审批放行</view>
+		<view class="metric-sub">等待处理</view>
       </view>
       <view class="metric-item">
-        <view class="metric-val tone-blue">1</view>
+		<view class="metric-val tone-blue">{{borrowedKeyCount}}</view>
         <view class="metric-label">当前借用中</view>
         <view class="metric-sub">运行正常</view>
       </view>
       <view class="metric-item">
-        <view class="metric-val">0</view>
-        <view class="metric-label">逾期未还</view>
-        <view class="metric-sub">无风险记录</view>
+		<view class="metric-val">{{pendingUsers.length}}</view>
+		<view class="metric-label">待身份核验</view>
+		<view class="metric-sub">资料已填写</view>
       </view>
       <view class="metric-item">
-        <view class="metric-val">10</view>
+		<view class="metric-val">{{keys.length}}</view>
         <view class="metric-label">钥匙总数</view>
-        <view class="metric-sub">7 把在柜可用</view>
+		<view class="metric-sub">{{availableKeyCount}} 把可用</view>
       </view>
     </view>
   </view>
+
+	<view wx:if="{{!isMockMode}}" class="card">
+	  <view class="card-title">待审批预约</view>
+	  <view wx:if="{{pendingReservations.length === 0}}" class="muted small mt-8">当前没有待审批预约</view>
+	  <view wx:for="{{pendingReservations}}" wx:key="id" class="review-item">
+		<view class="review-main">
+		  <view>{{item.roomNo}} {{item.keyName}}</view>
+		  <view class="muted small">{{item.userName}} · {{item.studentNo}} · {{item.purpose || '未填写用途'}}</view>
+		</view>
+		<view class="review-actions">
+		  <view class="review-approve" data-id="{{item.id}}" bindtap="approveReservation">批准</view>
+		  <view class="review-reject" data-id="{{item.id}}" bindtap="rejectReservation">拒绝</view>
+		</view>
+	  </view>
+	</view>
+
+	<view wx:if="{{!isMockMode}}" class="card">
+	  <view class="card-title">待身份核验</view>
+	  <view wx:if="{{pendingUsers.length === 0}}" class="muted small mt-8">当前没有待核验资料</view>
+	  <view wx:for="{{pendingUsers}}" wx:key="id" class="review-item">
+		<view class="review-main">
+		  <view>{{item.name}} · {{item.studentNo}}</view>
+		  <view class="muted small">{{item.department || '院系未填写'}} · {{item.phone || '电话未填写'}}</view>
+		</view>
+		<view class="review-approve" data-id="{{item.id}}" bindtap="verifyIdentity">确认身份</view>
+	  </view>
+	</view>
 
   <!-- 开发诊断板块仅对 Mock 数据模式开放，避免 API 模式误操作本地假数据。 -->
   <view wx:if="{{isMockMode}}" class="card">
@@ -74,7 +101,7 @@
 
   <!-- 槽位在位监控 -->
   <view class="card">
-    <view class="card-title">一号钥匙柜 (CAB001) 物理槽位在位监控</view>
+	<view class="card-title">{{selectedDeviceName}}物理槽位在位监控</view>
     <view class="slot-grid">
       <view
         wx:for="{{slots}}"

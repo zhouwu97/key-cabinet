@@ -121,6 +121,33 @@ func TestAuthService_WechatLogin_NewAndExistingUser(t *testing.T) {
 	assert.Equal(t, "张三", updated.Name)
 	assert.Equal(t, "2023001", updated.StudentNo)
 	assert.Equal(t, true, updated.ProfileCompleted)
+	assert.False(t, updated.IdentityVerified)
+
+	verifiedAt := updated.UpdatedAt
+	updated.IdentityVerified = true
+	updated.IdentityVerifiedAt = &verifiedAt
+	adminID := "admin-1"
+	updated.IdentityVerifiedBy = &adminID
+	changed, err := authSvc.UpdateProfile(ctx, res1.User.ID, service.UpdateProfileRequest{StudentNo: "2023002"})
+	require.NoError(t, err)
+	assert.False(t, changed.IdentityVerified)
+	assert.Nil(t, changed.IdentityVerifiedAt)
+	assert.Empty(t, changed.IdentityVerifiedBy)
+}
+
+func TestAuthService_WechatLogin_RejectsDisabledUser(t *testing.T) {
+	repo := NewMockUserRepository()
+	wechatClient := wechat.NewClient("", "", true)
+	tokenService := jwt.NewTokenService("test-secret-with-sufficient-length!!", 3600)
+	authSvc := service.NewAuthService(repo, wechatClient, tokenService, 3600)
+
+	first, err := authSvc.WechatLogin(context.Background(), "mock_disabled_user")
+	require.NoError(t, err)
+	first.User.Status = "DISABLED"
+
+	_, err = authSvc.WechatLogin(context.Background(), "mock_disabled_user")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "user account is disabled")
 }
 
 func TestAuthService_WechatLogin_AtomicRegistrationFailure(t *testing.T) {

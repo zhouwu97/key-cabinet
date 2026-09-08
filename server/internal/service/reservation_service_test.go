@@ -36,6 +36,26 @@ func (r *fakeReservationRepository) List(_ context.Context, _ repository.Reserva
 	return r.FindByUserID(context.Background(), "")
 }
 
+func (r *fakeReservationRepository) Review(_ context.Context, id, adminID string, approved bool, reason string, now time.Time) error {
+	if r.reservation == nil || r.reservation.ID != id || r.reservation.Status != "PENDING" {
+		return repository.ErrOperationInvalidState
+	}
+	r.reservation.ReviewedBy = &adminID
+	r.reservation.ReviewedAt = &now
+	if approved {
+		r.reservation.Status = "APPROVED"
+		r.reservation.ApprovedAt = &now
+	} else {
+		r.reservation.Status = "REJECTED"
+		r.reservation.RejectionReason = reason
+	}
+	return nil
+}
+
+func (r *fakeReservationRepository) ExpireBefore(_ context.Context, _ time.Time) (int64, error) {
+	return 0, nil
+}
+
 func (r *fakeReservationRepository) FindConflicts(_ context.Context, _ string, _, _ time.Time) ([]*repository.Reservation, error) {
 	return nil, nil
 }
@@ -164,4 +184,23 @@ func TestReservationServiceRejectsUnavailableKey(t *testing.T) {
 	_, err := reservationService.CreateReservation(context.Background(), "USER-1", CreateReservationRequest{KeyID: "KEY-1"})
 
 	require.Error(t, err)
+}
+
+func TestReservationServiceApprovesPendingReservation(t *testing.T) {
+	repo := &fakeReservationRepository{reservation: &repository.Reservation{
+		ID: "RES-1", UserID: "USER-1", KeyID: "KEY-1", Status: "PENDING",
+	}}
+	reservationService := NewReservationService(
+		repo,
+		&fakeReservationKeyRepository{},
+		&fakeReservationDeviceRepository{},
+		fakeReservationBorrowRepository{},
+	)
+
+	reservation, err := reservationService.ReviewReservation(context.Background(), "ADMIN-1", "RES-1", true, "")
+	require.NoError(t, err)
+	require.Equal(t, "APPROVED", reservation.Status)
+	require.NotNil(t, reservation.ReviewedBy)
+	require.Equal(t, "ADMIN-1", *reservation.ReviewedBy)
+	require.NotNil(t, reservation.ApprovedAt)
 }

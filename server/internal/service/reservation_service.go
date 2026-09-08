@@ -26,6 +26,9 @@ type ReservationService interface {
 	CancelReservation(ctx context.Context, userID, id string) (*repository.Reservation, error)
 	CanReserveKey(ctx context.Context, keyID string, start, end time.Time) (bool, error)
 	MarkReservationUsed(ctx context.Context, id string) error
+	ListPendingReservations(ctx context.Context) ([]*repository.Reservation, error)
+	ReviewReservation(ctx context.Context, adminID, id string, approved bool, reason string) (*repository.Reservation, error)
+	ExpireReservations(ctx context.Context, now time.Time) (int64, error)
 }
 
 type reservationService struct {
@@ -33,6 +36,7 @@ type reservationService struct {
 	keyRepo         repository.KeyRepository
 	deviceRepo      repository.DeviceRepository
 	borrowRepo      repository.BorrowRepository
+	userRepo        repository.UserRepository
 }
 
 func NewReservationService(
@@ -40,12 +44,18 @@ func NewReservationService(
 	keyRepo repository.KeyRepository,
 	deviceRepo repository.DeviceRepository,
 	borrowRepo repository.BorrowRepository,
+	userRepos ...repository.UserRepository,
 ) ReservationService {
+	var userRepo repository.UserRepository
+	if len(userRepos) > 0 {
+		userRepo = userRepos[0]
+	}
 	return &reservationService{
 		reservationRepo: reservationRepo,
 		keyRepo:         keyRepo,
 		deviceRepo:      deviceRepo,
 		borrowRepo:      borrowRepo,
+		userRepo:        userRepo,
 	}
 }
 
@@ -54,6 +64,18 @@ func (s *reservationService) CreateReservation(ctx context.Context, userID strin
 	req.KeyID = strings.TrimSpace(req.KeyID)
 	if userID == "" || req.KeyID == "" {
 		return nil, apperrors.New(apperrors.CodeInvalidInput, "user id and key id are required")
+	}
+	if s.userRepo != nil {
+		user, err := s.userRepo.FindByID(ctx, userID)
+		if err != nil {
+			return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query reservation user")
+		}
+		if user == nil || user.Status != "ACTIVE" {
+			return nil, apperrors.New(apperrors.CodeForbidden, "user is not allowed to create reservations")
+		}
+		if !user.IdentityVerified {
+			return nil, apperrors.New(apperrors.CodeForbidden, "school identity must be verified before reserving keys")
+		}
 	}
 
 	key, err := s.keyRepo.FindByID(ctx, req.KeyID)
@@ -276,6 +298,52 @@ func (s *reservationService) MarkReservationUsed(ctx context.Context, id string)
 		return apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to mark reservation used")
 	}
 	return nil
+}
+
+func (s *reservationService) ListPendingReservations(ctx context.Context) ([]*repository.Reservation, error) {
+	reservations, err := s.reservationRepo.List(ctx, repository.ReservationListFilter{Status: "PENDING"})
+	if err != nil {
+		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query pending reservations")
+	}
+	return reservations, nil
+}
+
+func (s *reservationService) ReviewReservation(ctx context.Context, adminID, id string, approved bool, reason string) (*repository.Reservation, error) {
+	adminID = strings.TrimSpace(adminID)
+	id = strings.TrimSpace(id)
+	reason = strings.TrimSpace(reason)
+	if adminID == "" || id == "" {
+		return nil, apperrors.New(apperrors.CodeInvalidInput, "admin id and reservation id are required")
+	}
+	if !approved && reason == "" {
+		return nil, apperrors.New(apperrors.CodeInvalidInput, "rejection reason is required")
+	}
+	adminRepo, ok := s.reservationRepo.(repository.ReservationAdminRepository)
+	if !ok {
+		return nil, apperrors.New(apperrors.CodeInternalError, "reservation review is not supported by repository")
+	}
+	if err := adminRepo.Review(ctx, id, adminID, approved, reason, time.Now().UTC()); err != nil {
+		if err == repository.ErrOperationInvalidState {
+			return nil, apperrors.New(apperrors.CodeInvalidState, "reservation is no longer pending review")
+		}
+		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to review reservation")
+	}
+	return s.GetReservation(ctx, id)
+}
+
+func (s *reservationService) ExpireReservations(ctx context.Context, now time.Time) (int64, error) {
+	adminRepo, ok := s.reservationRepo.(repository.ReservationAdminRepository)
+	if !ok {
+		return 0, nil
+	}
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	count, err := adminRepo.ExpireBefore(ctx, now)
+	if err != nil {
+		return 0, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to expire reservations")
+	}
+	return count, nil
 }
 
 func isReservationActive(status string) bool {

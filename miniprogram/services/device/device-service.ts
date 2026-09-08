@@ -4,6 +4,9 @@ import { MockScenario } from '../../mocks/mock-scenarios'
 export type DeviceEventListener = (message: DeviceEventMessage) => void
 
 export interface DeviceService {
+	/** 获取设备列表 */
+	listDevices(): Promise<Device[]>
+
   /** 获取设备状态 */
   getDeviceStatus(deviceId: string): Promise<Device>
 

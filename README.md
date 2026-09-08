@@ -4,31 +4,15 @@
 
 智能钥匙自助借还系统（Key Cabinet）是一个面向校园/企业的钥匙管理系统，支持微信小程序预约、自助取还钥匙、设备联动控制。
 
-**当前版本**: v0.4 - Sprint 4.1 已完成
+**当前阶段**: 真实系统收口（Real-flow Hardening）
 
 ## 最新进展
 
-### ✅ Sprint 4.1 完成 (2026-09-03)
+### ✅ Sprint 4.9 / 4.10 核心收口（2026-09-08）
 
-**后端基础架构**：
-- Go + Gin + GORM + PostgreSQL 完整技术栈
-- Domain-Service-Repository-Transport 分层架构
-- PostgreSQL 排他约束解决预约时间冲突
-- 事件驱动的 DeviceGateway（Mock → MQTT 可升级）
-- JWT 认证 + 统一错误处理
-- 15+ 单元测试全部通过
+系统已打通微信登录、钥匙/设备/槽位、预约、取钥、借用、归还和操作事件主链。本轮完成了设备操作终态保护、安全取消、借还准备事务、操作超时收敛、登录 single-flight、结构化 API 错误、真实 API 去假数据，以及预约审批和学校身份核验闭环。
 
-**小程序问题修复**：
-- 修复全局组件注册冲突导致的白屏问题
-- 修复 onLoad/onShow 重复数据加载
-
-**文档交付**：
-- 完整架构设计文档
-- Sprint 4.1-4.8 实施计划
-- 故障排查指南
-- 下一步指引
-
-详见：[v0.4 完成报告](docs/v0.4-COMPLETION-REPORT.md) | [下一步指引](NEXT-STEPS.md)
+当前最大缺口是 MQTT 真实设备网关和实体柜机联调；现有 `MockDeviceGateway` 用于在接入硬件前验证服务端账本与状态机。
 
 ## 技术栈
 
@@ -36,7 +20,7 @@
 - TypeScript
 - WXML/WXSS
 - Domain-Driven Design
-- Mock Service（v0.4）→ HttpService（v0.5+）
+- Mock / 真实 HTTP API 双模式
 
 ### 后端（Go）
 - **语言**: Go 1.26.2
@@ -130,25 +114,14 @@ curl http://localhost:8080/health
 - ✅ 用户个人中心
 - ✅ 完整的 Mock Service
 
-### v0.4 - 后端集成（进行中）
-- ✅ **Sprint 4.1**: Backend Foundation
-  - Go + Gin + GORM + PostgreSQL
-  - 核心接口和平台层
-  - JWT 认证
-  - 数据库迁移
-  - MockDeviceGateway
-  
-- 🔄 **Sprint 4.2**: Auth + User (下一步)
-  - 微信登录集成
-  - 用户身份管理
-  - JWT 签发
-  
-- 📋 **Sprint 4.3**: Key + Slot + Device
-- 📋 **Sprint 4.4**: Reservation + 并发控制
-- 📋 **Sprint 4.5**: BorrowRecord
-- 📋 **Sprint 4.6**: DeviceOperation + 事务
-- 📋 **Sprint 4.7**: 前端接入真实后端
-- 📋 **Sprint 4.8**: 全系统验收
+### v0.4 - 软件闭环（已完成）
+- ✅ 微信登录、JWT、用户资料与身份核验
+- ✅ Key / Slot / Device 查询
+- ✅ 预约冲突控制、审批、拒绝与自动过期
+- ✅ BorrowRecord 和 DeviceOperation 事务落账
+- ✅ 预约 → 取钥 → 借用 → 归还完整主链
+- ✅ 小程序 Mock / API 模式切换与真实错误语义
+- ✅ 取消、迟到事件和操作超时安全收敛
 
 ### v0.5 - 真实设备（计划中）
 - 📋 MQTT 设备通信
@@ -184,6 +157,7 @@ EXCLUDE USING gist (
 ```go
 type DeviceGateway interface {
     StartPickup(ctx, cmd) error          // 发送命令
+	AbortOperation(ctx, cmd) error        // 安全中止执行中操作
     RegisterEventHandler(handler)        // 注册回调
 }
 
@@ -245,13 +219,11 @@ User (U001)
 | v0.3.0 | ✅ | 2026-08 | 产品级小程序 UI/UX |
 | v0.3.1 | ✅ | 2026-08 | 契约对齐和文档完善 |
 | Sprint 4.1 | ✅ | 2026-09-03 | Backend Foundation |
-| Sprint 4.2 | 🔄 | - | Auth + User |
-| Sprint 4.3 | 📋 | - | Key + Device |
-| Sprint 4.4 | 📋 | - | Reservation |
-| Sprint 4.5 | 📋 | - | BorrowRecord |
-| Sprint 4.6 | 📋 | - | DeviceOperation |
-| Sprint 4.7 | 📋 | - | 前端集成 |
-| Sprint 4.8 | 📋 | - | 全系统验收 |
+| Sprint 4.2-4.8 | ✅ | 2026-09 | Auth、业务实体、完整借还链路与前端 API 接入 |
+| Sprint 4.9 | ✅ | 2026-09-08 | 状态机、事务、超时、登录与真实数据收口 |
+| Sprint 4.10 | ✅ 核心完成 | 2026-09-08 | 预约审批、身份核验与禁用用户登录拦截 |
+| Sprint 5.0 | 📋 | - | MQTT DeviceGateway |
+| Sprint 5.1 | 📋 | - | 真实柜机联调与故障注入验收 |
 
 ## 测试
 
@@ -269,11 +241,12 @@ go test ./...
 go test ./... -cover
 ```
 
-### 前端测试
-微信开发者工具手动测试：
-- 页面功能测试
-- 组件交互测试
-- Mock Service 验证
+### 前端检查
+```bash
+npm run check
+```
+
+实体扫码、柜机动作和传感器链路仍需在微信开发者工具与真实硬件上验收。
 
 ## 提交规范
 
@@ -298,7 +271,6 @@ docs: add Sprint 4.1 completion report
 ## 贡献者
 
 - 项目负责人：XIAOcx
-- AI 助手：Claude Opus 4.8
 
 ## 许可证
 

@@ -19,6 +19,7 @@ export const MOCK_USERS: User[] = [
     status: 'ACTIVE' as UserStatus,
     creditScore: 100,
     profileCompleted: true,
+	identityVerified: true,
   },
   {
     id: 'A001',
@@ -30,6 +31,7 @@ export const MOCK_USERS: User[] = [
     status: 'ACTIVE' as UserStatus,
     creditScore: 100,
     profileCompleted: true,
+	identityVerified: true,
   },
 ]
 
@@ -41,12 +43,14 @@ export const MOCK_DEVICES: Device[] = [
   {
     id: 'CAB001',
     name: '一号钥匙柜（信息楼）',
+	location: '信息楼 1F 门厅东侧',
     status: DeviceStatus.ONLINE,
     lastHeartbeat: Date.now(),
   },
   {
     id: 'CAB002',
     name: '二号钥匙柜（实验楼）',
+	location: '工程实训楼 1F 入口',
     status: DeviceStatus.OFFLINE,
     lastHeartbeat: Date.now() - 300000,
   },

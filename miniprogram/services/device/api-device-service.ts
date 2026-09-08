@@ -20,6 +20,11 @@ function normalizeDevice(data: ApiDevice): Device {
 export class ApiDeviceService implements DeviceService {
   private readonly listeners = new Map<string, Set<DeviceEventListener>>()
 
+	async listDevices(): Promise<Device[]> {
+		const devices = await httpClient.request<ApiDevice[]>({ url: '/api/v1/devices' })
+		return devices.map(normalizeDevice)
+	}
+
   async getDeviceStatus(deviceId: string): Promise<Device> {
     const device = await httpClient.request<ApiDevice>({
       url: `/api/v1/devices/${encodeURIComponent(deviceId)}/status`,

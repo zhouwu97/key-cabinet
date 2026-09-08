@@ -16,7 +16,7 @@ Page({
     operation: null as DeviceOperation | null,
     key: null as Key | null,
     device: null as Device | null,
-    deviceName: '1号钥匙柜 (信息楼一楼大厅)',
+	deviceName: '设备信息待获取',
     currentStepNumber: 1,
     steps: [] as StepItem[],
     userPromptTitle: '正在建立设备会话',
@@ -25,6 +25,7 @@ Page({
     isFinished: false,
     hasError: false,
     errorMessage: '',
+	cancelling: false,
   },
 
   onLoad(options: any) {
@@ -66,8 +67,18 @@ Page({
       ])
 
       const isFinished = operation.status === DeviceOperationStatus.SUCCESS
-      const hasError = operation.status === DeviceOperationStatus.FAILED
-      const deviceName = device?.name || (operation.deviceId === 'CAB001' ? '1号钥匙柜 (信息楼一楼大厅)' : operation.deviceId)
+		const hasError = [
+			DeviceOperationStatus.FAILED,
+			DeviceOperationStatus.TIMEOUT,
+			DeviceOperationStatus.CANCELLED,
+		].includes(operation.status)
+		const terminalMessage =
+			operation.status === DeviceOperationStatus.CANCELLED
+				? '操作已取消'
+				: operation.status === DeviceOperationStatus.TIMEOUT
+					? '设备操作超时'
+					: '操作执行中断'
+		const deviceName = device?.name || operation.deviceId || '设备信息待获取'
 
       this.setData({
         operationId: operation.id,
@@ -78,7 +89,7 @@ Page({
         loading: false,
         isFinished,
         hasError,
-        errorMessage: operation.errorMessage || '',
+		errorMessage: operation.errorMessage || (hasError ? terminalMessage : ''),
       })
 
       this.initSteps(operation.action)
@@ -89,7 +100,7 @@ Page({
       if (isFinished) {
         this.markAllStepsFinished()
       } else if (hasError) {
-        this.markStepError(operation.errorMessage || '操作执行中断')
+		this.markStepError(operation.errorMessage || terminalMessage)
       }
     } catch (e: any) {
       console.error('初始化操作页面失败', e)
@@ -167,19 +178,18 @@ Page({
           steps,
           currentStepNumber: 2,
           userPromptTitle: '钥匙柜响应就绪',
-          userPromptDesc: '已与 1 号钥匙柜建立连接，即将启动机械寻位',
+		userPromptDesc: `已与 ${this.data.deviceName} 建立连接，即将启动机械寻位`,
         })
         break
 
       case DeviceEvent.AUTH_CONFIRMED:
         steps[0].status = 'finish'
-        steps[1].status = 'finish'
-        steps[2].status = 'process'
+		steps[1].status = 'process'
         this.setData({
           steps,
-          currentStepNumber: 3,
-          userPromptTitle: '正在定位钥匙',
-          userPromptDesc: `机械转盘正在旋转将 ${keyName} 对准取还口，请勿触碰柜体`,
+		  currentStepNumber: 2,
+		  userPromptTitle: '身份与权限核验通过',
+		  userPromptDesc: `正在等待 ${this.data.deviceName} 确认执行指令`,
         })
         break
 
@@ -306,6 +316,31 @@ Page({
     }
     this.setData({ steps, hasError: true })
   },
+
+	async cancelOperation() {
+		if (!this.data.operationId || this.data.cancelling) return
+		const result = await wx.showModal({
+			title: '取消设备操作',
+			content: '仅在设备能够安全停止时才会取消；机械动作已无法中止时，系统会继续显示执行状态。',
+		})
+		if (!result.confirm) return
+		this.setData({ cancelling: true })
+		try {
+			await operationService.cancelOperation(this.data.operationId)
+			operationService.unsubscribeOperation(this.data.operationId, this.onDeviceEvent)
+			this.markStepError('操作已安全取消')
+			this.setData({
+				hasError: true,
+				errorMessage: '操作已安全取消',
+				userPromptTitle: '操作已取消',
+				userPromptDesc: '设备已确认停止，本次操作未生效。',
+			})
+		} catch (error: any) {
+			wx.showToast({ title: error.message || '当前操作无法安全取消', icon: 'none' })
+		} finally {
+			this.setData({ cancelling: false })
+		}
+	},
 
   goHome() {
     wx.switchTab({ url: '/pages/home/home' })
