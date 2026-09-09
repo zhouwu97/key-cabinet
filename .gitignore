@@ -3,3 +3,9 @@ miniprogram/miniprogram_npm/
 .DS_Store
 project.private.config.json
 .test-dist/
+__pycache__/
+*.pyc
+templates/
+build/
+sdkconfig
+
