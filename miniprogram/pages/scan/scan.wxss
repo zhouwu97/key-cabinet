@@ -49,14 +49,18 @@
 .scan-icon-wrap {
   width: 130rpx;
   height: 130rpx;
-  line-height: 130rpx;
   border-radius: 65rpx;
   background-color: #f0f4ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0 auto 24rpx auto;
 }
 
-.scan-icon {
-  font-size: 64rpx;
+.scan-icon-img {
+  width: 60rpx;
+  height: 60rpx;
+  display: block;
 }
 
 .scan-target-text {
@@ -93,9 +97,11 @@
   text-align: left;
 }
 
-.error-icon {
-  font-size: 28rpx;
-  line-height: 1.4;
+.error-icon-img {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
+  margin-top: 4rpx;
 }
 
 .error-text {

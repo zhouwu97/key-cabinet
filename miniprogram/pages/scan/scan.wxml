@@ -4,7 +4,7 @@
     <view class="mode-badge {{mode === 'PICKUP' ? 'badge-blue' : 'badge-green'}}">
       {{mode === 'PICKUP' ? '现场取钥核验' : '现场归还核验'}}
     </view>
-    <view class="mode-title">{{key ? key.roomNo + ' ' + key.name : '钥匙柜自助服务'}}</view>
+    <view class="mode-title">{{keyDisplayName || (key ? key.name : '钥匙柜自助服务')}}</view>
     <view class="mode-sub">
       {{mode === 'PICKUP' ? '请前往钥匙所在柜机，扫描柜身二维码核验' : '请前往归还钥匙柜，扫描柜身二维码确认'}}
     </view>
@@ -14,7 +14,7 @@
   <view wx:if="{{!verified}}" class="scan-section card">
     <view class="scan-target-box">
       <view class="scan-icon-wrap">
-        <text class="scan-icon">📷</text>
+        <image class="scan-icon-img" src="/assets/icons/icon-scan.svg" mode="aspectFit" />
       </view>
       <view class="scan-target-text">请扫描钥匙柜二维码</view>
       <view class="scan-target-hint">二维码位于钥匙柜屏幕下方或柜门右上方</view>
@@ -25,7 +25,7 @@
 
     <!-- 校验错误提示 -->
     <view wx:if="{{verifyError}}" class="error-banner">
-      <text class="error-icon">⚠️</text>
+      <image class="error-icon-img" src="/assets/icons/icon-warning.svg" mode="aspectFit" />
       <text class="error-text">{{verifyError}}</text>
     </view>
 
@@ -55,7 +55,7 @@
     <view class="card op-info-card">
       <view class="op-section-label">本次操作</view>
       <view class="op-key-row">
-        <text class="op-key-name">{{key ? key.roomNo + ' · ' + key.name : '目标钥匙'}}</text>
+        <text class="op-key-name">{{keyDisplayName || (key ? key.name : '目标钥匙')}}</text>
         <text class="op-badge {{mode === 'PICKUP' ? 'badge-blue' : 'badge-green'}}">
           {{mode === 'PICKUP' ? '取钥' : '归还'}}
         </text>

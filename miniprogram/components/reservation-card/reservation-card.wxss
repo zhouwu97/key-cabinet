@@ -46,6 +46,14 @@
   flex: 1;
 }
 
+.card {
+  background-color: var(--kc-surface, #ffffff);
+  border: 1rpx solid var(--kc-border, rgba(227, 230, 236, 0.9));
+  border-radius: var(--kc-radius-lg, 32rpx);
+  box-shadow: var(--kc-shadow-card, 0 2rpx 4rpx rgba(20, 28, 44, 0.02));
+  box-sizing: border-box;
+}
+
 .card-actions {
   display: flex;
   gap: 16rpx;
@@ -59,4 +67,32 @@
   height: 80rpx;
   line-height: 80rpx;
   font-size: 28rpx;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.outline-btn {
+  width: 100%;
+  border: 1rpx solid var(--kc-line-strong, #d9dde5);
+  background-color: #ffffff;
+  color: var(--kc-text-secondary, #5e6673);
+  border-radius: var(--kc-radius-md, 20rpx);
+  font-weight: 600;
+}
+
+.outline-btn:active {
+  background-color: #f7f8fa;
+}
+
+.primary-btn {
+  width: 100%;
+  border: 0;
+  border-radius: var(--kc-radius-md, 20rpx);
+  background-color: var(--kc-primary, #2f67f6);
+  color: #ffffff;
+  font-weight: 650;
+}
+
+.primary-btn:active {
+  background-color: var(--kc-primary-hover, #2458dc);
 }

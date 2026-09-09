@@ -67,8 +67,10 @@ Page({
 		const device = key.deviceId
 			? await deviceService.getDeviceStatus(key.deviceId).catch(() => null)
 			: null
+		const keyDisplayName = (!key.roomNo || key.name.includes(key.roomNo)) ? key.name : `${key.roomNo}室 · ${key.name}`
 		this.setData({
 			key,
+			keyDisplayName,
 			deviceName: device?.name || key.deviceId || '未绑定柜机',
 			deviceLocation: device?.location || '位置未提供',
 			loading: false,

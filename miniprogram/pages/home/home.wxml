@@ -32,7 +32,7 @@
     <view class="progress-main">
       <view class="progress-info">
         <view class="progress-key">
-          {{activeOperationKey ? activeOperationKey.roomNo + ' ' + activeOperationKey.name : '钥匙操作'}}
+          {{activeOperationKeyName || (activeOperationKey ? activeOperationKey.name : '钥匙操作')}}
         </view>
         <view class="progress-meta">
           {{activeOperation.action === 'PICKUP' ? '正在现场取钥' : '正在到柜归还'}} · {{deviceName}}
@@ -115,15 +115,21 @@
     <section-header title="常用服务" subTitle="快速进入常用功能" />
     <view class="quick-grid card">
       <view class="quick-item" bindtap="goKeys">
-        <view class="quick-icon">🔑</view>
+        <view class="quick-icon">
+          <image class="quick-icon-img" src="/assets/icons/icon-key.svg" mode="aspectFit" />
+        </view>
         <text class="quick-name">找钥匙</text>
       </view>
       <view class="quick-item" bindtap="goRecords">
-        <view class="quick-icon">📋</view>
+        <view class="quick-icon">
+          <image class="quick-icon-img" src="/assets/icons/icon-record.svg" mode="aspectFit" />
+        </view>
         <text class="quick-name">借还记录</text>
       </view>
       <view class="quick-item" bindtap="goHelp">
-        <view class="quick-icon">📜</view>
+        <view class="quick-icon">
+          <image class="quick-icon-img" src="/assets/icons/icon-rule.svg" mode="aspectFit" />
+        </view>
         <text class="quick-name">使用守则</text>
       </view>
     </view>

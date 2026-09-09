@@ -34,7 +34,7 @@
   <view wx:elif="{{activeTab === 'CURRENT'}}">
     <view wx:if="{{currentTotalCount === 0}}" class="card">
       <empty-state
-        icon="🔑"
+        icon="/assets/icons/icon-key.svg"
         title="当前无进行中的借还任务"
         description="您当前没有待取钥预约或借出中的钥匙，如需使用请前往找钥匙"
         actionText="去预约钥匙"
@@ -80,7 +80,7 @@
   <view wx:elif="{{activeTab === 'HISTORY'}}">
     <view wx:if="{{historyBorrows.length === 0}}" class="card">
       <empty-state
-        icon="📋"
+        icon="/assets/icons/icon-record.svg"
         title="暂无历史归还记录"
         description="您完成的钥匙借还台账流水将在此展示"
       />
@@ -103,7 +103,7 @@
   <view wx:elif="{{activeTab === 'EXCEPTION'}}">
     <view wx:if="{{exceptionBorrows.length === 0}}" class="card">
       <empty-state
-        icon="✅"
+        icon="/assets/icons/icon-success.svg"
         title="记录良好，暂无异常与逾期"
         description="您的钥匙借还履约记录良好，请继续保持"
       />

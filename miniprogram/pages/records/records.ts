@@ -92,7 +92,11 @@ Page({
 
       const getKeyName = (keyId: string) => {
         const key = keyMap[keyId]
-        return key ? `${key.roomNo} ${key.name}` : keyId
+        if (!key) return keyId
+        if (!key.roomNo || key.name.includes(key.roomNo)) {
+          return key.name
+        }
+        return `${key.roomNo}室 · ${key.name}`
       }
 
       // 格式化当前有效待履约预约

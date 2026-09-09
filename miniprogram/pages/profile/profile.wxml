@@ -50,7 +50,9 @@
   <!-- 个人身份与认证 (.menu-card) -->
   <view class="menu-card card">
     <view class="menu-item" bindtap="goIdentityBind">
-      <view class="menu-icon">🪪</view>
+      <view class="menu-icon">
+        <image class="menu-icon-img" src="/assets/icons/icon-id.svg" mode="aspectFit" />
+      </view>
       <text class="menu-label">身份认证信息</text>
       <view class="menu-extra">
         <text class="tag-dev">
@@ -63,17 +65,23 @@
   <!-- 常见服务与使用守则 (.menu-card) -->
   <view class="menu-card card">
     <view class="menu-item" bindtap="showHelpModal">
-      <view class="menu-icon">💡</view>
+      <view class="menu-icon">
+        <image class="menu-icon-img" src="/assets/icons/icon-help.svg" mode="aspectFit" />
+      </view>
       <text class="menu-label">借还流程与常见问题</text>
       <text class="chev">›</text>
     </view>
     <view class="menu-item" bindtap="showLocationsModal">
-      <view class="menu-icon">🏢</view>
+      <view class="menu-icon">
+        <image class="menu-icon-img" src="/assets/icons/icon-cabinet.svg" mode="aspectFit" />
+      </view>
       <text class="menu-label">钥匙柜分布与位置</text>
       <text class="chev">›</text>
     </view>
     <view class="menu-item" bindtap="showRulesModal">
-      <view class="menu-icon">📜</view>
+      <view class="menu-icon">
+        <image class="menu-icon-img" src="/assets/icons/icon-rule.svg" mode="aspectFit" />
+      </view>
       <text class="menu-label">实验室钥匙使用守则</text>
       <text class="chev">›</text>
     </view>
@@ -82,7 +90,9 @@
   <!-- 管理员与系统控制台 (仅管理员可见) -->
   <view wx:if="{{user.role === 'ADMIN'}}" class="menu-card card">
     <view class="menu-item" bindtap="goAdmin">
-      <view class="menu-icon">🛠️</view>
+      <view class="menu-icon">
+        <image class="menu-icon-img" src="/assets/icons/icon-admin.svg" mode="aspectFit" />
+      </view>
       <text class="menu-label">管理中心 · 开发诊断控制台</text>
       <view class="menu-extra">
         <text class="tag-dev">管理员</text>
@@ -94,7 +104,9 @@
   <!-- 系统关于说明 (.menu-card) -->
   <view class="menu-card card">
     <view class="menu-item" bindtap="showAbout">
-      <view class="menu-icon">ℹ️</view>
+      <view class="menu-icon">
+        <image class="menu-icon-img" src="/assets/icons/icon-about.svg" mode="aspectFit" />
+      </view>
       <text class="menu-label">关于钥匙借还</text>
       <text class="chev">›</text>
     </view>

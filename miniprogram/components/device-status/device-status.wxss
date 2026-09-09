@@ -18,7 +18,18 @@
 }
 
 .device-icon {
-  font-size: 36rpx;
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.device-icon-img {
+  width: 38rpx;
+  height: 38rpx;
+  display: block;
 }
 
 .device-name {

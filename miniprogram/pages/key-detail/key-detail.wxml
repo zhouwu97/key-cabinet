@@ -6,7 +6,7 @@
 
   <view wx:elif="{{!key}}" class="card">
     <empty-state
-      icon="🔑"
+      icon="/assets/icons/icon-key.svg"
       title="钥匙不存在"
       description="未找到该钥匙信息，可能已被移除或停用"
       actionText="返回列表"
@@ -18,7 +18,7 @@
     <!-- 普通用户核心卡片：名称、状态、所在柜 -->
     <view class="card">
       <view class="detail-header">
-        <view class="room-title">{{key.roomNo}} · {{key.name}}</view>
+        <view class="room-title">{{keyDisplayName || key.name}}</view>
         <status-badge text="{{statusLabel}}" tone="{{statusTone}}" dot="{{true}}" />
       </view>
 
@@ -93,7 +93,10 @@
 
     <!-- 管理员/开发模式底层硬件诊断 (折叠面板) -->
     <view wx:if="{{isAdminOrDev}}" class="card debug-card">
-      <view class="debug-title">⚙️ 底层硬件与物理槽位 (开发/管理员视图)</view>
+      <view class="debug-title">
+        <image class="debug-icon-img" src="/assets/icons/icon-admin.svg" mode="aspectFit" />
+        <text>底层硬件与物理槽位 (开发/管理员视图)</text>
+      </view>
       <view class="info-row">
         <text class="info-label">钥匙 ID</text>
         <text class="mono-val">{{key.id}}</text>

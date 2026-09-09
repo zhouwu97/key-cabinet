@@ -119,10 +119,14 @@
 
 .menu-icon {
   width: 54rpx;
-  font-size: 34rpx;
   display: flex;
   align-items: center;
-  color: var(--kc-text-secondary, #5e6673);
+}
+
+.menu-icon-img {
+  width: 36rpx;
+  height: 36rpx;
+  display: block;
 }
 
 .menu-label {

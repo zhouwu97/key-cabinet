@@ -43,9 +43,9 @@
     <!-- 动态行动指引横幅 (当前发生什么 / 下一步我需要做什么) -->
     <view class="guidance-banner {{isFinished ? 'guidance-finish' : (hasError ? 'guidance-error' : 'guidance-active')}}">
       <view class="guidance-icon">
-        <text wx:if="{{isFinished}}">🎉</text>
-        <text wx:elif="{{hasError}}">⚠️</text>
-        <text wx:else>💡</text>
+        <image wx:if="{{isFinished}}" class="guidance-icon-img" src="/assets/icons/icon-success.svg" mode="aspectFit" />
+        <image wx:elif="{{hasError}}" class="guidance-icon-img" src="/assets/icons/icon-warning.svg" mode="aspectFit" />
+        <image wx:else class="guidance-icon-img" src="/assets/icons/icon-help.svg" mode="aspectFit" />
       </view>
       <view class="guidance-content">
         <view class="guidance-main">{{userPromptTitle}}</view>

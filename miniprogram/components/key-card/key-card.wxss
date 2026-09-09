@@ -1,3 +1,11 @@
+.card {
+  background-color: var(--kc-surface, #ffffff);
+  border: 1rpx solid var(--kc-border, rgba(227, 230, 236, 0.9));
+  border-radius: var(--kc-radius-lg, 32rpx);
+  box-shadow: var(--kc-shadow-card, 0 2rpx 4rpx rgba(20, 28, 44, 0.02));
+  box-sizing: border-box;
+}
+
 .key-card {
   padding: 28rpx 28rpx 24rpx;
   margin-bottom: 20rpx;

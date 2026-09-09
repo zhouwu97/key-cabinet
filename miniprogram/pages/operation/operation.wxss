@@ -82,8 +82,18 @@
 }
 
 .guidance-icon {
-  font-size: 36rpx;
-  line-height: 1;
+  width: 44rpx;
+  height: 44rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.guidance-icon-img {
+  width: 40rpx;
+  height: 40rpx;
+  display: block;
 }
 
 .guidance-content {

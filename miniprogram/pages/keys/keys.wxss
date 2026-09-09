@@ -17,8 +17,10 @@
   gap: 12rpx;
 }
 
-.offline-icon {
-  font-size: 30rpx;
+.offline-icon-img {
+  width: 32rpx;
+  height: 32rpx;
+  flex-shrink: 0;
 }
 
 .offline-text {

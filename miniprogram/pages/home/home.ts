@@ -52,6 +52,16 @@ function isRecordOverdue(record: BorrowRecord): boolean {
   return Date.now() > record.expectedReturnAt
 }
 
+function formatKeyDisplayName(key: Key | null | undefined, fallback: string): string {
+  if (!key) return fallback
+  const name = key.name || fallback
+  const room = key.roomNo || ''
+  if (!room || name.includes(room)) {
+    return name
+  }
+  return `${room} 室 · ${name}`
+}
+
 Page({
   data: {
     user: null as User | null,
@@ -63,6 +73,7 @@ Page({
     // P0: 未完成中断操作
     activeOperation: null as DeviceOperation | null,
     activeOperationKey: null as Key | null,
+    activeOperationKeyName: '',
 
     // P1: 逾期借用
     overdueBorrows: [] as BorrowViewModel[],
@@ -107,10 +118,12 @@ Page({
         ].includes(activeOp.status)
 
       let activeOpKey: Key | null = null
+      let activeOperationKeyName = ''
       if (isOpInProgress && activeOp) {
         activeOpKey = await keyService.getKeyById(activeOp.keyId)
+        activeOperationKeyName = formatKeyDisplayName(activeOpKey, '钥匙操作')
       } else {
-        this.setData({ activeOperation: null, activeOperationKey: null })
+        this.setData({ activeOperation: null, activeOperationKey: null, activeOperationKeyName: '' })
       }
 
       if (user) {
@@ -135,7 +148,7 @@ Page({
             const key = keyMap.get(r.keyId)
             return {
               ...r,
-              keyName: key?.name || r.keyId,
+              keyName: formatKeyDisplayName(key, r.keyId),
               roomNo: key?.roomNo || '',
 				deviceId: key?.deviceId || '',
               pickupWindowStartText: formatTime(r.pickupWindowStart),
@@ -156,7 +169,7 @@ Page({
           const overdue = isRecordOverdue(b)
           const vm: BorrowViewModel = {
             ...b,
-            keyName: key?.name || b.keyId,
+            keyName: formatKeyDisplayName(key, b.keyId),
             roomNo: key?.roomNo || '',
             isOverdue: overdue,
             expectedReturnText: formatTime(b.expectedReturnAt),
@@ -205,6 +218,7 @@ Page({
 			totalSlotCount,
           activeOperation: isOpInProgress ? activeOp : null,
           activeOperationKey: activeOpKey,
+          activeOperationKeyName,
           overdueBorrows,
           activeReservations,
           normalBorrows,
@@ -222,6 +236,7 @@ Page({
 			deviceStatsKnown: false,
           activeOperation: null,
           activeOperationKey: null,
+          activeOperationKeyName: '',
           overdueBorrows: [],
           activeReservations: [],
           normalBorrows: [],

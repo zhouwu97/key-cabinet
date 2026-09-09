@@ -1,7 +1,9 @@
 <view class="device-card">
   <view class="device-top">
     <view class="device-info">
-      <view class="device-icon">🏢</view>
+      <view class="device-icon">
+        <image class="device-icon-img" src="/assets/icons/icon-cabinet.svg" mode="aspectFit" />
+      </view>
       <view>
         <view class="device-name">{{name || '智能钥匙柜'}}</view>
         <view wx:if="{{location}}" class="device-location">{{location}}</view>

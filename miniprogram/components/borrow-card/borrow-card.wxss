@@ -51,8 +51,56 @@
   font-weight: 600;
 }
 
+.card {
+  background-color: var(--kc-surface, #ffffff);
+  border: 1rpx solid var(--kc-border, rgba(227, 230, 236, 0.9));
+  border-radius: var(--kc-radius-lg, 32rpx);
+  box-shadow: var(--kc-shadow-card, 0 2rpx 4rpx rgba(20, 28, 44, 0.02));
+  box-sizing: border-box;
+}
+
+.task-accent {
+  border-left: 6rpx solid var(--kc-danger, #e5484d) !important;
+}
+
 .card-actions {
   margin-top: 24rpx;
   padding-top: 20rpx;
   border-top: 1rpx solid var(--kc-line, #e7e9ee);
+}
+
+.danger-btn {
+  width: 100%;
+  height: 84rpx;
+  line-height: 84rpx;
+  border: 0;
+  border-radius: var(--kc-radius-md, 20rpx);
+  background-color: var(--kc-danger, #e5484d);
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: 650;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.danger-btn:active {
+  opacity: 0.9;
+}
+
+.primary-btn {
+  width: 100%;
+  height: 84rpx;
+  line-height: 84rpx;
+  border: 0;
+  border-radius: var(--kc-radius-md, 20rpx);
+  background-color: var(--kc-primary, #2f67f6);
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: 650;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.primary-btn:active {
+  background-color: var(--kc-primary-hover, #2458dc);
 }

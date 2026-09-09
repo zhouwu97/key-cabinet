@@ -1,6 +1,6 @@
 <view class="card reservation-card">
   <view class="card-head">
-    <view class="task-title">{{reservation.roomNo ? reservation.roomNo + ' ' : ''}}{{reservation.keyName}}</view>
+    <view class="task-title">{{reservation.keyName}}</view>
     <status-badge text="{{reservation.statusLabel || '待取钥'}}" tone="{{reservation.statusTone || 'blue'}}" dot="{{false}}" />
   </view>
 

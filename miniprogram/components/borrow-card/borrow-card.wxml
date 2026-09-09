@@ -1,6 +1,6 @@
 <view class="card borrow-card {{borrow.isOverdue ? 'task-accent' : ''}}">
   <view class="card-head">
-    <view class="task-title">{{borrow.roomNo ? borrow.roomNo + ' ' : ''}}{{borrow.keyName}}</view>
+    <view class="task-title">{{borrow.keyName}}</view>
     <status-badge
       text="{{borrow.statusLabel || (borrow.isOverdue ? '已逾期' : '借用中')}}"
       tone="{{borrow.statusTone || (borrow.isOverdue ? 'red' : 'green')}}"

@@ -53,9 +53,11 @@ Page({
       const statusTone = KEY_STATUS_TONE[key.status] || 'gray'
       const presenceLabel = slot ? (KEY_PRESENCE_LABEL[slot.presence] || '未知') : '离柜'
 		const deviceName = device?.name || key.deviceId || '未绑定柜机'
+      const keyDisplayName = (!key.roomNo || key.name.includes(key.roomNo)) ? key.name : `${key.roomNo}室 · ${key.name}`
 
       this.setData({
         key,
+        keyDisplayName,
         slot,
         deviceName,
         statusLabel,

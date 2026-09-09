@@ -23,6 +23,7 @@ Page({
     key: null as Key | null,
     device: null as Device | null,
     userName: '',
+    keyDisplayName: '',
 	cabinetName: '设备信息待获取',
 	cabinetLocation: '位置未提供',
 	isOnline: false,
@@ -62,10 +63,15 @@ Page({
 			? await deviceService.getDeviceStatus(expectedDeviceId)
 			: null
 
+      const keyDisplayName = key
+        ? (!key.roomNo || key.name.includes(key.roomNo) ? key.name : `${key.roomNo}室 · ${key.name}`)
+        : ''
+
       this.setData({
 			expectedDeviceId,
         userName: user?.name || '',
         key: key || null,
+        keyDisplayName,
         device: device || null,
 		cabinetName: device?.name || '设备信息待获取',
 		cabinetLocation: device?.location || '位置未提供',

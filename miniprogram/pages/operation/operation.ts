@@ -167,7 +167,8 @@ Page({
 
   handleEventProgress(msg: DeviceEventMessage) {
     const isPickup = this.data.operation?.action === DeviceOperationAction.PICKUP
-    const keyName = this.data.key ? `${this.data.key.roomNo} ${this.data.key.name}` : '钥匙'
+    const key = this.data.key
+    const keyName = key ? ((!key.roomNo || key.name.includes(key.roomNo)) ? key.name : `${key.roomNo}室 · ${key.name}`) : '钥匙'
     const steps = [...this.data.steps]
 
     switch (msg.event) {

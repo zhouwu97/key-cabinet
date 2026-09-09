@@ -91,10 +91,19 @@
 }
 
 .debug-title {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
   font-size: 26rpx;
   font-weight: 650;
   color: var(--kc-primary, #2f67f6);
   margin-bottom: 16rpx;
+}
+
+.debug-icon-img {
+  width: 28rpx;
+  height: 28rpx;
+  flex-shrink: 0;
 }
 
 .mono-val {

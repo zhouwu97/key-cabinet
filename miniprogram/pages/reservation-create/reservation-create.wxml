@@ -7,7 +7,7 @@
     <!-- 钥匙基本信息头卡片 -->
     <view class="key-header-card card">
       <view class="key-header-row">
-        <view class="key-room-title">{{key.roomNo}} · {{key.name}}</view>
+        <view class="key-room-title">{{keyDisplayName || key.name}}</view>
         <view class="avail-badge">● 可预约</view>
       </view>
       <view class="key-cabinet-info">
