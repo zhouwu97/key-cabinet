@@ -32,7 +32,7 @@ extern "C" {
 // 4G Cat.1 / Cat.4 模块串口引脚 (SIM7600CE / A7670C)
 #define PIN_4G_UART_TX          17
 #define PIN_4G_UART_RX          16
-#define PIN_4G_PWR_EN           4
+#define PIN_4G_PWR_EN           13  // 独立电源使能 GPIO (避免与 GPIO4 蜂鸣器冲突)
 
 // ==========================================
 // 2. 硬件 GPIO 管脚分配

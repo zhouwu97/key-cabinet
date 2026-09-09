@@ -50,7 +50,8 @@ func main() {
 	if !ok {
 		log.Fatal("Device repository does not support runtime status updates")
 	}
-	deviceGateway, err := newDeviceGateway(cfg.Device, deviceStatusSink)
+	inventoryReconciler := service.NewInventoryReconciler(slotRepo, keyRepo, deviceRepo)
+	deviceGateway, err := newDeviceGateway(cfg.Device, deviceStatusSink, inventoryReconciler)
 	if err != nil {
 		log.Fatalf("Failed to initialize device gateway: %v", err)
 	}
@@ -102,7 +103,7 @@ func main() {
 	}
 }
 
-func newDeviceGateway(cfg config.DeviceConfig, statusSink device.DeviceStatusSink) (device.DeviceGateway, error) {
+func newDeviceGateway(cfg config.DeviceConfig, statusSink device.DeviceStatusSink, inventorySink device.DeviceInventorySink) (device.DeviceGateway, error) {
 	switch strings.ToLower(strings.TrimSpace(cfg.GatewayType)) {
 	case "", "mock":
 		return device.NewMockDeviceGateway(), nil
@@ -117,7 +118,7 @@ func newDeviceGateway(cfg config.DeviceConfig, statusSink device.DeviceStatusSin
 			ConnectTimeout:   time.Duration(cfg.MQTTConnectTimeoutSec) * time.Second,
 			CommandTimeout:   time.Duration(cfg.MQTTCommandTimeoutSec) * time.Second,
 			HeartbeatTimeout: time.Duration(cfg.MQTTHeartbeatTimeoutSec) * time.Second,
-		}, statusSink)
+		}, statusSink, inventorySink)
 	default:
 		return nil, fmt.Errorf("unsupported device gateway %q", cfg.GatewayType)
 	}

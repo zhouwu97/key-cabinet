@@ -36,6 +36,11 @@ void motor_request_abort(void);
 bool motor_is_abort_requested(void);
 
 /**
+ * @brief 清除中止标志（仅在新指令动作启动时调用）
+ */
+void motor_clear_abort(void);
+
+/**
  * @brief 启动电机控制 FreeRTOS 任务
  */
 void motor_task_start(void);

@@ -16,7 +16,8 @@ recognition:
   template_dir: "templates"
   max_faces_track: 1
   # 可选指定的深度模型路径 (ONNX 或 RKNN)
-  model_path: ""
+  model_path: "edge/rk3588/face_app/models/mobilefacenet.onnx"
+  allow_handcrafted_fallback: false
 
 liveness:
   laplacian_threshold: 85.0    # 模糊度拦截阈值 (Laplacian 方差，<85.0 判定虚焦/低质照片)

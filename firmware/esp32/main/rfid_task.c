@@ -8,6 +8,7 @@
 #include "rc522.h"
 #include "sensor_task.h"
 #include "protocol.h"
+#include "motor_task.h"
 
 static const char *TAG = "RFID_TASK";
 
@@ -25,12 +26,17 @@ static void beep_feedback(int count, int duration_ms) {
 bool rfid_verify_return(const cabinet_command_t *cmd) {
     if (!cmd) return false;
 
-    ESP_LOGI(TAG, "等待用户将钥匙插入槽位 #%d (超时=%d 秒)...", cmd->slot_no, cmd->timeout_sec);
-    int wait_limit = cmd->timeout_sec > 0 ? cmd->timeout_sec : 60;
+    int wait_limit = cmd->timeout_sec > 0 ? cmd->timeout_sec : 120;
+    ESP_LOGI(TAG, "等待钥匙插入槽位 #%d (超时=%d秒)...", cmd->slot_no, wait_limit);
+
     bool inserted = false;
 
-    // 1. 轮询等待钥匙插入微动闭合
+    // 1. 轮询等待钥匙插入微动闭合 (支持实时抢占中止)
     for (int i = 0; i < wait_limit * 10; i++) {
+        if (motor_is_abort_requested()) {
+            ESP_LOGW(TAG, "归还等待由于收到 ABORT 指令被抢占中止");
+            return false;
+        }
         if (sensor_get_slot_presence(cmd->slot_no)) {
             inserted = true;
             break;

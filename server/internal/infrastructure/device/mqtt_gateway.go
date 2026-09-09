@@ -111,7 +111,7 @@ type mqttStatusEnvelope struct {
 	Timestamp int64  `json:"timestamp"`
 }
 
-func NewMQTTDeviceGateway(config MQTTGatewayConfig, statusSink DeviceStatusSink) (*MQTTDeviceGateway, error) {
+func NewMQTTDeviceGateway(config MQTTGatewayConfig, statusSink DeviceStatusSink, inventorySink DeviceInventorySink) (*MQTTDeviceGateway, error) {
 	if strings.TrimSpace(config.Broker) == "" {
 		return nil, errors.New("mqtt broker is required")
 	}
@@ -139,12 +139,13 @@ func NewMQTTDeviceGateway(config MQTTGatewayConfig, statusSink DeviceStatusSink)
 	}
 
 	gateway := &MQTTDeviceGateway{
-		config:       config,
-		statusSink:   statusSink,
-		deviceStates: make(map[string]mqttDeviceState),
-		abortWaiters: make(map[string]chan abortResult),
-		seenMessages: make(map[string]time.Time),
-		stopCh:       make(chan struct{}),
+		config:        config,
+		statusSink:    statusSink,
+		inventorySink: inventorySink,
+		deviceStates:  make(map[string]mqttDeviceState),
+		abortWaiters:  make(map[string]chan abortResult),
+		seenMessages:  make(map[string]time.Time),
+		stopCh:        make(chan struct{}),
 	}
 	options := mqtt.NewClientOptions().
 		AddBroker(config.Broker).

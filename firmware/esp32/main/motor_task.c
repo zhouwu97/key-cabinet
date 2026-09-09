@@ -48,8 +48,16 @@ bool motor_is_abort_requested(void) {
     return s_abort_requested;
 }
 
-static bool step_motor(int steps, bool dir) {
+void motor_clear_abort(void) {
     s_abort_requested = false;
+}
+
+static bool step_motor(int steps, bool dir) {
+    if (s_abort_requested) {
+        gpio_set_level(PIN_MOTOR_EN, 1);
+        ESP_LOGW(TAG, "电机已被中止，拒绝启动步进脉冲");
+        return false;
+    }
     gpio_set_level(PIN_MOTOR_EN, 0); // 使能电机
     gpio_set_level(PIN_MOTOR_DIR, dir ? 1 : 0);
     ets_delay_us(50);
@@ -105,7 +113,6 @@ bool motor_dispense_slot(int slot_no) {
         return false;
     }
 
-    s_abort_requested = false;
     int target_steps = 400 + (slot_no * 600);
     ESP_LOGI(TAG, "执行槽位 #%d 推杆出钥动作 (步数=%d)...", slot_no, target_steps);
 

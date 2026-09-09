@@ -55,7 +55,8 @@ class RK3588EdgeApplication:
         self.face_engine = FaceEngine(
             template_dir=rec_cfg.get("template_dir", "templates"),
             device_secret=self.device_secret,
-            model_path=rec_cfg.get("model_path")
+            model_path=rec_cfg.get("model_path"),
+            allow_handcrafted_fallback=rec_cfg.get("allow_handcrafted_fallback", False)
         )
 
         self.conf_threshold = rec_cfg.get("confidence_threshold", 0.80)

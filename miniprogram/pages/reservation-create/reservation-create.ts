@@ -9,6 +9,7 @@ import { CreateReservationParams } from '../../services/reservation/index'
 import { OperationErrorCode } from '../../models/operation-error'
 import { formatTime } from '../../utils/date'
 import { ApiException } from '../../api/http-client'
+import { currentConfig } from '../../config/index'
 
 Page({
   data: {
@@ -168,8 +169,9 @@ Page({
       if (typeof wx !== 'undefined' && typeof wx.requestSubscribeMessage === 'function') {
         try {
           await new Promise<void>((resolve) => {
+            const tmpl = currentConfig.subscriptionTemplates
             wx.requestSubscribeMessage({
-              tmplIds: ['kcab_tmpl_return_reminder_v1', 'kcab_tmpl_overdue_alert_v1'],
+              tmplIds: [tmpl.returnReminder, tmpl.overdueAlert],
               success: (res) => {
                 console.log('微信服务通知订阅成功:', res)
                 resolve()

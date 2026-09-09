@@ -4,20 +4,21 @@
 
 智能钥匙自助借还系统（Key Cabinet）是一个面向校园/企业的钥匙管理系统，支持微信小程序预约、自助取还钥匙、设备联动控制。
 
-**当前阶段**: 真实系统收口（Real-flow Hardening）
+**当前阶段**: Sprint 6.1 实机验收修正收口（软硬件全闭环完成度 ~75%，推进实机验收）
 
 ## 最新进展
 
-### ✅ Sprint 6 实体硬件与边缘真实性收口（2026-09-09）
+### ✅ Sprint 6.1 实机验收修正收口（2026-09-09）
 
-本轮针对真实硬件环境完成了关键收口，杜绝“代码写直方图却声称深度特征”、“未连网却声称固件完成”、“未检测微动却上报成功”等脱节问题：
-1. **RK3588 真实生物人脸识别**：接入深度模型接口与 5 点人脸对齐，提取标准 512 维 L2 归一化特征向量，彻底剔除画面中央假人脸降级；生物特征模板结合设备密钥采用 **AES-256-GCM** 算法加密持久化存储 (`.enc`)。
-2. **静默活体防攻击 (PAD)**：分离清晰度阈值 (`laplacian_threshold: 85.0`) 与综合通过置信度 (`accept_score: 0.85`)，引入 FFT 频域中高频段峰均功率比 (PAPR) 摩尔条纹尖峰检验与 HSV 反光过曝分析，多维加权连续打分。
-3. **ESP32 固件真正联网与校时**：实现 Wi-Fi STA 联网流程与网络就绪前置阻塞；启动 SNTP 授时同步 RTC 时间（未授时返回 0 由服务端接收时间兜底）；提供 4G Modem (esp_modem/PPP) 串口抽象。
-4. **全物理传感器闭环与紧急中止**：出钥必须检测到槽位微动从 `PRESENT -> ABSENT`（钥匙被拔出）且安全柜门闭合；归还必须检测微动闭合 + RFID 匹配 + 柜门闭合；支持下行 `CMD_TYPE_ABORT` 实时切断步进电机脉冲并硬件失能。
-5. **服务端 Inventory 消费与对账**：Go MQTT 网关订阅 `status/inventory`，解析物理槽位快照并与数据库槽位状态进行审计对账。
-6. **安全收口**：设备通信密钥全量采用 32-byte CSPRNG 随机十六进制字符串，移除可预测 fallback；`FaceSessionMiddleware` 强校验现场认证柜机 ID 与 Token 绑定一致性；小程序接入 `wx.requestSubscribeMessage` 授权。
-7. **RK3588 触屏 UI 业务串联**：`TouchscreenKioskUI` 接入主事件循环，支持刷脸认证通过后在虚拟触控键盘上输入任意房间号现场申请出钥。
+针对实机真实性和物理闭环关键点进行了深度硬化，彻底解决文档比代码领先的问题：
+1. **强制真实深度人脸模型与禁用伪特征**：默认部署并加载真实 512 维 MobileFaceNet ONNX 深度模型与 YuNet 检测器，生产模式 (`allow_handcrafted_fallback=false`) 下无模型严禁启动与人脸认证；仅在本地离线调试时允许手工 HOG 梯度回退。
+2. **真实 5 点人脸仿射对齐**：YuNet 输出提取 [右眼, 左眼, 鼻尖, 右嘴角, 左嘴角] 5 关键点，通过 `cv2.estimateAffinePartial2D` 计算相似变换矩阵并经 `cv2.warpAffine` 旋转平移生成标准 112×112 对齐人脸。
+3. **安全柜门未关绝不上报 SUCCESS**：出钥与归还流程等待用户关门 30 秒超时，未闭合时必须上报 `DOOR_OPEN_TIMEOUT` 并标记 `FAILED`，杜绝假闭环。
+4. **ABORT 指令实时硬件抢占**：下行 `CMD_TYPE_ABORT` 在 MQTT 事件回调中立即拦截并调用 `motor_request_abort()` 断电失能电机，跳过阻塞的业务 worker 队列并立即广播终态；等待循环全面支持抢占；新任务启动时才重置 abort 标志。
+5. **Inventory 物理盘点与数据库对账器**：构建 `InventoryReconciler` 直接注入 `MQTTDeviceGateway`，实时把微动在位同步到数据库，并比对实读 RFID 与绑定钥匙 `RFIDTag`，告警 `WRONG_KEY_IN_SLOT`、`MISSING_KEY`、`UNEXPECTED_KEY` 异常。
+6. **真实 CSPRNG 密钥重置**：数据库迁移升级采用 PostgreSQL `pgcrypto` 扩展的 `gen_random_bytes(32)`，生成真正不可预测的高熵 64 位十六进制设备密钥。
+7. **ESP32 硬件引脚冲突消除**：将 4G 模组电源使能引脚从 GPIO 4 调整为 GPIO 13，彻底消除与蜂鸣器 GPIO 4 的引脚冲突。
+8. **微信服务通知模板配置统一**：小程序前端配置与服务端环境变量统一切换至标准配置体系。
 
 ## 技术栈
 
@@ -32,14 +33,14 @@
 - **语言**: Go 1.26.2
 - **Web 框架**: Gin
 - **ORM**: GORM
-- **数据库**: PostgreSQL 14+
+- **数据库**: PostgreSQL 14+ (pgcrypto)
 - **认证**: JWT (HS256) + 设备 HMAC-SHA256 防重放签名
-- **物联网**: MQTT v3.1.1 (TLS/QoS 1)
+- **物联网**: MQTT v3.1.1 QoS 1（TLS 待实机部署挂载 CA 证书）
 - **迁移工具**: golang-migrate
 
 ### 边缘计算与固件
-- **ESP32**: ESP-IDF v5.0+ FreeRTOS C 固件 (RC522 RFID, A4988 步进推杆, 槽位微动, 门磁, Wi-Fi STA, SNTP)
-- **RK3588**: Python 3.8+ 边缘终端 (512-d Biometric Embedding, AES-256-GCM 模板加密, 静默活体 PAD, Tkinter 触屏 Kiosk UI)
+- **ESP32**: ESP-IDF v5.0+ FreeRTOS C 固件 (RC522 RFID, A4988 步进推杆, 槽位微动, 门磁, Wi-Fi STA, SNTP, 抢占式 Abort)
+- **RK3588**: Python 3.8+ 边缘终端 (MobileFaceNet 512-d Embedding, YuNet 5点仿射对齐, AES-256-GCM 模板加密, 静默活体 PAD, Tkinter 触屏 Kiosk UI)
 
 ## 项目结构
 
@@ -54,6 +55,7 @@ key-cabinet/
 ├── edge/                 # 瑞芯微 RK3588 边缘计算工程 (Python)
 │   └── rk3588/
 │       ├── face_app/     # 人脸识别、活体防攻击、触屏 Kiosk UI 与签名通信
+│       │   └── models/   # MobileFaceNet 与 YuNet ONNX 深度模型
 │       └── tests/        # 边缘端自动化测试
 └── docs/                 # 协议设计与架构文档
 ```
@@ -77,23 +79,24 @@ key-cabinet/
 - ✅ 预约 → 取钥 → 借用 → 归还完整主链
 - ✅ 取消、迟到事件和操作超时安全收敛
 
-### v0.5 - 实体机电与网络固件（已完成）
-- ✅ MQTT 设备通信网关 (QoS 1 保证、状态对账)
-- ✅ ESP32 生产级固件 (FreeRTOS)
+### v0.5 - 实体机电与网络固件（代码实现完成，待实体硬件验收）
+- ✅ MQTT 设备通信网关 (QoS 1 保证、实时 Inventory 数据库对账器注入)
+- ✅ ESP32 固件工程 (FreeRTOS 模块化架构)
 - ✅ Wi-Fi STA 联网与 SNTP 毫秒授时
-- ✅ 4G Modem (esp_modem/PPP) 架构抽象
+- 📐 4G 模组串口接口规划与引脚定义 (GPIO13 独立使能，待实插 SIM 拨号)
 - ✅ RC522 13.56MHz 4 字节标准 UID 防错还
-- ✅ 步进电机原点限位与 Abort 紧急切断
-- ✅ 槽位微动与柜门磁全物理传感器闭环
-- ✅ `status/inventory` 槽位物理状态上报与服务端对账
+- ✅ 步进电机原点限位与 MQTT 抢占式异步硬件失能中止 (Abort Preemption)
+- ✅ 物理全闭环保障：取还未确认关门 (DoorClosed) 绝不上报 SUCCESS，超时报告 DOOR_OPEN_TIMEOUT (FAILED)
+- ✅ `status/inventory` 槽位物理状态上报与 `InventoryReconciler` 自动对账 (RFID 错还检测、失位检测)
 
-### v0.6 - 边缘人脸识别与触屏终端（已完成）
-- ✅ RK3588 512 维生物特征特征提取
+### v0.6 - 边缘人脸识别与触屏终端（边缘终端框架完成，待真实模型与真人 PAD 验收）
+- ✅ 强制部署真实深度人脸模型 (MobileFaceNet ONNX 512-d)，生产模式禁止静默回退手工梯度
+- ✅ YuNet 5 点面部关键点仿射相似变换对齐 (`cv2.estimateAffinePartial2D` + `cv2.warpAffine` 映射至 112×112)
 - ✅ AES-256-GCM 模板强加密持久化存储 (`.enc`)
-- ✅ 静默活体防攻击 (PAD: Laplacian 散焦 + FFT 频域摩尔尖峰 PAPR + HSV 过曝)
-- ✅ 柜机设备 HMAC-SHA256 防篡改防重放签名
+- ✅ 静默活体防攻击 (PAD: Laplacian 散焦 + FFT 频域摩尔尖峰 PAPR + HSV 过曝分析)
+- ✅ 柜机设备 HMAC-SHA256 防篡改防重放签名通信
 - ✅ FaceSessionToken 现场授权与跨柜绑定强校验
-- ✅ Tkinter 触控屏幕数字键盘与全流程业务串联
+- ✅ Tkinter 触控屏幕虚拟键盘与全流程业务串联
 
 ## 技术亮点
 

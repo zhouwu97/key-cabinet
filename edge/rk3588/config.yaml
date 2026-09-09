@@ -15,7 +15,8 @@ recognition:
   confidence_threshold: 0.80
   template_dir: "templates"
   max_faces_track: 1
-  model_path: ""
+  model_path: "edge/rk3588/face_app/models/mobilefacenet.onnx"
+  allow_handcrafted_fallback: false # 生产模式禁止伪特征回退；仅在本地无模型调试时可显式设为 true
 
 liveness:
   laplacian_threshold: 85.0    # 模糊度拦截阈值 (Laplacian 方差，<85.0 判定虚焦/低质照片)

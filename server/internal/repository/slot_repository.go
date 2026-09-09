@@ -24,4 +24,5 @@ type SlotRepository interface {
 	FindByID(ctx context.Context, id string) (*Slot, error)
 	FindByKeyID(ctx context.Context, keyID string) (*Slot, error)
 	FindByDeviceID(ctx context.Context, deviceID string) ([]*Slot, error)
+	UpdatePresence(ctx context.Context, id string, presence string, updatedAt time.Time) error
 }

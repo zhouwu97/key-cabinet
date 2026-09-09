@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zhouwu97/key-cabinet/server/internal/repository"
@@ -76,6 +77,13 @@ func (r *fakeSlotRepository) FindByDeviceID(_ context.Context, _ string) ([]*rep
 		return nil, nil
 	}
 	return []*repository.Slot{r.slot}, nil
+}
+
+func (r *fakeSlotRepository) UpdatePresence(_ context.Context, id string, presence string, _ time.Time) error {
+	if r.slot != nil && r.slot.ID == id {
+		r.slot.Presence = presence
+	}
+	return nil
 }
 
 func TestKeyServiceListsKeysWithSupportedFilters(t *testing.T) {

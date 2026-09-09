@@ -22,6 +22,9 @@ static void execute_command(const cabinet_command_t *cmd) {
         ESP_LOGI(TAG, "开始执行借用出钥流程: OperationID=%s, SlotNo=%d, KeyID=%s",
                  cmd->operation_id, cmd->slot_no, cmd->key_id);
 
+        // 动作开始时重置中止标志
+        motor_clear_abort();
+
         // 1. 回复指令确认 ACK
         char *ack = protocol_build_ack(CABINET_DEVICE_ID, cmd->msg_id, cmd->operation_id, "COMMAND_ACK");
         if (ack) {
@@ -75,6 +78,10 @@ static void execute_command(const cabinet_command_t *cmd) {
         ESP_LOGI(TAG, "钥匙已被拔走，等待用户关闭安全柜门...");
         bool door_closed = false;
         for (int i = 0; i < 300; i++) { // 最多等 30 秒关门
+            if (motor_is_abort_requested()) {
+                ESP_LOGW(TAG, "关门等待期间收到中止指令，退出流程");
+                return;
+            }
             if (sensor_is_door_closed()) {
                 door_closed = true;
                 break;
@@ -82,7 +89,15 @@ static void execute_command(const cabinet_command_t *cmd) {
             vTaskDelay(pdMS_TO_TICKS(100));
         }
         if (!door_closed) {
-            ESP_LOGW(TAG, "安全柜门超时未关紧，请注意提示");
+            ESP_LOGE(TAG, "安全柜门超时未关紧，物理闭环失败，严禁上报成功！");
+            char *err_evt = protocol_build_progress_event(
+                CABINET_DEVICE_ID, cmd->operation_id, "DOOR_OPEN_TIMEOUT", "FAILED",
+                cmd->key_id, cmd->slot_no, "DOOR_NOT_CLOSED", "安全柜门未关紧，出钥流程未完成物理闭环");
+            if (err_evt) {
+                mqtt_publish_event("event/operation_progress", err_evt);
+                free(err_evt);
+            }
+            return;
         }
 
         // 5. 确认钥匙离柜且柜门关闭，上报终态 PICKUP_SUCCESS
@@ -99,6 +114,9 @@ static void execute_command(const cabinet_command_t *cmd) {
         ESP_LOGI(TAG, "开始执行钥匙归还防错还流程: OperationID=%s, TargetSlot=%d, ExpectedRFID=%s",
                  cmd->operation_id, cmd->slot_no, cmd->expected_rfid);
 
+        // 动作开始时重置中止标志
+        motor_clear_abort();
+
         // 1. 回复指令确认 ACK
         char *ack = protocol_build_ack(CABINET_DEVICE_ID, cmd->msg_id, cmd->operation_id, "COMMAND_ACK");
         if (ack) {
@@ -106,10 +124,10 @@ static void execute_command(const cabinet_command_t *cmd) {
             free(ack);
         }
 
-        // 2. 寻卡与 RFID 强匹配 (包含槽位在位微动闭合检测)
+        // 2. 寻卡与 RFID 强匹配 (包含槽位在位微动闭合检测与 abort 抢占)
         bool match = rfid_verify_return(cmd);
         if (!match) {
-            ESP_LOGW(TAG, "归还 RFID 校验不通过或超时，拒绝终态履约");
+            ESP_LOGW(TAG, "归还 RFID 校验不通过、超时或被抢占中止，拒绝终态履约");
             return;
         }
 
@@ -117,6 +135,10 @@ static void execute_command(const cabinet_command_t *cmd) {
         ESP_LOGI(TAG, "钥匙防错还校验通过，等待安全柜门完全关闭...");
         bool door_closed = false;
         for (int i = 0; i < 300; i++) { // 最多等 30 秒
+            if (motor_is_abort_requested()) {
+                ESP_LOGW(TAG, "归还关门等待期间收到中止指令，退出流程");
+                return;
+            }
             if (sensor_is_door_closed()) {
                 door_closed = true;
                 break;
@@ -124,7 +146,15 @@ static void execute_command(const cabinet_command_t *cmd) {
             vTaskDelay(pdMS_TO_TICKS(100));
         }
         if (!door_closed) {
-            ESP_LOGW(TAG, "归还完成但柜门尚未闭合，维持待关门状态");
+            ESP_LOGE(TAG, "钥匙已插入但柜门超时未闭合，物理闭环失败，严禁上报成功！");
+            char *err_evt = protocol_build_progress_event(
+                CABINET_DEVICE_ID, cmd->operation_id, "DOOR_OPEN_TIMEOUT", "FAILED",
+                cmd->key_id, cmd->slot_no, "DOOR_NOT_CLOSED", "安全柜门未关紧，归还流程未完成物理闭环");
+            if (err_evt) {
+                mqtt_publish_event("event/operation_progress", err_evt);
+                free(err_evt);
+            }
+            return;
         }
 
         // 4. 上报归还成功终态 RETURN_SUCCESS
@@ -198,7 +228,28 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         ESP_LOGI(TAG, "收到下行指令: Topic=%s, Payload=%s", topic_buf, payload_buf);
         cabinet_command_t cmd;
         if (protocol_parse_command(topic_buf, payload_buf, &cmd)) {
-            xQueueSend(s_cmd_queue, &cmd, 0);
+            if (cmd.type == CMD_TYPE_ABORT) {
+                ESP_LOGW(TAG, "⚡ 收到紧急中止指令，立即硬件抢占中断: OperationID=%s", cmd.operation_id);
+                // 1. 立即硬件断电失能并置位中断标志
+                motor_request_abort();
+
+                // 2. 立即上报 ABORT_ACK 与 ABORTED 终态（无需进入队列等待阻塞的业务 worker）
+                char *ack = protocol_build_ack(CABINET_DEVICE_ID, cmd.msg_id, cmd.operation_id, "ABORT_ACK");
+                if (ack) {
+                    mqtt_publish_event("event/ack", ack);
+                    free(ack);
+                }
+                char *abort_evt = protocol_build_progress_event(
+                    CABINET_DEVICE_ID, cmd.operation_id, "ABORTED", "SUCCESS",
+                    cmd.key_id, cmd.slot_no, NULL, NULL);
+                if (abort_evt) {
+                    mqtt_publish_event("event/operation_progress", abort_evt);
+                    free(abort_evt);
+                }
+                ESP_LOGI(TAG, "⚡ 紧急中止事件已直接响应并广播终态");
+            } else {
+                xQueueSend(s_cmd_queue, &cmd, 0);
+            }
         }
         break;
     }

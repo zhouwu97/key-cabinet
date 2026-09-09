@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/zhouwu97/key-cabinet/server/internal/repository"
 	"gorm.io/gorm"
@@ -46,6 +47,15 @@ func (r *PostgresSlotRepository) FindByDeviceID(ctx context.Context, deviceID st
 		return nil, err
 	}
 	return slots, nil
+}
+
+func (r *PostgresSlotRepository) UpdatePresence(ctx context.Context, id string, presence string, updatedAt time.Time) error {
+	return r.db.WithContext(ctx).Table("slots").
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"presence":   presence,
+			"updated_at": updatedAt,
+		}).Error
 }
 
 func (r *PostgresSlotRepository) slotQuery(ctx context.Context) *gorm.DB {

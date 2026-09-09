@@ -30,12 +30,15 @@ class FaceEngine:
         template_dir: str = "templates",
         min_face_size: int = 60,
         device_secret: str = "default_secret_key_change_in_production",
-        model_path: Optional[str] = None
+        model_path: Optional[str] = None,
+        allow_handcrafted_fallback: bool = False
     ):
         self.template_dir = template_dir
         self.min_face_size = min_face_size
         self.device_secret = device_secret or "default_secret_key_change_in_production"
         self.model_path = model_path
+        self.allow_handcrafted_fallback = allow_handcrafted_fallback
+        self.last_landmarks: Optional[np.ndarray] = None
         os.makedirs(self.template_dir, exist_ok=True)
 
         # 1. 深度检测器与特征提取器初始化
@@ -55,15 +58,16 @@ class FaceEngine:
         """初始化人脸检测器 (优先 YuNet，备用 Haar)"""
         # 若指定或当前存在 YuNet ONNX 模型
         yunet_paths = [
-            self.model_path,
+            self.model_path if (self.model_path and "yunet" in self.model_path.lower()) else None,
             os.path.join(os.path.dirname(__file__), "models", "face_detection_yunet_2023mar.onnx"),
+            "face_detection_yunet_2023mar.onnx",
             "face_detection_yunet.onnx"
         ]
         for p in yunet_paths:
             if p and os.path.exists(p) and hasattr(cv2, 'FaceDetectorYN'):
                 try:
                     self.detector_yn = cv2.FaceDetectorYN.create(p, "", (320, 320))
-                    logger.info(f"成功加载 YuNet 深度人脸检测模型: {p}")
+                    logger.info(f"✅ 成功加载 YuNet 深度人脸检测与关键点模型: {p}")
                     return
                 except Exception as e:
                     logger.warning(f"加载 YuNet 模型失败: {e}")
@@ -93,14 +97,16 @@ class FaceEngine:
         except Exception as e:
             logger.warning(f"RKNN 加载异常: {e}")
 
-        # 2. 尝试 ONNX Runtime
+        # 2. 尝试 ONNX Runtime (MobileFaceNet / ArcFace)
         try:
             import onnxruntime as ort
-            onnx_paths = [
-                self.model_path,
-                os.path.join(os.path.dirname(__file__), "models", "mobilefacenet.onnx"),
-                os.path.join(os.path.dirname(__file__), "models", "arcface_resnet100.onnx")
-            ]
+            if self.model_path:
+                onnx_paths = [self.model_path]
+            else:
+                onnx_paths = [
+                    os.path.join(os.path.dirname(__file__), "models", "mobilefacenet.onnx"),
+                    os.path.join(os.path.dirname(__file__), "models", "arcface_resnet100.onnx")
+                ]
             for op in onnx_paths:
                 if op and os.path.exists(op) and op.endswith(".onnx"):
                     self.onnx_session = ort.InferenceSession(op, providers=['CPUExecutionProvider'])
@@ -109,14 +115,25 @@ class FaceEngine:
         except Exception as e:
             logger.warning(f"ONNXRuntime 加载异常: {e}")
 
-        logger.info("运行于 CPU 深度空间特征提取模式 (512-d Biometric Embedding)")
+        # 3. 若均未载入有效深度神经网络
+        if self.rknn_session is None and self.onnx_session is None:
+            if not self.allow_handcrafted_fallback:
+                raise RuntimeError(
+                    "生产模式严禁无模型启动：未检测到有效 ArcFace/MobileFaceNet 模型 (RKNN/ONNX)。"
+                    "请配置有效的 recognition.model_path 或部署 models/mobilefacenet.onnx 模型文件。"
+                    "如仅在研发测试环境下运行，请显式配置 allow_handcrafted_fallback: true。"
+                )
+            logger.warning("⚠️ 警告：当前以研发模式启动，未加载深度神经网络模型，回退至手工梯度拓扑特征 (HOG 512D)！")
+        else:
+            logger.info("✅ 深度人脸识别模型已就绪 (512-d Biometric Embedding)")
 
     def detect_face(self, frame: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
         """
-        检测画面中的最大人脸。
+        检测画面中的最大人脸并记录 5 点面部关键点坐标。
         重要：若未检测到有效人脸，必须严格返回 None，绝不把画面中央当作人脸！
         :return: (x, y, w, h) 或 None
         """
+        self.last_landmarks = None
         if frame is None or frame.size == 0:
             return None
 
@@ -130,6 +147,16 @@ class FaceEngine:
                 # 选取置信度与面积综合最大的人脸
                 best_face = max(faces, key=lambda f: f[2] * f[3] * f[14])
                 fx, fy, fw, fh = int(best_face[0]), int(best_face[1]), int(best_face[2]), int(best_face[3])
+                # 提取 YuNet 5 点关键点: [右眼, 左眼, 鼻尖, 右嘴角, 左嘴角]
+                landmarks = np.array([
+                    [best_face[4], best_face[5]],
+                    [best_face[6], best_face[7]],
+                    [best_face[8], best_face[9]],
+                    [best_face[10], best_face[11]],
+                    [best_face[12], best_face[13]]
+                ], dtype=np.float32)
+                self.last_landmarks = landmarks
+
                 # 边界保护
                 fx = max(0, fx)
                 fy = max(0, fy)
@@ -138,7 +165,7 @@ class FaceEngine:
                 if fw >= self.min_face_size and fh >= self.min_face_size:
                     return (fx, fy, fw, fh)
 
-        # 2. Haar 级联检测器
+        # 2. Haar 级联检测器 (备用兜底)
         if self.face_cascade is not None:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             faces = self.face_cascade.detectMultiScale(
@@ -154,10 +181,37 @@ class FaceEngine:
         # 严格返回 None，杜绝中央 ROI 虚假假人脸！
         return None
 
-    def align_face(self, frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> np.ndarray:
+    def detect_face_with_landmarks(self, frame: np.ndarray) -> Tuple[Optional[Tuple[int, int, int, int]], Optional[np.ndarray]]:
+        """检测人脸并显式返回 (bbox, 5-landmarks)"""
+        bbox = self.detect_face(frame)
+        return bbox, self.last_landmarks
+
+    def align_face(
+        self,
+        frame: np.ndarray,
+        bbox: Optional[Tuple[int, int, int, int]] = None,
+        landmarks: Optional[np.ndarray] = None
+    ) -> np.ndarray:
         """
-        将检测到的人脸区域对齐裁剪为标准 112×112 人脸输入图像。
+        根据 5 点面部关键点执行相似变换仿射对齐 (cv2.estimateAffinePartial2D + warpAffine)，
+        生成标准 112×112 ArcFace / MobileFaceNet 对齐人脸；若无关键点则回退扩边裁剪。
         """
+        lm = landmarks if landmarks is not None else self.last_landmarks
+        if lm is not None and len(lm) == 5:
+            try:
+                M, _ = cv2.estimateAffinePartial2D(lm.astype(np.float32), STANDARD_LANDMARKS_112)
+                if M is not None:
+                    aligned = cv2.warpAffine(frame, M, (112, 112), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
+                    return aligned
+            except Exception as e:
+                logger.warning(f"5 点仿射对齐异常，降级至 bbox 裁剪: {e}")
+
+        # 降级模式：无关键点时的平移与缩放裁剪
+        if bbox is None:
+            bbox = self.detect_face(frame)
+        if bbox is None:
+            return cv2.resize(frame, (112, 112))
+
         x, y, w, h = bbox
         img_h, img_w = frame.shape[:2]
 
@@ -170,6 +224,8 @@ class FaceEngine:
         y2 = min(img_h, y + h + pad_y)
 
         face_roi = frame[y1:y2, x1:x2]
+        if face_roi.size == 0:
+            return cv2.resize(frame, (112, 112))
         aligned = cv2.resize(face_roi, (112, 112), interpolation=cv2.INTER_AREA)
         return aligned
 
@@ -215,8 +271,11 @@ class FaceEngine:
             except Exception as e:
                 logger.warning(f"ONNX 推理失败: {e}")
 
-        # 3. 标准多尺度面部几何结构与纹理深度特征嵌入 (Deterministic 512-d Biometric Embedding)
-        # 基于梯度方向、分块局部二值模式与面部拓扑特征，绝非颜色直方图
+        # 3. 兜底手工特征模式 (仅当显式允许 allow_handcrafted_fallback=True 时生效)
+        if not self.allow_handcrafted_fallback:
+            raise RuntimeError("未加载有效深度人脸识别模型，生产环境严禁提取手工梯度伪特征！")
+
+        # 基于梯度方向、分块局部二值模式与面部拓扑特征 (Deterministic 512-d Biometric Embedding)
         gray = cv2.cvtColor(aligned, cv2.COLOR_BGR2GRAY)
         norm_gray = cv2.equalizeHist(gray).astype(np.float32) / 255.0
 
