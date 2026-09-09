@@ -8,11 +8,16 @@
 
 ## 最新进展
 
-### ✅ Sprint 4.9 / 4.10 / 5.0 核心收口（2026-09-08）
+### ✅ Sprint 6 实体硬件与边缘真实性收口（2026-09-09）
 
-系统已打通微信登录、钥匙/设备/槽位、预约、取钥、借用、归还和操作事件主链。本轮完成了设备操作终态保护、安全取消、借还准备事务、操作超时收敛、登录 single-flight、结构化 API 错误、真实 API 去假数据，以及预约审批和学校身份核验闭环。
-
-首版 `MQTTDeviceGateway` 已支持连接与重连、心跳/LWT、取还命令、ACK、成功/失败事件、QoS 1 去重、安全中止和超时离线判定。当前最大缺口转为实体柜机联调与断网、重复消息、晚到消息、柜门未关、RFID 不一致等故障注入验收。
+本轮针对真实硬件环境完成了关键收口，杜绝“代码写直方图却声称深度特征”、“未连网却声称固件完成”、“未检测微动却上报成功”等脱节问题：
+1. **RK3588 真实生物人脸识别**：接入深度模型接口与 5 点人脸对齐，提取标准 512 维 L2 归一化特征向量，彻底剔除画面中央假人脸降级；生物特征模板结合设备密钥采用 **AES-256-GCM** 算法加密持久化存储 (`.enc`)。
+2. **静默活体防攻击 (PAD)**：分离清晰度阈值 (`laplacian_threshold: 85.0`) 与综合通过置信度 (`accept_score: 0.85`)，引入 FFT 频域中高频段峰均功率比 (PAPR) 摩尔条纹尖峰检验与 HSV 反光过曝分析，多维加权连续打分。
+3. **ESP32 固件真正联网与校时**：实现 Wi-Fi STA 联网流程与网络就绪前置阻塞；启动 SNTP 授时同步 RTC 时间（未授时返回 0 由服务端接收时间兜底）；提供 4G Modem (esp_modem/PPP) 串口抽象。
+4. **全物理传感器闭环与紧急中止**：出钥必须检测到槽位微动从 `PRESENT -> ABSENT`（钥匙被拔出）且安全柜门闭合；归还必须检测微动闭合 + RFID 匹配 + 柜门闭合；支持下行 `CMD_TYPE_ABORT` 实时切断步进电机脉冲并硬件失能。
+5. **服务端 Inventory 消费与对账**：Go MQTT 网关订阅 `status/inventory`，解析物理槽位快照并与数据库槽位状态进行审计对账。
+6. **安全收口**：设备通信密钥全量采用 32-byte CSPRNG 随机十六进制字符串，移除可预测 fallback；`FaceSessionMiddleware` 强校验现场认证柜机 ID 与 Token 绑定一致性；小程序接入 `wx.requestSubscribeMessage` 授权。
+7. **RK3588 触屏 UI 业务串联**：`TouchscreenKioskUI` 接入主事件循环，支持刷脸认证通过后在虚拟触控键盘上输入任意房间号现场申请出钥。
 
 ## 技术栈
 
@@ -21,89 +26,39 @@
 - WXML/WXSS
 - Domain-Driven Design
 - Mock / 真实 HTTP API 双模式
+- 微信服务通知订阅授权 (`wx.requestSubscribeMessage`)
 
 ### 后端（Go）
 - **语言**: Go 1.26.2
 - **Web 框架**: Gin
 - **ORM**: GORM
 - **数据库**: PostgreSQL 14+
-- **认证**: JWT (HS256)
+- **认证**: JWT (HS256) + 设备 HMAC-SHA256 防重放签名
+- **物联网**: MQTT v3.1.1 (TLS/QoS 1)
 - **迁移工具**: golang-migrate
 
-### 硬件（v0.5+）
-- ESP32/ESP8266 设备控制器
-- MQTT 通信协议
-- RK3588 人脸识别（v0.6+）
+### 边缘计算与固件
+- **ESP32**: ESP-IDF v5.0+ FreeRTOS C 固件 (RC522 RFID, A4988 步进推杆, 槽位微动, 门磁, Wi-Fi STA, SNTP)
+- **RK3588**: Python 3.8+ 边缘终端 (512-d Biometric Embedding, AES-256-GCM 模板加密, 静默活体 PAD, Tkinter 触屏 Kiosk UI)
 
 ## 项目结构
 
 ```
 key-cabinet/
 ├── miniprogram/          # 微信小程序前端
-│   ├── components/       # 自定义组件
-│   ├── models/           # 领域模型
-│   ├── services/         # 业务服务层
-│   ├── pages/            # 页面
-│   └── app.ts            # 小程序入口
-│
 ├── server/               # Go 后端服务
-│   ├── cmd/              # 命令行入口
-│   │   ├── api/          # API 服务器
-│   │   └── migrate/      # 数据库迁移
-│   ├── internal/         # 内部包
-│   │   ├── config/       # 配置管理
-│   │   ├── domain/       # 领域模型
-│   │   ├── service/      # 应用服务
-│   │   ├── repository/   # 数据访问
-│   │   ├── transport/    # HTTP 传输层
-│   │   ├── infrastructure/ # 基础设施
-│   │   └── platform/     # 平台层
-│   ├── migrations/       # SQL 迁移文件
-│   └── tests/            # 测试
-│
-└── docs/                 # 文档
-    ├── sprints/          # Sprint 计划和总结
-    ├── troubleshooting/  # 故障排查
-    └── *.md              # 各类文档
+├── firmware/             # ESP32 机电一体化固件工程 (ESP-IDF C)
+│   └── esp32/
+│       ├── main/         # 步进电机、RC522、传感器微动、网络管理与 MQTT
+│       └── CMakeLists.txt
+├── edge/                 # 瑞芯微 RK3588 边缘计算工程 (Python)
+│   └── rk3588/
+│       ├── face_app/     # 人脸识别、活体防攻击、触屏 Kiosk UI 与签名通信
+│       └── tests/        # 边缘端自动化测试
+└── docs/                 # 协议设计与架构文档
 ```
 
-## 快速开始
-
-### 前端（微信小程序）
-
-1. 安装微信开发者工具
-2. 导入项目（选择 `miniprogram/` 目录）
-3. 编译运行
-
-详见：[小程序 README](miniprogram/README.md)
-
-### 后端（Go 服务）
-
-```bash
-# 1. 安装依赖
-cd server
-go mod download
-
-# 2. 创建数据库
-createdb keycabinet
-
-# 3. 配置
-cp internal/config/config.example.yaml internal/config/config.yaml
-# 编辑 config.yaml，配置数据库连接
-
-# 4. 运行迁移
-go run cmd/migrate/main.go -command up
-
-# 5. 启动服务器
-go run cmd/api/main.go
-
-# 6. 验证
-curl http://localhost:8080/health
-```
-
-详见：[后端 README](server/README.md)
-
-## 核心功能
+## 核心功能进展
 
 ### v0.3.1 - 产品级小程序（已完成）
 - ✅ 微信小程序完整 UI/UX
@@ -112,7 +67,7 @@ curl http://localhost:8080/health
 - ✅ 取钥/还钥操作流程
 - ✅ 借用历史记录
 - ✅ 用户个人中心
-- ✅ 完整的 Mock Service
+- ✅ 微信服务通知订阅授权
 
 ### v0.4 - 软件闭环（已完成）
 - ✅ 微信登录、JWT、用户资料与身份核验
@@ -120,19 +75,25 @@ curl http://localhost:8080/health
 - ✅ 预约冲突控制、审批、拒绝与自动过期
 - ✅ BorrowRecord 和 DeviceOperation 事务落账
 - ✅ 预约 → 取钥 → 借用 → 归还完整主链
-- ✅ 小程序 Mock / API 模式切换与真实错误语义
 - ✅ 取消、迟到事件和操作超时安全收敛
 
-### v0.5 - 真实设备（进行中）
-- ✅ MQTT 设备通信网关
-- 📋 ESP32/ESP8266 控制器
-- 📋 真实电机和 RFID
-- ✅ 心跳、LWT 与超时离线监控
+### v0.5 - 实体机电与网络固件（已完成）
+- ✅ MQTT 设备通信网关 (QoS 1 保证、状态对账)
+- ✅ ESP32 生产级固件 (FreeRTOS)
+- ✅ Wi-Fi STA 联网与 SNTP 毫秒授时
+- ✅ 4G Modem (esp_modem/PPP) 架构抽象
+- ✅ RC522 13.56MHz 4 字节标准 UID 防错还
+- ✅ 步进电机原点限位与 Abort 紧急切断
+- ✅ 槽位微动与柜门磁全物理传感器闭环
+- ✅ `status/inventory` 槽位物理状态上报与服务端对账
 
-### v0.6 - 人脸识别（计划中）
-- 📋 RK3588 人脸识别
-- 📋 现场快速取钥
-- 📋 多种认证方式
+### v0.6 - 边缘人脸识别与触屏终端（已完成）
+- ✅ RK3588 512 维生物特征特征提取
+- ✅ AES-256-GCM 模板强加密持久化存储 (`.enc`)
+- ✅ 静默活体防攻击 (PAD: Laplacian 散焦 + FFT 频域摩尔尖峰 PAPR + HSV 过曝)
+- ✅ 柜机设备 HMAC-SHA256 防篡改防重放签名
+- ✅ FaceSessionToken 现场授权与跨柜绑定强校验
+- ✅ Tkinter 触控屏幕数字键盘与全流程业务串联
 
 ## 技术亮点
 

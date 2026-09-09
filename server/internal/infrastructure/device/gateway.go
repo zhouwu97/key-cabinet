@@ -55,3 +55,20 @@ type DeviceEventHandler interface {
 type DeviceStatusSink interface {
 	UpdateRuntimeStatus(ctx context.Context, deviceID, status string, lastSeen time.Time) error
 }
+
+type DeviceInventorySlot struct {
+	SlotNo   int    `json:"slotNo"`
+	Presence bool   `json:"presence"`
+	RFID     string `json:"rfid,omitempty"`
+}
+
+type DeviceInventorySnapshot struct {
+	DeviceID   string                `json:"deviceId"`
+	Timestamp  time.Time             `json:"timestamp"`
+	DoorClosed bool                  `json:"doorClosed"`
+	Slots      []DeviceInventorySlot `json:"slots"`
+}
+
+type DeviceInventorySink interface {
+	OnInventorySnapshot(ctx context.Context, snapshot DeviceInventorySnapshot) error
+}

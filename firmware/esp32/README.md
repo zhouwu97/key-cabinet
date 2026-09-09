@@ -27,13 +27,14 @@
 
 ## 2. 软件模块架构 (FreeRTOS)
 
-- `main.c`: 固件主入口，初始化 NVS、SPI、GPIO 并创建各个工作任务。
-- `rc522.c / rc522.h`: 13.56MHz 高频 ISO14443A 寻卡与防冲突驱动，读取 4/7 字节钥匙 UID。
-- `motor_task.c / motor_task.h`: 步进机构原点限位归零校准与槽位精确定位推杆控制。
+- `main.c`: 固件主入口，初始化 NVS、SPI、GPIO、网络管理器并创建各个工作任务。
+- `network_manager.c / network_manager.h`: Wi-Fi STA 自动连网、断线退避重连、SNTP 网络校准系统 RTC 时间，以及 4G 蜂窝模组 (SIM7600CE / A7670C) UART/PPP 驱动抽象。
+- `rc522.c / rc522.h`: 13.56MHz 高频 ISO14443A 寻卡与防冲突驱动，可靠读取 4 字节标准钥匙 UID (Mifare Classic / Ultralight)。
+- `motor_task.c / motor_task.h`: 步进机构原点限位归零校准、槽位精确定位推杆控制，并支持 `CMD_TYPE_ABORT` 紧急中断步进脉冲与释放电机使能。
 - `sensor_task.c / sensor_task.h`: 钥匙在位微动消抖、门磁检测，以及周期性向服务端主动上报 `status/inventory` 物理状态快照。
-- `rfid_task.c / rfid_task.h`: 归还流程防错还闭环：插入检测 $\to$ RFID 寻卡 $\to$ UID 与 `expectedRfidTag` 比对 $\to$ 上报 `event/rfid_scanned`。
-- `protocol.c / protocol.h`: cJSON 协议编解码（对接服务端 `docs/05-MQTT-PROTOCOL.md`）。
-- `mqtt_client_task.c / mqtt_client_task.h`: 维持 MQTT 长连接、LWT 遗嘱消息（`status/online`）、心跳广播（`status/heartbeat`）与指令队列调度。
+- `rfid_task.c / rfid_task.h`: 归还流程防错还闭环：插入检测 $\to$ RFID 寻卡 $\to$ UID 与 `expectedRfidTag` 比对 $\to$ 柜门闭合检验 $\to$ 上报终态。
+- `protocol.c / protocol.h`: cJSON 协议编解码（对接服务端 `docs/05-MQTT-PROTOCOL.md`），时间戳支持真实 Unix 毫秒时间与未授时零值回退。
+- `mqtt_client_task.c / mqtt_client_task.h`: 维持 MQTT 长连接、LWT 遗嘱消息（`status/online`）、心跳广播（`status/heartbeat`）、出钥/归还全物理传感器闭环确认与指令队列调度。
 
 ---
 

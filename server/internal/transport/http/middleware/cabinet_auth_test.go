@@ -43,6 +43,11 @@ func TestCabinetAuthMiddleware(t *testing.T) {
 				Status:       "OFFLINE",
 				DeviceSecret: secret,
 			},
+			"CAB_NO_SECRET": {
+				ID:           "CAB_NO_SECRET",
+				Status:       "ONLINE",
+				DeviceSecret: "",
+			},
 		},
 	}
 
@@ -148,6 +153,17 @@ func TestCabinetAuthMiddleware(t *testing.T) {
 		reqReplay.Header.Set("X-Signature", sig)
 		r.ServeHTTP(wReplay, reqReplay)
 		require.Equal(t, http.StatusUnauthorized, wReplay.Code)
+
+		// 7. 数据库未配置密钥时直接拒绝 (杜绝默认 fallback)
+		wNoSec := httptest.NewRecorder()
+		reqNoSec := httptest.NewRequest(http.MethodPost, "/api/v1/cabinet/test", bytes.NewBuffer(body))
+		reqNoSec.Header.Set("X-Cabinet-ID", "CAB_NO_SECRET")
+		reqNoSec.Header.Set("X-Timestamp", ts)
+		reqNoSec.Header.Set("X-Nonce", "nonce_no_sec")
+		reqNoSec.Header.Set("X-Signature", "some_sig")
+		r.ServeHTTP(wNoSec, reqNoSec)
+		require.Equal(t, http.StatusUnauthorized, wNoSec.Code)
+		require.Contains(t, wNoSec.Body.String(), "DEVICE_SECRET_NOT_CONFIGURED")
 	})
 }
 
@@ -178,4 +194,21 @@ func TestFaceSessionMiddleware(t *testing.T) {
 	w2 := httptest.NewRecorder()
 	r.ServeHTTP(w2, req2)
 	require.Equal(t, http.StatusOK, w2.Code)
+
+	// 3. 跨机柜盗用校验：上下文认证设备为 CAB002，但 Token 为 CAB001 时拒绝通过
+	rMismatched := gin.New()
+	rMismatched.Use(func(c *gin.Context) {
+		c.Set("cabinet_device_id", "CAB002") // 模拟由 HMAC 认证出的现场设备为 CAB002
+		c.Next()
+	})
+	rMismatched.Use(FaceSessionMiddleware(tokenSvc))
+	rMismatched.POST("/api/v1/cabinet/direct-dispense", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+	})
+	req3 := httptest.NewRequest(http.MethodPost, "/api/v1/cabinet/direct-dispense", nil)
+	req3.Header.Set("Authorization", "Bearer "+faceToken)
+	w3 := httptest.NewRecorder()
+	rMismatched.ServeHTTP(w3, req3)
+	require.Equal(t, http.StatusForbidden, w3.Code)
+	require.Contains(t, w3.Body.String(), "DEVICE_MISMATCH")
 }

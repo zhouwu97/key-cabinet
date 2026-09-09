@@ -9,13 +9,30 @@ extern "C" {
 #endif
 
 // ==========================================
-// 1. 设备与通信配置
+// 1. 设备与网络通信配置
 // ==========================================
 #define CABINET_DEVICE_ID       "CAB001"
 #define MQTT_TOPIC_PREFIX       "kcab"
 #define MQTT_DEFAULT_BROKER_URI "mqtt://192.168.1.100:1883"
+#define MQTT_USERNAME           "cab_device_CAB001"
+#define MQTT_PASSWORD           "cab_secret_mqtt_pass"
+#define MQTT_USE_TLS            0   // 置 1 时启用 mqtts:// 与 TLS CA 证书挂载
 #define HEARTBEAT_INTERVAL_SEC  25
 #define INVENTORY_INTERVAL_SEC  60
+
+// 网络接口模式切换
+#define NET_IF_WIFI             1
+#define NET_IF_4G_PPP           2
+#define ACTIVE_NETWORK_INTERFACE NET_IF_WIFI
+
+// Wi-Fi STA 配置
+#define WIFI_STA_SSID           "KeyCabinet_AP"
+#define WIFI_STA_PASSWORD       "CabinetPass888"
+
+// 4G Cat.1 / Cat.4 模块串口引脚 (SIM7600CE / A7670C)
+#define PIN_4G_UART_TX          17
+#define PIN_4G_UART_RX          16
+#define PIN_4G_PWR_EN           4
 
 // ==========================================
 // 2. 硬件 GPIO 管脚分配

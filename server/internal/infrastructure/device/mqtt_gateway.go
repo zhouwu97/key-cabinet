@@ -53,6 +53,7 @@ type MQTTDeviceGateway struct {
 	client     mqtt.Client
 	config     MQTTGatewayConfig
 	statusSink DeviceStatusSink
+	inventorySink DeviceInventorySink
 
 	handlerMu sync.RWMutex
 	handler   DeviceEventHandler
@@ -187,6 +188,12 @@ func (g *MQTTDeviceGateway) RegisterEventHandler(handler DeviceEventHandler) {
 	}
 }
 
+func (g *MQTTDeviceGateway) SetInventorySink(sink DeviceInventorySink) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.inventorySink = sink
+}
+
 func (g *MQTTDeviceGateway) StartPickup(ctx context.Context, command DeviceCommand) error {
 	return g.publishCommand(ctx, "pickup", command)
 }
@@ -302,6 +309,7 @@ func (g *MQTTDeviceGateway) subscribe(client mqtt.Client) error {
 		base + "event/ack":                g.config.QoS,
 		base + "status/heartbeat":         g.config.QoS,
 		base + "status/online":            g.config.QoS,
+		base + "status/inventory":         g.config.QoS,
 	}
 	token := client.SubscribeMultiple(topics, g.onMessage)
 	if !token.WaitTimeout(g.config.ConnectTimeout) {
@@ -405,6 +413,9 @@ func (g *MQTTDeviceGateway) handleIncoming(topic string, payload []byte) error {
 		return err
 	}
 	if strings.HasPrefix(suffix, "status/") {
+		if suffix == "status/inventory" {
+			return g.handleInventory(deviceID, payload)
+		}
 		return g.handleStatus(deviceID, suffix, payload)
 	}
 	var envelope mqttEventEnvelope
@@ -511,6 +522,60 @@ func (g *MQTTDeviceGateway) handleStatus(deviceID, suffix string, payload []byte
 	return nil
 }
 
+type mqttInventorySlot struct {
+	SlotNo   int    `json:"slotNo"`
+	Presence bool   `json:"presence"`
+	RFID     string `json:"rfid,omitempty"`
+}
+
+type mqttInventoryPayload struct {
+	DeviceID   string              `json:"deviceId"`
+	Timestamp  int64               `json:"timestamp"`
+	DoorClosed bool                `json:"doorClosed"`
+	Slots      []mqttInventorySlot `json:"slots"`
+}
+
+func (g *MQTTDeviceGateway) handleInventory(deviceID string, payload []byte) error {
+	var inv mqttInventoryPayload
+	if err := json.Unmarshal(payload, &inv); err != nil {
+		return fmt.Errorf("invalid inventory json: %w", err)
+	}
+	if inv.DeviceID == "" || inv.DeviceID != deviceID {
+		return errors.New("inventory device id does not match topic")
+	}
+	lastSeen := messageTime(inv.Timestamp)
+	g.mu.Lock()
+	g.deviceStates[deviceID] = mqttDeviceState{status: "ONLINE", lastSeen: lastSeen, receivedAt: time.Now()}
+	sink := g.inventorySink
+	statusSink := g.statusSink
+	g.mu.Unlock()
+
+	if statusSink != nil {
+		_ = statusSink.UpdateRuntimeStatus(context.Background(), deviceID, "ONLINE", lastSeen)
+	}
+
+	snapshot := DeviceInventorySnapshot{
+		DeviceID:   deviceID,
+		Timestamp:  lastSeen,
+		DoorClosed: inv.DoorClosed,
+		Slots:      make([]DeviceInventorySlot, len(inv.Slots)),
+	}
+	for i, s := range inv.Slots {
+		snapshot.Slots[i] = DeviceInventorySlot{
+			SlotNo:   s.SlotNo,
+			Presence: s.Presence,
+			RFID:     s.RFID,
+		}
+	}
+
+	if sink != nil {
+		if err := sink.OnInventorySnapshot(context.Background(), snapshot); err != nil {
+			log.Printf("[MQTTDeviceGateway] inventory sink reconciliation error for %s: %v", deviceID, err)
+		}
+	}
+	return nil
+}
+
 func (g *MQTTDeviceGateway) parseTopic(topic string) (string, string, error) {
 	prefix := g.config.TopicPrefix + "/cab/"
 	if !strings.HasPrefix(topic, prefix) {
@@ -580,7 +645,8 @@ func messageTime(timestamp int64) time.Time {
 		return time.Now().UTC()
 	}
 	parsed := time.UnixMilli(timestamp).UTC()
-	if parsed.After(time.Now().Add(5 * time.Minute)) {
+	// 若设备开机时间戳未通过 SNTP 网络校时 (如 1970 年)，或超过未来 5 分钟，收敛为服务器当前时间
+	if parsed.Year() < 2024 || parsed.After(time.Now().Add(5*time.Minute)) {
 		return time.Now().UTC()
 	}
 	return parsed

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -348,7 +349,7 @@ func (s *borrowService) executeReminderSend(ctx context.Context, record *reposit
 
 	msgReq := wechat.SubscribeMessageRequest{
 		ToUser:     openID,
-		TemplateID: reminder.Type + "_TEMPLATE_ID",
+		TemplateID: resolveReminderTemplateID(reminder.Type),
 		Page:       "pages/records/records",
 		Data: map[string]interface{}{
 			"thing1":  map[string]string{"value": keyName},
@@ -385,5 +386,25 @@ func isBorrowStatus(status string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func resolveReminderTemplateID(reminderType string) string {
+	switch reminderType {
+	case "RETURN_DUE", "RETURN_REMINDER":
+		if tmpl := os.Getenv("WECHAT_TEMPLATE_RETURN_REMINDER"); tmpl != "" {
+			return tmpl
+		}
+		return "kcab_tmpl_return_reminder_v1"
+	case "OVERDUE", "OVERDUE_ALERT":
+		if tmpl := os.Getenv("WECHAT_TEMPLATE_OVERDUE_ALERT"); tmpl != "" {
+			return tmpl
+		}
+		return "kcab_tmpl_overdue_alert_v1"
+	default:
+		if tmpl := os.Getenv("WECHAT_TEMPLATE_" + reminderType); tmpl != "" {
+			return tmpl
+		}
+		return "kcab_tmpl_general_notice_v1"
 	}
 }

@@ -26,6 +26,16 @@ bool motor_calibrate_home(void);
 bool motor_dispense_slot(int slot_no);
 
 /**
+ * @brief 请求紧急中止正在执行的电机动作
+ */
+void motor_request_abort(void);
+
+/**
+ * @brief 查询当前是否被请求中止
+ */
+bool motor_is_abort_requested(void);
+
+/**
  * @brief 启动电机控制 FreeRTOS 任务
  */
 void motor_task_start(void);

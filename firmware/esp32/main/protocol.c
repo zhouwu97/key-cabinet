@@ -6,10 +6,19 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 
+#include <sys/time.h>
+
 static const char *TAG = "PROTOCOL";
 
 static int64_t get_timestamp_ms(void) {
-    return esp_timer_get_time() / 1000;
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    // 若尚未通过 SNTP 网络校时 (系统时钟仍处于 1970 年)，返回 0
+    // 由服务端收到消息时以可靠接收时间替代，杜绝时钟混乱
+    if (tv.tv_sec < 1704067200) {
+        return 0;
+    }
+    return ((int64_t)tv.tv_sec * 1000) + (tv.tv_usec / 1000);
 }
 
 bool protocol_parse_command(const char *topic, const char *payload, cabinet_command_t *out_cmd) {

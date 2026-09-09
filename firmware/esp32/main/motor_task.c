@@ -36,17 +36,36 @@ esp_err_t motor_init(void) {
     return ESP_OK;
 }
 
-static void step_motor(int steps, bool dir) {
+static volatile bool s_abort_requested = false;
+
+void motor_request_abort(void) {
+    s_abort_requested = true;
+    gpio_set_level(PIN_MOTOR_EN, 1); // 立即硬件失能断电
+    ESP_LOGW(TAG, "⚠️ 电机中止请求已置位，脉冲立即停止");
+}
+
+bool motor_is_abort_requested(void) {
+    return s_abort_requested;
+}
+
+static bool step_motor(int steps, bool dir) {
+    s_abort_requested = false;
     gpio_set_level(PIN_MOTOR_EN, 0); // 使能电机
     gpio_set_level(PIN_MOTOR_DIR, dir ? 1 : 0);
     ets_delay_us(50);
 
     for (int i = 0; i < steps; i++) {
+        if (s_abort_requested) {
+            gpio_set_level(PIN_MOTOR_EN, 1);
+            ESP_LOGW(TAG, "步进脉冲在第 %d 步被中止", i);
+            return false;
+        }
         gpio_set_level(PIN_MOTOR_STEP, 1);
         ets_delay_us(MOTOR_STEP_DELAY_US);
         gpio_set_level(PIN_MOTOR_STEP, 0);
         ets_delay_us(MOTOR_STEP_DELAY_US);
     }
+    return true;
 }
 
 bool motor_calibrate_home(void) {
@@ -57,6 +76,10 @@ bool motor_calibrate_home(void) {
     ESP_LOGI(TAG, "开始原点归零校准...");
     int steps = 0;
     while (gpio_get_level(PIN_LIMIT_ORIGIN) == 0) {
+        if (s_abort_requested) {
+            gpio_set_level(PIN_MOTOR_EN, 1);
+            return false;
+        }
         gpio_set_level(PIN_MOTOR_STEP, 1);
         ets_delay_us(MOTOR_STEP_DELAY_US);
         gpio_set_level(PIN_MOTOR_STEP, 0);
@@ -82,16 +105,22 @@ bool motor_dispense_slot(int slot_no) {
         return false;
     }
 
-    // 计算槽位推进步数 (每个槽位间隔约 800 步)
+    s_abort_requested = false;
     int target_steps = 400 + (slot_no * 600);
     ESP_LOGI(TAG, "执行槽位 #%d 推杆出钥动作 (步数=%d)...", slot_no, target_steps);
 
     // 1. 正向推进推杆推出钥匙
-    step_motor(target_steps, true);
+    if (!step_motor(target_steps, true)) {
+        ESP_LOGW(TAG, "出钥推进被中止");
+        return false;
+    }
     vTaskDelay(pdMS_TO_TICKS(200));
 
     // 2. 反向拉回复位
-    step_motor(target_steps, false);
+    if (!step_motor(target_steps, false)) {
+        ESP_LOGW(TAG, "推杆回退被中止");
+        return false;
+    }
 
     // 3. 原点闭环校准
     bool home_ok = motor_calibrate_home();

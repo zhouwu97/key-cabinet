@@ -8,4 +8,6 @@ __pycache__/
 templates/
 build/
 sdkconfig
-
+config.local.yaml
+*.enc
+.env

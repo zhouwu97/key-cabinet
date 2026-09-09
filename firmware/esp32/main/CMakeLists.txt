@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS
         "main.c"
+        "network_manager.c"
         "protocol.c"
         "rc522.c"
         "motor_task.c"
@@ -17,4 +18,5 @@ idf_component_register(
         cjson
         driver
         esp_timer
+        lwip
 )

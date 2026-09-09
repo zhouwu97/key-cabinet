@@ -273,3 +273,53 @@ func TestMQTTGatewayValidatesTopicIdentityAndExternalIDLength(t *testing.T) {
 	assert.NotEqual(t, mqttEventID("CAB001", "evt-1"), mqttEventID("CAB002", "evt-1"))
 	assert.Equal(t, "cmd_pickup_op-1", commandMessageID("pickup", "op-1"))
 }
+
+type mqttTestInventorySink struct {
+	mu       sync.Mutex
+	snapshot DeviceInventorySnapshot
+}
+
+func (s *mqttTestInventorySink) OnInventorySnapshot(_ context.Context, snapshot DeviceInventorySnapshot) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.snapshot = snapshot
+	return nil
+}
+
+func TestMQTTGatewayReceivesAndProcessesInventory(t *testing.T) {
+	sink := &mqttTestStatusSink{}
+	gateway := newMQTTGatewayForTest(nil, sink)
+	invSink := &mqttTestInventorySink{}
+	gateway.SetInventorySink(invSink)
+
+	payload := []byte(`{
+		"deviceId": "CAB001",
+		"timestamp": 10000,
+		"doorClosed": true,
+		"slots": [
+			{"slotNo": 1, "presence": true, "rfid": "E2801105"},
+			{"slotNo": 2, "presence": false}
+		]
+	}`)
+
+	err := gateway.handleIncoming("kcab/cab/CAB001/status/inventory", payload)
+	require.NoError(t, err)
+
+	status, err := gateway.GetDeviceStatus(context.Background(), "CAB001")
+	require.NoError(t, err)
+	assert.True(t, status.Online)
+
+	invSink.mu.Lock()
+	defer invSink.mu.Unlock()
+	assert.Equal(t, "CAB001", invSink.snapshot.DeviceID)
+	assert.True(t, invSink.snapshot.DoorClosed)
+	require.Len(t, invSink.snapshot.Slots, 2)
+	assert.Equal(t, 1, invSink.snapshot.Slots[0].SlotNo)
+	assert.True(t, invSink.snapshot.Slots[0].Presence)
+	assert.Equal(t, "E2801105", invSink.snapshot.Slots[0].RFID)
+	assert.Equal(t, 2, invSink.snapshot.Slots[1].SlotNo)
+	assert.False(t, invSink.snapshot.Slots[1].Presence)
+
+	// 验证未对时时间戳 (10000 = 1970年) 自动收敛为当前时间
+	assert.GreaterOrEqual(t, invSink.snapshot.Timestamp.Year(), 2024)
+}

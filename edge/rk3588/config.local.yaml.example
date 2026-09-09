@@ -1,7 +1,7 @@
 cabinet:
+  # 真实柜机 ID 与 CSPRNG 64位随机十六进制 Secret
   device_id: "CAB001"
-  # 真实部署环境通过环境变量 CABINET_DEVICE_SECRET 或 config.local.yaml 注入
-  device_secret: ""
+  device_secret: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   server_url: "http://127.0.0.1:8080"
   timeout_seconds: 5
 
@@ -15,6 +15,7 @@ recognition:
   confidence_threshold: 0.80
   template_dir: "templates"
   max_faces_track: 1
+  # 可选指定的深度模型路径 (ONNX 或 RKNN)
   model_path: ""
 
 liveness:

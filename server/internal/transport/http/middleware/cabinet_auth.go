@@ -134,8 +134,12 @@ func CabinetAuthMiddleware(deviceRepo repository.DeviceRepository) gin.HandlerFu
 
 		secret := strings.TrimSpace(device.DeviceSecret)
 		if secret == "" {
-			// 若数据库未配置特定密钥，使用系统默认规则
-			secret = "cab_sec_" + device.ID
+			c.JSON(http.StatusUnauthorized, dto.NewErrorResponse(
+				"DEVICE_SECRET_NOT_CONFIGURED",
+				"Cabinet hardware device secret is not configured in database",
+			))
+			c.Abort()
+			return
 		}
 
 		// 4. 读取 Body 并计算 HMAC 签名
@@ -216,6 +220,19 @@ func FaceSessionMiddleware(tokenService *jwt.TokenService) gin.HandlerFunc {
 			))
 			c.Abort()
 			return
+		}
+
+		// 严格防跨柜盗用校验：当前请求已由 CabinetAuthMiddleware 进行 HMAC 认证时，
+		// FaceSessionToken 绑定的 device_id 必须与实际发起调用的柜机设备完全一致！
+		if authedDeviceID, exists := c.Get("cabinet_device_id"); exists {
+			if strID, ok := authedDeviceID.(string); ok && strID != "" && strID != claims.DeviceID {
+				c.JSON(http.StatusForbidden, dto.NewErrorResponse(
+					"DEVICE_MISMATCH",
+					"Face session token device does not match authenticated cabinet hardware",
+				))
+				c.Abort()
+				return
+			}
 		}
 
 		c.Set("user_id", claims.UserID)

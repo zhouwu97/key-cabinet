@@ -164,6 +164,27 @@ Page({
 
       await reservationService.createReservation(params)
 
+      // 引导用户授权微信归还与逾期服务通知
+      if (typeof wx !== 'undefined' && typeof wx.requestSubscribeMessage === 'function') {
+        try {
+          await new Promise<void>((resolve) => {
+            wx.requestSubscribeMessage({
+              tmplIds: ['kcab_tmpl_return_reminder_v1', 'kcab_tmpl_overdue_alert_v1'],
+              success: (res) => {
+                console.log('微信服务通知订阅成功:', res)
+                resolve()
+              },
+              fail: (err) => {
+                console.warn('微信服务通知订阅未授权或跳过:', err)
+                resolve()
+              },
+            })
+          })
+        } catch {
+          // 忽略订阅拒绝，不阻塞核心业务闭环
+        }
+      }
+
       wx.showToast({ title: '预约成功', icon: 'success' })
 
       setTimeout(() => {
