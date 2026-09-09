@@ -1,0 +1,20 @@
+idf_component_register(
+    SRCS
+        "main.c"
+        "protocol.c"
+        "rc522.c"
+        "motor_task.c"
+        "rfid_task.c"
+        "sensor_task.c"
+        "mqtt_client_task.c"
+    INCLUDE_DIRS
+        "."
+    REQUIRES
+        nvs_flash
+        esp_netif
+        esp_wifi
+        mqtt
+        cjson
+        driver
+        esp_timer
+)

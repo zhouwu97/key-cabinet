@@ -1,0 +1,17 @@
+cabinet:
+  device_id: "CAB001"
+  device_secret: "cab_sec_CAB001"
+  server_url: "http://127.0.0.1:8080"
+  timeout_seconds: 5
+
+camera:
+  device_index: 0
+  frame_width: 640
+  frame_height: 480
+  fps: 30
+
+recognition:
+  confidence_threshold: 0.80
+  liveness_threshold: 0.85
+  template_dir: "templates"
+  max_faces_track: 1
