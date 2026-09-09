@@ -26,5 +26,12 @@ wechat:
 device:
   gateway_type: mock # mock / mqtt
   mqtt_broker: tcp://localhost:1883
+  # 多实例部署时必须为每个 API 实例配置唯一 client_id。
+  mqtt_client_id: key-cabinet-api-local
   mqtt_username: ""
   mqtt_password: ""
+  mqtt_topic_prefix: kcab
+  mqtt_qos: 1
+  mqtt_connect_timeout_seconds: 10
+  mqtt_command_timeout_seconds: 5
+  mqtt_heartbeat_timeout_seconds: 90

@@ -1,25 +1,30 @@
 .section-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20rpx;
+  align-items: flex-end;
+  gap: 24rpx;
+  margin: 0 4rpx 20rpx;
 }
 
 .title-wrap {
   display: flex;
   flex-direction: column;
-  gap: 4rpx;
+  flex: 1;
 }
 
 .title {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #1f2329;
+  font-size: 34rpx;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--kc-text-primary, #20242c);
+  letter-spacing: -0.2rpx;
 }
 
 .sub-title {
   font-size: 24rpx;
-  color: #8a919f;
+  color: var(--kc-text-muted, #9299a6);
+  line-height: 1.5;
+  margin-top: 8rpx;
 }
 
 .action-wrap {
@@ -27,16 +32,17 @@
   align-items: center;
   gap: 4rpx;
   padding: 8rpx 0;
+  flex-shrink: 0;
 }
 
 .action-text {
-  font-size: 26rpx;
-  color: #2f6bff;
-  font-weight: 500;
+  font-size: 24rpx;
+  color: var(--kc-primary, #2f67f6);
+  font-weight: 600;
 }
 
 .action-arrow {
-  font-size: 28rpx;
-  color: #2f6bff;
+  font-size: 26rpx;
+  color: var(--kc-primary, #2f67f6);
   line-height: 1;
 }

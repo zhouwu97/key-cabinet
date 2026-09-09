@@ -11,6 +11,8 @@ type countingEventHandler struct {
 	pickupSuccess atomic.Int32
 }
 
+func (*countingEventHandler) OnDeviceEvent(context.Context, DeviceEvent) error { return nil }
+
 func (h *countingEventHandler) OnPickupSuccess(context.Context, DeviceEvent) error {
 	h.pickupSuccess.Add(1)
 	return nil

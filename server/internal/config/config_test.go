@@ -17,8 +17,24 @@ func TestLoadConfig(t *testing.T) {
 	assert.Equal(t, 8080, cfg.Server.Port)
 	assert.Equal(t, "postgres", cfg.Database.User)
 	assert.Equal(t, "mock", cfg.Device.GatewayType)
+	assert.Equal(t, "kcab", cfg.Device.MQTTTopicPrefix)
+	assert.Equal(t, 1, cfg.Device.MQTTQoS)
 	assert.True(t, cfg.Wechat.MockEnabled)
 	assert.Equal(t, 86400, cfg.JWT.Expiration)
+}
+
+func TestValidateMQTTConfig(t *testing.T) {
+	cfg := Config{
+		JWT:    JWTConfig{Secret: "development-secret", Expiration: 3600},
+		Wechat: WechatConfig{MockEnabled: true},
+		Device: DeviceConfig{
+			GatewayType: "mqtt", MQTTBroker: "tcp://localhost:1883", MQTTQoS: 1,
+			MQTTConnectTimeoutSec: 10, MQTTCommandTimeoutSec: 5, MQTTHeartbeatTimeoutSec: 90,
+		},
+	}
+	require.NoError(t, cfg.Validate())
+	cfg.Device.MQTTBroker = ""
+	assert.ErrorContains(t, cfg.Validate(), "mqtt_broker is required")
 }
 
 func TestLoadConfigEnvironmentOverrides(t *testing.T) {
@@ -63,4 +79,15 @@ func TestValidateProductionRequiresWechatCredentials(t *testing.T) {
 	}
 
 	assert.ErrorContains(t, cfg.Validate(), "wechat.app_id and wechat.app_secret are required")
+}
+
+func TestValidateProductionRejectsMockDeviceGateway(t *testing.T) {
+	cfg := Config{
+		AppEnv: "production",
+		JWT:    JWTConfig{Secret: "production-secret", Expiration: 3600},
+		Wechat: WechatConfig{AppID: "wx-test", AppSecret: "secret-test", MockEnabled: false},
+		Device: DeviceConfig{GatewayType: "mock"},
+	}
+
+	assert.ErrorContains(t, cfg.Validate(), "gateway_type must be mqtt in production")
 }

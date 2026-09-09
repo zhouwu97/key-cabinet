@@ -45,9 +45,16 @@ func main() {
 
 	// Initialize infrastructure clients
 	wechatClient := wechat.NewClient(cfg.Wechat.AppID, cfg.Wechat.AppSecret, cfg.Wechat.MockEnabled)
-	deviceGateway, err := newDeviceGateway(cfg.Device.GatewayType)
+	deviceStatusSink, ok := deviceRepo.(device.DeviceStatusSink)
+	if !ok {
+		log.Fatal("Device repository does not support runtime status updates")
+	}
+	deviceGateway, err := newDeviceGateway(cfg.Device, deviceStatusSink)
 	if err != nil {
 		log.Fatalf("Failed to initialize device gateway: %v", err)
+	}
+	if mqttGateway, ok := deviceGateway.(*device.MQTTDeviceGateway); ok {
+		defer mqttGateway.Close()
 	}
 
 	// Initialize domain services
@@ -90,12 +97,24 @@ func main() {
 	}
 }
 
-func newDeviceGateway(gatewayType string) (device.DeviceGateway, error) {
-	switch strings.ToLower(strings.TrimSpace(gatewayType)) {
+func newDeviceGateway(cfg config.DeviceConfig, statusSink device.DeviceStatusSink) (device.DeviceGateway, error) {
+	switch strings.ToLower(strings.TrimSpace(cfg.GatewayType)) {
 	case "", "mock":
 		return device.NewMockDeviceGateway(), nil
+	case "mqtt":
+		return device.NewMQTTDeviceGateway(device.MQTTGatewayConfig{
+			Broker:           cfg.MQTTBroker,
+			ClientID:         cfg.MQTTClientID,
+			Username:         cfg.MQTTUsername,
+			Password:         cfg.MQTTPassword,
+			TopicPrefix:      cfg.MQTTTopicPrefix,
+			QoS:              byte(cfg.MQTTQoS),
+			ConnectTimeout:   time.Duration(cfg.MQTTConnectTimeoutSec) * time.Second,
+			CommandTimeout:   time.Duration(cfg.MQTTCommandTimeoutSec) * time.Second,
+			HeartbeatTimeout: time.Duration(cfg.MQTTHeartbeatTimeoutSec) * time.Second,
+		}, statusSink)
 	default:
-		return nil, fmt.Errorf("unsupported device gateway %q; MQTT gateway is not implemented yet", gatewayType)
+		return nil, fmt.Errorf("unsupported device gateway %q", cfg.GatewayType)
 	}
 }
 

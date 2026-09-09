@@ -192,7 +192,7 @@ POST /api/v1/device-operations/:id/cancel
 ### Device Gateway
 - Interface: `internal/infrastructure/device/gateway.go`
 - Mock implementation for v0.4
-- MQTT implementation for v0.5
+- MQTT implementation for v0.5（QoS 1、心跳/LWT、ACK、事件去重、安全中止）
 - Event-driven callbacks for async operations
 
 ### Error Handling
@@ -217,6 +217,13 @@ POST /api/v1/device-operations/:id/cancel
 KC_APP_ENV=development
 KC_WECHAT_MOCK_ENABLED=true
 KC_DEVICE_GATEWAY_TYPE=mock
+KC_DEVICE_MQTT_BROKER=tcp://localhost:1883
+KC_DEVICE_MQTT_CLIENT_ID=key-cabinet-api-local
+KC_DEVICE_MQTT_TOPIC_PREFIX=kcab
+KC_DEVICE_MQTT_QOS=1
+KC_DEVICE_MQTT_CONNECT_TIMEOUT_SECONDS=10
+KC_DEVICE_MQTT_COMMAND_TIMEOUT_SECONDS=5
+KC_DEVICE_MQTT_HEARTBEAT_TIMEOUT_SECONDS=90
 
 # Server
 KC_SERVER_PORT=8080
@@ -238,7 +245,7 @@ KC_WECHAT_APP_ID=your-app-id
 KC_WECHAT_APP_SECRET=your-app-secret
 ```
 
-开发环境当前提供 Mock 微信登录和 Mock 设备网关；接入真实设备前需配置网关实现并关闭 Mock。借还逾期状态由 API 进程内定时任务每 5 分钟检查一次。
+开发环境默认提供 Mock 微信登录和 Mock 设备网关；真实设备模式将 `KC_DEVICE_GATEWAY_TYPE` 改为 `mqtt` 并配置 Broker。生产环境禁止使用 Mock 设备网关。借还逾期状态由 API 进程内定时任务每 5 分钟检查一次。
 
 `APP_ENV`、`JWT_SECRET` 等未加 `KC_` 前缀的变量仍兼容读取，但部署配置统一使用 `KC_` 前缀。生产环境必须关闭 `KC_WECHAT_MOCK_ENABLED`，并提供真实微信凭据和非占位 JWT 密钥，否则服务会拒绝启动。
 

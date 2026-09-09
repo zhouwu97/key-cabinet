@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/zhouwu97/key-cabinet/server/internal/repository"
@@ -204,6 +205,48 @@ func (r *PostgresOperationRepository) CreateEvent(ctx context.Context, event *re
 			event.Seq = maxSeq + 1
 		}
 		return tx.Create(event).Error
+	})
+}
+
+func (r *PostgresOperationRepository) AppendEventIfActive(ctx context.Context, event *repository.OperationEvent) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		operation, err := lockOperation(tx, event.OperationID)
+		if err != nil {
+			return err
+		}
+		if isTerminalOperationStatus(operation.Status) {
+			return nil
+		}
+		if event.ID == "" {
+			event.ID = newPostgresID("evt")
+		}
+		if event.OccurredAt.IsZero() {
+			event.OccurredAt = time.Now().UTC()
+		}
+		var existingCount int64
+		if err := tx.Model(&repository.OperationEvent{}).Where("id = ?", event.ID).Count(&existingCount).Error; err != nil {
+			return err
+		}
+		if existingCount > 0 {
+			return nil
+		}
+		var maxSeq int
+		if err := tx.Model(&repository.OperationEvent{}).Where("operation_id = ?", event.OperationID).
+			Select("COALESCE(MAX(seq), 0)").Scan(&maxSeq).Error; err != nil {
+			return err
+		}
+		event.Seq = maxSeq + 1
+		if err := tx.Create(event).Error; err != nil {
+			return err
+		}
+		switch strings.ToUpper(event.Type) {
+		case "ACK", "RECEIVED", "COMMAND_ACK":
+			return tx.Model(&repository.DeviceOperation{}).Where("id = ? AND ack_at IS NULL", event.OperationID).Updates(map[string]interface{}{
+				"ack_at": event.OccurredAt, "updated_at": time.Now().UTC(),
+			}).Error
+		default:
+			return nil
+		}
 	})
 }
 

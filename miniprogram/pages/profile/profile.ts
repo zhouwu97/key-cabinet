@@ -44,9 +44,11 @@ Page({
       ).length
 
       const totalBorrowCount = borrows.length
+      const avatarInitial = user.name ? user.name.trim().charAt(0) : '用'
 
       this.setData({
         user,
+        avatarInitial,
         currentBorrowCount,
         activeReservationCount,
         totalBorrowCount,

@@ -15,12 +15,12 @@
   "window": {
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "智能钥匙管理",
-    "backgroundColor": "#f6f7f9"
+    "navigationBarTitleText": "智能钥匙自助借还",
+    "backgroundColor": "#f5f6f8"
   },
   "tabBar": {
-    "color": "#737a87",
-    "selectedColor": "#315ef6",
+    "color": "#707987",
+    "selectedColor": "#2f67f6",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [

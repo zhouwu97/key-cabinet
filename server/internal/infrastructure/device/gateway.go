@@ -9,19 +9,25 @@ import (
 var ErrOperationNotRunning = errors.New("device operation is not running")
 
 type DeviceCommand struct {
-	OperationID string
-	DeviceID    string
-	SlotID      string
-	Type        string // PICKUP / RETURN
+	OperationID    string
+	DeviceID       string
+	SlotID         string
+	SlotNo         int
+	KeyID          string
+	ExpectedRFID   string
+	Type           string // PICKUP / RETURN
+	TimeoutSeconds int
 }
 
 type DeviceEvent struct {
+	EventID      string
 	OperationID  string
 	DeviceID     string
-	EventType    string // PICKUP_SUCCESS / PICKUP_FAILED / RETURN_SUCCESS / RETURN_FAILED
+	EventType    string
 	Timestamp    time.Time
 	ErrorCode    string
 	ErrorMessage string
+	Data         map[string]interface{}
 }
 
 type DeviceStatus struct {
@@ -39,8 +45,13 @@ type DeviceGateway interface {
 }
 
 type DeviceEventHandler interface {
+	OnDeviceEvent(ctx context.Context, event DeviceEvent) error
 	OnPickupSuccess(ctx context.Context, event DeviceEvent) error
 	OnPickupFailed(ctx context.Context, event DeviceEvent) error
 	OnReturnSuccess(ctx context.Context, event DeviceEvent) error
 	OnReturnFailed(ctx context.Context, event DeviceEvent) error
+}
+
+type DeviceStatusSink interface {
+	UpdateRuntimeStatus(ctx context.Context, deviceID, status string, lastSeen time.Time) error
 }

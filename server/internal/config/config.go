@@ -45,10 +45,16 @@ type WechatConfig struct {
 }
 
 type DeviceConfig struct {
-	GatewayType  string `mapstructure:"gateway_type"` // mock / mqtt
-	MQTTBroker   string `mapstructure:"mqtt_broker"`
-	MQTTUsername string `mapstructure:"mqtt_username"`
-	MQTTPassword string `mapstructure:"mqtt_password"`
+	GatewayType             string `mapstructure:"gateway_type"` // mock / mqtt
+	MQTTBroker              string `mapstructure:"mqtt_broker"`
+	MQTTClientID            string `mapstructure:"mqtt_client_id"`
+	MQTTUsername            string `mapstructure:"mqtt_username"`
+	MQTTPassword            string `mapstructure:"mqtt_password"`
+	MQTTTopicPrefix         string `mapstructure:"mqtt_topic_prefix"`
+	MQTTQoS                 int    `mapstructure:"mqtt_qos"`
+	MQTTConnectTimeoutSec   int    `mapstructure:"mqtt_connect_timeout_seconds"`
+	MQTTCommandTimeoutSec   int    `mapstructure:"mqtt_command_timeout_seconds"`
+	MQTTHeartbeatTimeoutSec int    `mapstructure:"mqtt_heartbeat_timeout_seconds"`
 }
 
 type LogConfig struct {
@@ -63,6 +69,12 @@ func Load(configPath string) (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 	v.SetDefault("app_env", "development")
+	v.SetDefault("device.mqtt_client_id", "key-cabinet-api")
+	v.SetDefault("device.mqtt_topic_prefix", "kcab")
+	v.SetDefault("device.mqtt_qos", 1)
+	v.SetDefault("device.mqtt_connect_timeout_seconds", 10)
+	v.SetDefault("device.mqtt_command_timeout_seconds", 5)
+	v.SetDefault("device.mqtt_heartbeat_timeout_seconds", 90)
 
 	// 显式绑定嵌套配置，确保 AutomaticEnv 能覆盖 YAML 中的同名字段。
 	for _, key := range []string{
@@ -72,7 +84,9 @@ func Load(configPath string) (*Config, error) {
 		"database.dbname", "database.sslmode", "database.max_open_conns", "database.max_idle_conns",
 		"jwt.secret", "jwt.expiration",
 		"wechat.app_id", "wechat.app_secret", "wechat.mock_enabled",
-		"device.gateway_type", "device.mqtt_broker", "device.mqtt_username", "device.mqtt_password",
+		"device.gateway_type", "device.mqtt_broker", "device.mqtt_client_id",
+		"device.mqtt_username", "device.mqtt_password", "device.mqtt_topic_prefix", "device.mqtt_qos",
+		"device.mqtt_connect_timeout_seconds", "device.mqtt_command_timeout_seconds", "device.mqtt_heartbeat_timeout_seconds",
 		"log.level", "log.format",
 	} {
 		envName := "KC_" + strings.ToUpper(strings.ReplaceAll(key, ".", "_"))
@@ -110,6 +124,24 @@ func (c Config) Validate() error {
 	if c.JWT.Expiration <= 0 {
 		return fmt.Errorf("jwt.expiration must be greater than zero")
 	}
+	gatewayType := strings.ToLower(strings.TrimSpace(c.Device.GatewayType))
+	if gatewayType == "" {
+		gatewayType = "mock"
+	}
+	if gatewayType != "mock" && gatewayType != "mqtt" {
+		return fmt.Errorf("device.gateway_type must be mock or mqtt")
+	}
+	if gatewayType == "mqtt" {
+		if strings.TrimSpace(c.Device.MQTTBroker) == "" {
+			return fmt.Errorf("device.mqtt_broker is required for mqtt gateway")
+		}
+		if c.Device.MQTTQoS < 0 || c.Device.MQTTQoS > 2 {
+			return fmt.Errorf("device.mqtt_qos must be between 0 and 2")
+		}
+		if c.Device.MQTTConnectTimeoutSec <= 0 || c.Device.MQTTCommandTimeoutSec <= 0 || c.Device.MQTTHeartbeatTimeoutSec <= 0 {
+			return fmt.Errorf("device mqtt timeout values must be greater than zero")
+		}
+	}
 
 	if env == "production" {
 		if c.Wechat.MockEnabled {
@@ -120,6 +152,9 @@ func (c Config) Validate() error {
 		}
 		if isPlaceholder(c.JWT.Secret) || isPlaceholder(c.Wechat.AppID) || isPlaceholder(c.Wechat.AppSecret) {
 			return fmt.Errorf("production configuration contains placeholder credentials")
+		}
+		if gatewayType != "mqtt" {
+			return fmt.Errorf("device.gateway_type must be mqtt in production")
 		}
 		return nil
 	}

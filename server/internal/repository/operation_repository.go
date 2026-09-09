@@ -64,6 +64,7 @@ type OperationRepository interface {
 	FindExpired(ctx context.Context, before time.Time) ([]*DeviceOperation, error)
 	Update(ctx context.Context, op *DeviceOperation) error
 	CreateEvent(ctx context.Context, event *OperationEvent) error
+	AppendEventIfActive(ctx context.Context, event *OperationEvent) error
 	CompletePickup(ctx context.Context, operationID string, now time.Time) error
 	CompleteReturn(ctx context.Context, operationID string, now time.Time) error
 	Fail(ctx context.Context, operationID, errorCode, errorMessage string, now time.Time) error

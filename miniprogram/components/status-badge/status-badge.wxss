@@ -3,10 +3,10 @@
   align-items: center;
   gap: 8rpx;
   padding: 6rpx 16rpx;
-  border-radius: 999rpx;
-  font-size: 24rpx;
-  font-weight: 500;
-  line-height: 1.4;
+  border-radius: var(--kc-radius-sm, 16rpx);
+  font-size: 22rpx;
+  font-weight: 650;
+  line-height: 1.3;
 }
 
 .badge-dot {
@@ -21,26 +21,26 @@
 }
 
 .badge-green {
-  background-color: #e6f8f1;
-  color: #00b578;
+  background-color: var(--kc-success-soft, #eaf8f3);
+  color: var(--kc-success, #0ca678);
 }
 
 .badge-blue {
-  background-color: #eaf1ff;
-  color: #2f6bff;
+  background-color: var(--kc-primary-soft, #eef3ff);
+  color: var(--kc-primary, #2f67f6);
 }
 
 .badge-orange {
-  background-color: #fff4e8;
-  color: #ff8f1f;
+  background-color: var(--kc-warning-soft, #fff5e9);
+  color: var(--kc-warning, #d67a16);
 }
 
 .badge-red {
-  background-color: #ffeceb;
-  color: #ee0a24;
+  background-color: var(--kc-danger-soft, #fff0f0);
+  color: var(--kc-danger, #e5484d);
 }
 
 .badge-gray {
-  background-color: #f0f1f3;
-  color: #646a73;
+  background-color: var(--kc-surface-2, #f8f9fb);
+  color: var(--kc-text-secondary, #5e6673);
 }

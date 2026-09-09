@@ -145,10 +145,13 @@ func (s *operationService) StartPickup(ctx context.Context, userID, reservationI
 	}
 	return s.dispatchPrepared(ctx, operation, func() error {
 		return s.deviceGateway.StartPickup(ctx, device.DeviceCommand{
-			OperationID: operation.ID,
-			DeviceID:    operation.DeviceID,
-			SlotID:      operation.SlotID,
-			Type:        operation.Action,
+			OperationID:    operation.ID,
+			DeviceID:       operation.DeviceID,
+			SlotID:         operation.SlotID,
+			SlotNo:         slot.SlotNo,
+			KeyID:          key.ID,
+			Type:           operation.Action,
+			TimeoutSeconds: 120,
 		})
 	})
 }
@@ -211,10 +214,14 @@ func (s *operationService) StartReturn(ctx context.Context, userID, borrowRecord
 	}
 	result, err := s.dispatchPrepared(ctx, operation, func() error {
 		return s.deviceGateway.StartReturn(ctx, device.DeviceCommand{
-			OperationID: operation.ID,
-			DeviceID:    operation.DeviceID,
-			SlotID:      operation.SlotID,
-			Type:        operation.Action,
+			OperationID:    operation.ID,
+			DeviceID:       operation.DeviceID,
+			SlotID:         operation.SlotID,
+			SlotNo:         slot.SlotNo,
+			KeyID:          key.ID,
+			ExpectedRFID:   key.RFIDTag,
+			Type:           operation.Action,
+			TimeoutSeconds: 120,
 		})
 	})
 	return result, err
@@ -312,6 +319,37 @@ func (s *operationService) ExpireTimedOutOperations(ctx context.Context, now tim
 
 func (s *operationService) OnPickupSuccess(ctx context.Context, event device.DeviceEvent) error {
 	return s.operationRepo.CompletePickup(ctx, event.OperationID, event.Timestamp)
+}
+
+func (s *operationService) OnDeviceEvent(ctx context.Context, event device.DeviceEvent) error {
+	operation, err := s.operationRepo.FindByID(ctx, strings.TrimSpace(event.OperationID))
+	if err != nil {
+		return apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query device event operation")
+	}
+	if operation == nil {
+		return apperrors.New(apperrors.CodeNotFound, "device event operation not found")
+	}
+	if operation.DeviceID != strings.TrimSpace(event.DeviceID) {
+		return apperrors.New(apperrors.CodeForbidden, "device event does not belong to operation device")
+	}
+	eventType := strings.ToUpper(strings.TrimSpace(event.EventType))
+	switch eventType {
+	case "SUCCESS", "PICKUP_SUCCESS", "RETURN_SUCCESS":
+		if operation.Action == "PICKUP" {
+			return s.operationRepo.CompletePickup(ctx, operation.ID, event.Timestamp)
+		}
+		return s.operationRepo.CompleteReturn(ctx, operation.ID, event.Timestamp)
+	case "FAILED", "ERROR", "PICKUP_FAILED", "RETURN_FAILED":
+		return s.operationRepo.Fail(ctx, operation.ID, event.ErrorCode, event.ErrorMessage, event.Timestamp)
+	default:
+		return s.operationRepo.AppendEventIfActive(ctx, &repository.OperationEvent{
+			ID:          event.EventID,
+			OperationID: operation.ID,
+			Type:        eventType,
+			Data:        event.Data,
+			OccurredAt:  event.Timestamp,
+		})
+	}
 }
 
 func (s *operationService) OnPickupFailed(ctx context.Context, event device.DeviceEvent) error {

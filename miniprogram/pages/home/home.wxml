@@ -1,64 +1,70 @@
 <view class="page">
-  <!-- 用户待办与问候首屏 -->
-  <view class="user-greeting-card">
-    <view class="greeting-row">
-      <view class="greeting-left">
-        <view class="greeting-title">{{greetingText}}，{{userName}}</view>
-        <view class="greeting-sub">
-          今天有 <text class="pending-num">{{pendingTaskCount}}</text> 项待处理
-        </view>
+  <!-- 首页头部问候与身份完善入口 -->
+  <view class="home-hero">
+    <view class="welcome-row">
+      <view class="welcome">
+        <view class="welcome-title">{{greetingText}}，{{userName}}</view>
+        <view class="welcome-sub">今天有 {{pendingTaskCount}} 项借还事项需要处理</view>
       </view>
       <view
-		wx:if="{{user && !user.identityVerified}}"
-        class="bind-prompt-tag"
+        wx:if="{{user && !user.identityVerified}}"
+        class="identity-link"
         bindtap="goIdentityBind"
       >
-		{{user.profileCompleted ? '身份待核验 ›' : '去完善身份 ›'}}
+        {{user.profileCompleted ? '身份待核验' : '完善身份'}}
       </view>
     </view>
   </view>
 
-  <!-- P0: 未完成设备操作中断恢复横幅 -->
+  <!-- P0: 未完成设备操作恢复卡片 (清新微光版) -->
   <view
     wx:if="{{activeOperation}}"
-    class="active-op-card"
+    class="progress-card card"
     bindtap="resumeOperation"
   >
-    <view class="active-op-header">
-      <view class="active-op-pulse"></view>
-      <text class="active-op-title">检测到未完成设备操作</text>
-      <text class="active-op-badge">执行中</text>
-    </view>
-    <view class="active-op-body">
-      <text class="active-op-name">
-        {{activeOperationKey ? activeOperationKey.roomNo + ' ' + activeOperationKey.name : '钥匙操作'}}
-      </text>
-      <text class="active-op-action">
-        ({{activeOperation.action === 'PICKUP' ? '正在取钥' : '正在归还'}})
-      </text>
-    </view>
-    <view class="active-op-btn">点击继续查看进度与恢复 ›</view>
-  </view>
-
-  <!-- P4 (前置主行动): 扫码使用钥匙柜 -->
-  <view class="scan-cta-card" bindtap="onMainScanTap">
-    <view class="scan-cta-content">
-      <view class="scan-cta-left">
-        <view class="scan-cta-title">扫码使用钥匙柜</view>
-        <view class="scan-cta-desc">到柜后扫码核验，快速现场取钥或归还</view>
+    <view class="progress-top">
+      <view class="progress-label">
+        <view class="dot"></view>
+        <text>检测到未完成设备操作</text>
       </view>
-      <view class="scan-cta-badge">
-        <text class="scan-cta-icon">📷</text>
-        <text>扫一扫</text>
+      <view class="status-chip chip-blue">进行中</view>
+    </view>
+    <view class="progress-main">
+      <view class="progress-info">
+        <view class="progress-key">
+          {{activeOperationKey ? activeOperationKey.roomNo + ' ' + activeOperationKey.name : '钥匙操作'}}
+        </view>
+        <view class="progress-meta">
+          {{activeOperation.action === 'PICKUP' ? '正在现场取钥' : '正在到柜归还'}} · {{deviceName}}
+        </view>
       </view>
+      <view class="progress-action">继续处理 ›</view>
     </view>
   </view>
 
-  <!-- P1: 逾期借用待处理 -->
-  <view wx:if="{{overdueBorrows.length > 0}}" class="section-block">
+  <!-- P4 (主行动入口): 扫码使用钥匙柜 -->
+  <view class="scan-entry" bindtap="onMainScanTap">
+    <view class="scan-icon-box">
+      <view class="scan-corners">
+        <view class="scan-corner tl"></view>
+        <view class="scan-corner tr"></view>
+        <view class="scan-corner bl"></view>
+        <view class="scan-corner br"></view>
+        <view class="scan-line"></view>
+      </view>
+    </view>
+    <view class="scan-center">
+      <view class="scan-title">扫码使用钥匙柜</view>
+      <view class="scan-desc">到柜后扫码，系统自动识别借取或归还</view>
+    </view>
+    <view class="scan-arrow">›</view>
+  </view>
+
+  <!-- P1: 逾期急需处理 -->
+  <view wx:if="{{overdueBorrows.length > 0}}" class="section">
     <section-header
-      title="逾期急需处理 ({{overdueBorrows.length}})"
-      subTitle="钥匙已超过约定归还时间，请尽快到柜扫码归还"
+      title="逾期需处理 ({{overdueBorrows.length}})"
+      subTitle="请尽快完成归还，避免影响后续借用"
     />
     <view wx:for="{{overdueBorrows}}" wx:key="id">
       <borrow-card
@@ -69,13 +75,13 @@
     </view>
   </view>
 
-  <!-- P2: 待取钥预约 -->
-  <view wx:if="{{activeReservations.length > 0}}" class="section-block">
+  <!-- P2: 待取预约 -->
+  <view wx:if="{{activeReservations.length > 0}}" class="section">
     <section-header
-      title="待取钥预约 ({{activeReservations.length}})"
-      subTitle="请在取钥时间窗口内前往钥匙柜扫码取钥"
-      actionText="全部预约"
-      bindaction="goMyReservations"
+      title="待取预约 ({{activeReservations.length}})"
+      subTitle="请在预约窗口内到柜取钥匙"
+      actionText="查看记录"
+      bindaction="goRecords"
     />
     <view wx:for="{{activeReservations}}" wx:key="id">
       <reservation-card
@@ -87,11 +93,11 @@
     </view>
   </view>
 
-  <!-- P3: 当前正常借用 -->
-  <view wx:if="{{normalBorrows.length > 0}}" class="section-block">
+  <!-- P3: 正常借用中 -->
+  <view wx:if="{{normalBorrows.length > 0}}" class="section">
     <section-header
       title="当前借用中 ({{normalBorrows.length}})"
-      subTitle="请留意归还时间，使用完毕请按时归还"
+      subTitle="请留意归还时间，归还请到柜扫码"
       actionText="全部记录"
       bindaction="goRecords"
     />
@@ -104,46 +110,44 @@
     </view>
   </view>
 
-  <!-- P5: 快捷入口 (横向简约排列) -->
-  <view class="section-block">
-    <section-header title="快捷服务" subTitle="常用功能与服务" />
-    <view class="quick-row card">
-      <view class="quick-col" bindtap="goKeys">
-        <view class="quick-icon-circle bg-blue">🔑</view>
-        <text class="quick-label">找钥匙</text>
+  <!-- P5: 常用服务 (纯白网格三列带分割线) -->
+  <view class="section">
+    <section-header title="常用服务" subTitle="快速进入常用功能" />
+    <view class="quick-grid card">
+      <view class="quick-item" bindtap="goKeys">
+        <view class="quick-icon">🔑</view>
+        <text class="quick-name">找钥匙</text>
       </view>
-      <view class="quick-col" bindtap="goRecords">
-        <view class="quick-icon-circle bg-orange">📋</view>
-        <text class="quick-label">借还记录</text>
+      <view class="quick-item" bindtap="goRecords">
+        <view class="quick-icon">📋</view>
+        <text class="quick-name">借还记录</text>
       </view>
-      <view class="quick-col" bindtap="goHelp">
-        <view class="quick-icon-circle bg-purple">💡</view>
-        <text class="quick-label">使用守则</text>
+      <view class="quick-item" bindtap="goHelp">
+        <view class="quick-icon">📜</view>
+        <text class="quick-name">使用守则</text>
       </view>
     </view>
   </view>
 
-  <!-- P6: 设备状态降级展示 -->
-  <view class="section-block device-section">
-    <!-- 正常状态：紧凑单行条目 -->
-    <view wx:if="{{deviceOnline}}" class="compact-device-bar card">
-      <view class="device-bar-left">
-        <text class="device-status-dot online"></text>
-        <text class="device-bar-name">{{deviceName}}</text>
-		<text wx:if="{{deviceStatsKnown}}" class="device-bar-stat">● 在线 · {{availableSlotCount}}/{{totalSlotCount}} 钥匙可用</text>
-		<text wx:else class="device-bar-stat">● 在线 · 数量暂未获取</text>
+  <!-- P6: 钥匙柜分布与可用状态 -->
+  <view class="section cabinet-section">
+    <view wx:if="{{deviceOnline}}" class="cabinet-status card">
+      <view class="cabinet-info">
+        <view class="cabinet-name">{{deviceName}}</view>
+        <view class="cabinet-sub">{{deviceLocation || '信息楼 1F 门厅东侧'}} · 设备在线</view>
       </view>
-	  <text class="device-bar-loc">{{deviceLocation || '位置未提供'}}</text>
+      <view class="availability">
+        <text class="avail-num">{{availableSlotCount}} / {{totalSlotCount}}</text>
+        <text class="avail-label">钥匙可借</text>
+      </view>
     </view>
-
-    <!-- 异常状态：升级警告卡片 -->
-    <view wx:else class="device-alert-card card">
-      <view class="alert-header">
-        <text class="alert-icon">⚠️</text>
-        <text class="alert-title">{{deviceName}} 离线</text>
+    <view wx:else class="cabinet-status card alert-offline">
+      <view class="cabinet-info">
+        <view class="cabinet-name">{{deviceName}}</view>
+        <view class="cabinet-sub danger">设备离线 · 暂无法现场取还</view>
       </view>
-      <view class="alert-desc">
-        暂时无法现场取钥或归还，预约与记录查询不受影响。
+      <view class="availability">
+        <text class="avail-offline">离线维护</text>
       </view>
     </view>
   </view>

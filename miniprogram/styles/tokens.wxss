@@ -1,41 +1,49 @@
 page {
-  /* Brand / State Colors */
-  --kc-primary: #315ef6;
-  --kc-primary-hover: #234cd9;
-  --kc-primary-light: #eaf0ff;
+  /* Brand & State Colors */
+  --kc-primary: #2f67f6;
+  --kc-primary-hover: #2458dc;
+  --kc-primary-light: #eef3ff;
+  --kc-primary-soft: #eef3ff;
 
-  --kc-success: #18a058;
-  --kc-success-light: #e8f7ee;
+  --kc-success: #0ca678;
+  --kc-success-light: #eaf8f3;
+  --kc-success-soft: #eaf8f3;
 
-  --kc-warning: #e98b16;
-  --kc-warning-light: #fff7eb;
+  --kc-warning: #d67a16;
+  --kc-warning-light: #fff5e9;
+  --kc-warning-soft: #fff5e9;
 
   --kc-danger: #e5484d;
   --kc-danger-light: #fff0f0;
+  --kc-danger-soft: #fff0f0;
 
   /* Neutrals & Text */
-  --kc-text-primary: #171a1d;
-  --kc-text-secondary: #737a87;
-  --kc-text-muted: #9aa0ac;
+  --kc-text-primary: #20242c;
+  --kc-text-secondary: #5e6673;
+  --kc-text-muted: #9299a6;
   --kc-text-inverse: #ffffff;
 
   /* Backgrounds & Surfaces */
-  --kc-bg: #f6f7f9;
+  --kc-bg: #f5f6f8;
   --kc-surface: #ffffff;
+  --kc-surface-2: #f8f9fb;
   --kc-surface-subtle: #f8f9fb;
-  --kc-border: #eceef2;
-  --kc-border-subtle: #f0f2f5;
+  --kc-line: #e7e9ee;
+  --kc-line-strong: #d9dde5;
+  --kc-border: rgba(227, 230, 236, 0.9);
+  --kc-border-subtle: #e7e9ee;
 
   /* Radius */
-  --kc-radius-sm: 8rpx;
-  --kc-radius-md: 14rpx;
-  --kc-radius-lg: 20rpx;
-  --kc-radius-xl: 28rpx;
+  --kc-radius-sm: 16rpx;
+  --kc-radius-md: 24rpx;
+  --kc-radius-lg: 32rpx;
+  --kc-radius-xl: 40rpx;
   --kc-radius-full: 9999rpx;
 
   /* Shadows */
-  --kc-shadow-sm: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
-  --kc-shadow-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
-  --kc-shadow-lg: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
-  --kc-shadow-primary: 0 6rpx 20rpx rgba(49, 94, 246, 0.28);
+  --kc-shadow-card: 0 2rpx 4rpx rgba(20, 28, 44, 0.02);
+  --kc-shadow-sm: 0 2rpx 8rpx rgba(20, 28, 44, 0.03);
+  --kc-shadow-md: 0 4rpx 16rpx rgba(20, 28, 44, 0.05);
+  --kc-shadow-lg: 0 10rpx 30rpx rgba(20, 28, 44, 0.07);
+  --kc-shadow-primary: 0 8rpx 20rpx rgba(47, 103, 246, 0.22);
 }

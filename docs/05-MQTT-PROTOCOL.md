@@ -17,6 +17,7 @@ kcab/
         ├── cmd/                         # 【下行指令】业务后台 -> 柜控硬件
         │   ├── pickup                   # 发起取钥定位与开门指令
         │   ├── return                   # 发起归还开启与 RFID 校验指令
+        │   ├── abort                    # 中止指定的在途操作
         │   ├── query_slots              # 主动查询所有物理槽位在位状态
         │   ├── open_door_admin          # 管理员应急/维护开门指令
         │   └── reboot                   # 远程重启设备指令
@@ -210,6 +211,7 @@ kcab/
   "timestamp": 1788350000000
 }
 ```
+
 - **离线 LWT Payload**:
 ```json
 {
@@ -233,3 +235,44 @@ kcab/
   "freeHeap": 128400
 }
 ```
+
+---
+
+### 3.4 操作确认与中止 (Ack & Abort)
+
+柜控收到 `pickup` 或 `return` 指令后，应通过 `operation_progress` 上报 `COMMAND_ACK`；后台以 `operationId` 关联操作、以 `msgId` 去重，并记录首次确认时间。
+
+```json
+{
+  "msgId": "evt_op_001_ack",
+  "replyMsgId": "cmd_pickup_001",
+  "timestamp": 1788350401000,
+  "deviceId": "CAB001",
+  "data": {
+    "operationId": "OP20260902120001",
+    "stage": "COMMAND_ACK"
+  }
+}
+```
+
+后台取消或超时回收在途操作时，下发：
+
+- **Topic**: `kcab/cab/CAB001/cmd/abort`
+- **Payload**:
+
+```json
+{
+  "msgId": "cmd_abort_001",
+  "timestamp": 1788350406000,
+  "deviceId": "CAB001",
+  "action": "ABORT",
+  "data": {
+    "operationId": "OP20260902120001",
+    "timeoutSeconds": 5
+  }
+}
+```
+
+柜控完成安全停机后必须通过 `operation_progress` 回报 `ABORT_ACK`（兼容 `ABORTED` / `CANCELLED`）；无法中止时回报 `ABORT_FAILED` 并携带错误信息。后台只有收到成功确认后才将人工取消收敛为 `CANCELLED`。
+
+柜控必须按 `deviceId + msgId` 缓存已接收命令的执行状态；收到重复命令时只重发已有 ACK/结果，不得再次驱动机械机构。

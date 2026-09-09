@@ -6,42 +6,43 @@
   </view>
 
   <!-- 搜索输入框 -->
-  <view class="search-container">
-    <view class="search-input-box">
-      <text class="search-icon">🔍</text>
-      <input
-        class="search-input"
-        placeholder="搜索房间号 (如 103) / 钥匙名称"
-        placeholder-class="search-placeholder"
-        bindinput="onSearchInput"
-        value="{{searchKeyword}}"
-      />
-      <view wx:if="{{searchKeyword}}" class="clear-btn" bindtap="clearSearch">✕</view>
+  <view class="searchbar">
+    <view class="search-icon-box">
+      <view class="search-glass"></view>
+      <view class="search-handle"></view>
     </view>
+    <input
+      class="search-input"
+      placeholder="搜索房间号或钥匙名称"
+      placeholder-class="search-placeholder"
+      bindinput="onSearchInput"
+      value="{{searchKeyword}}"
+    />
+    <view wx:if="{{searchKeyword}}" class="clear-btn" bindtap="clearSearch">✕</view>
   </view>
 
-  <!-- 状态分类筛选 -->
-  <view class="chips-container">
+  <!-- 状态分类筛选分段选择器 (Segmented Control) -->
+  <view class="segmented">
     <view
-      class="chip {{activeFilter === 'ALL' ? 'chip-active' : ''}}"
+      class="seg-btn {{activeFilter === 'ALL' ? 'active' : ''}}"
       bindtap="onFilterTap"
       data-filter="ALL"
     >
-      全部 ({{keys.length}})
+      全部 {{keys.length}}
     </view>
     <view
-      class="chip {{activeFilter === 'AVAILABLE' ? 'chip-active' : ''}}"
+      class="seg-btn {{activeFilter === 'AVAILABLE' ? 'active' : ''}}"
       bindtap="onFilterTap"
       data-filter="AVAILABLE"
     >
-      可预约 ({{availableCount}})
+      可预约 {{availableCount}}
     </view>
     <view
-      class="chip {{activeFilter === 'BORROWED' ? 'chip-active' : ''}}"
+      class="seg-btn {{activeFilter === 'BORROWED' ? 'active' : ''}}"
       bindtap="onFilterTap"
       data-filter="BORROWED"
     >
-      已借出 ({{borrowedCount}})
+      已借出 {{borrowedCount}}
     </view>
   </view>
 

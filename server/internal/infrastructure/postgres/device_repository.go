@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/zhouwu97/key-cabinet/server/internal/repository"
 	"gorm.io/gorm"
@@ -34,4 +35,12 @@ func (r *PostgresDeviceRepository) FindAll(ctx context.Context) ([]*repository.D
 		return nil, err
 	}
 	return devices, nil
+}
+
+func (r *PostgresDeviceRepository) UpdateRuntimeStatus(ctx context.Context, deviceID, status string, lastSeen time.Time) error {
+	return r.db.WithContext(ctx).Model(&repository.Device{}).
+		Where("id = ?", deviceID).
+		Updates(map[string]interface{}{
+			"status": status, "last_heartbeat_at": lastSeen.UTC(), "updated_at": time.Now().UTC(),
+		}).Error
 }

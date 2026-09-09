@@ -25,3 +25,8 @@ type DeviceRepository interface {
 	FindByID(ctx context.Context, id string) (*Device, error)
 	FindAll(ctx context.Context) ([]*Device, error)
 }
+
+type DeviceStatusRepository interface {
+	DeviceRepository
+	UpdateRuntimeStatus(ctx context.Context, deviceID, status string, lastSeen time.Time) error
+}

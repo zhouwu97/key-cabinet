@@ -1,21 +1,24 @@
-<view class="key-card" bindtap="onTap">
-  <view class="key-card-header">
-    <view class="key-title-wrap">
-      <view class="key-main-title">{{keyItem.roomNo}} · {{keyItem.name}}</view>
-      <view class="key-cabinet-tag">{{keyItem.deviceName || keyItem.deviceId || '1号钥匙柜'}}</view>
+<view class="card key-card" bindtap="onTap">
+  <view class="key-top">
+    <view class="key-top-left">
+      <view class="key-room">{{keyItem.roomNo ? keyItem.roomNo + ' 室' : keyItem.name}}</view>
+      <view class="key-loc">{{keyItem.deviceName || keyItem.deviceId || '1号钥匙柜'}}</view>
     </view>
-    <status-badge text="{{keyItem.statusLabel || ''}}" tone="{{keyItem.statusTone || 'gray'}}" dot="{{true}}" />
+    <status-badge text="{{keyItem.statusLabel || (keyItem.status === 'AVAILABLE' ? '可借用' : (keyItem.status === 'BORROWED' ? '使用中' : '不可借'))}}" tone="{{keyItem.statusTone || (keyItem.status === 'AVAILABLE' ? 'green' : (keyItem.status === 'BORROWED' ? 'orange' : 'gray'))}}" dot="{{false}}" />
   </view>
-  <view wx:if="{{keyItem.description}}" class="key-desc">
-    {{keyItem.description}}
+
+  <view class="key-use">
+    {{keyItem.name}}{{keyItem.description ? ' · ' + keyItem.description : ''}}
   </view>
-  <view class="key-footer">
-    <view class="key-tag-list">
-      <text wx:if="{{keyItem.requiresApproval}}" class="tag-approval">需审批</text>
-      <text wx:else class="tag-auto">免审批即约即用</text>
-      <text wx:if="{{!keyItem.enabled}}" class="tag-disabled">已停用</text>
+
+  <view class="key-bottom">
+    <view class="key-rule-wrap">
+      <text wx:if="{{!keyItem.enabled}}" class="key-rule rule-disabled">已停用</text>
+      <text wx:elif="{{keyItem.requiresApproval}}" class="key-rule rule-approval">需审批预约</text>
+      <text wx:elif="{{keyItem.status === 'BORROWED'}}" class="key-rule rule-borrowed">使用中</text>
+      <text wx:else class="key-rule rule-available">免审批预约</text>
     </view>
-    <view class="key-action-hint">
+    <view class="detail-link">
       查看详情 ›
     </view>
   </view>
