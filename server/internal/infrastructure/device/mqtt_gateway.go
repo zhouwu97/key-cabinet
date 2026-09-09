@@ -299,6 +299,7 @@ func (g *MQTTDeviceGateway) subscribe(client mqtt.Client) error {
 	topics := map[string]byte{
 		base + "event/operation_progress": g.config.QoS,
 		base + "event/rfid_scanned":       g.config.QoS,
+		base + "event/ack":                g.config.QoS,
 		base + "status/heartbeat":         g.config.QoS,
 		base + "status/online":            g.config.QoS,
 	}

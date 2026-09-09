@@ -349,15 +349,18 @@ func (r *PostgresOperationRepository) CompleteReturn(ctx context.Context, operat
 			}
 		}
 
-		// 如果钥匙定义了预期 RFIDTag，校验是否匹配
+		// 如果钥匙定义了预期 RFIDTag，严格校验物理实扫 RFID 是否存在且匹配，严禁伪造实扫值
 		if operation.KeyID != "" {
 			var key repository.Key
 			if err := tx.First(&key, "id = ?", operation.KeyID).Error; err == nil {
-				if key.RFIDTag != "" && scannedRFID != "" && !strings.EqualFold(scannedRFID, key.RFIDTag) {
-					return repository.ErrRFIDMismatch
-				}
-				if scannedRFID == "" {
-					scannedRFID = key.RFIDTag
+				expectedTag := strings.TrimSpace(key.RFIDTag)
+				if expectedTag != "" {
+					if scannedRFID == "" {
+						return repository.ErrRFIDNotVerified
+					}
+					if !strings.EqualFold(strings.TrimSpace(scannedRFID), expectedTag) {
+						return repository.ErrRFIDMismatch
+					}
 				}
 			}
 		}

@@ -48,6 +48,7 @@ type UserRepository interface {
 	FindByStudentNo(ctx context.Context, studentNo string) (*User, error)
 	Update(ctx context.Context, user *User) error
 	FindIdentity(ctx context.Context, provider, subject string) (*UserIdentity, error)
+	FindIdentityByUserID(ctx context.Context, userID, provider string) (*UserIdentity, error)
 	CreateIdentity(ctx context.Context, identity *UserIdentity) error
 }
 

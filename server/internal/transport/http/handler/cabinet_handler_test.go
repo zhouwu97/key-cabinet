@@ -92,6 +92,11 @@ func TestCabinetHandler_DirectDispense(t *testing.T) {
 	h := NewCabinetHandler(fakeSvc)
 	r := gin.New()
 	r.Use(middleware.ErrorMiddleware())
+	r.Use(func(c *gin.Context) {
+		c.Set("user_id", "u1")
+		c.Set("cabinet_device_id", "CAB001")
+		c.Next()
+	})
 	r.POST("/api/v1/cabinet/direct-dispense", h.DirectDispense)
 
 	body, _ := json.Marshal(dto.CabinetDirectDispenseRequest{
@@ -116,8 +121,9 @@ func TestCabinetHandler_FaceAuth(t *testing.T) {
 	fakeSvc := &fakeCabinetService{
 		faceAuthFn: func(ctx context.Context, params service.FaceAuthParams) (*service.FaceAuthResult, error) {
 			return &service.FaceAuthResult{
-				User:         &repository.User{ID: "u1", Name: "张三", StudentNo: "20230001"},
-				CabinetToken: "mock_jwt_token",
+				User:             &repository.User{ID: "u1", Name: "张三", StudentNo: "20230001"},
+				FaceSessionToken: "mock_jwt_token",
+				CabinetToken:     "mock_jwt_token",
 			}, nil
 		},
 	}
@@ -125,6 +131,10 @@ func TestCabinetHandler_FaceAuth(t *testing.T) {
 	h := NewCabinetHandler(fakeSvc)
 	r := gin.New()
 	r.Use(middleware.ErrorMiddleware())
+	r.Use(func(c *gin.Context) {
+		c.Set("cabinet_device_id", "CAB001")
+		c.Next()
+	})
 	r.POST("/api/v1/cabinet/auth/face", h.FaceAuth)
 
 	body, _ := json.Marshal(dto.FaceAuthRequest{

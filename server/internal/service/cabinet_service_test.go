@@ -32,6 +32,9 @@ func (r *fakeCabinetUserRepository) Update(_ context.Context, _ *repository.User
 func (r *fakeCabinetUserRepository) FindIdentity(_ context.Context, _, _ string) (*repository.UserIdentity, error) {
 	return nil, nil
 }
+func (r *fakeCabinetUserRepository) FindIdentityByUserID(_ context.Context, _, _ string) (*repository.UserIdentity, error) {
+	return nil, nil
+}
 func (r *fakeCabinetUserRepository) CreateIdentity(_ context.Context, _ *repository.UserIdentity) error {
 	return nil
 }
@@ -223,7 +226,7 @@ func TestCabinetService_DirectDispense(t *testing.T) {
 		{ID: "k1", Name: "101室主钥匙", RoomNo: "101", DeviceID: "CAB001", SlotID: "s1", Status: "AVAILABLE", Enabled: true},
 	}}
 	slotRepo := &fakeSlotRepository{slot: &repository.Slot{ID: "s1", DeviceID: "CAB001", SlotNo: 1, Presence: "PRESENT", Enabled: true}}
-	userRepo := &fakeCabinetUserRepository{user: &repository.User{ID: "u1", StudentNo: "20230001", Name: "张三", Status: "ACTIVE", Role: "USER"}}
+	userRepo := &fakeCabinetUserRepository{user: &repository.User{ID: "u1", StudentNo: "20230001", Name: "张三", Status: "ACTIVE", Role: "USER", IdentityVerified: true}}
 	opRepo := &fakeCabinetOperationRepository{operations: make(map[string]*repository.DeviceOperation)}
 
 	svc := NewCabinetService(
@@ -238,10 +241,21 @@ func TestCabinetService_DirectDispense(t *testing.T) {
 		nil,
 	)
 
+	// 1. 缺少有效 FaceSession UserID 拦截
+	_, _, _, _, err := svc.DirectDispense(context.Background(), CabinetDirectDispenseParams{
+		RequestID: "req_dispense_0",
+		DeviceID:  "CAB001",
+		RoomNo:    "101",
+		StudentNo: "20230001",
+	})
+	require.Error(t, err)
+
+	// 2. 正常经过 FaceSession 授权出钥
 	op, borrow, slot, key, err := svc.DirectDispense(context.Background(), CabinetDirectDispenseParams{
 		RequestID: "req_dispense_1",
 		DeviceID:  "CAB001",
 		RoomNo:    "101",
+		UserID:    "u1",
 		StudentNo: "20230001",
 	})
 	require.NoError(t, err)
@@ -250,10 +264,12 @@ func TestCabinetService_DirectDispense(t *testing.T) {
 	require.Equal(t, "k1", key.ID)
 	require.Equal(t, 1, slot.SlotNo)
 	require.Equal(t, "EXECUTING", op.Status)
+	// 关键审计检查：物理出钥前 BorrowedAt 必须为 nil
+	require.Nil(t, borrow.BorrowedAt)
 }
 
 func TestCabinetService_FaceAuth(t *testing.T) {
-	userRepo := &fakeCabinetUserRepository{user: &repository.User{ID: "u1", StudentNo: "20230001", Name: "李四", Status: "ACTIVE", Role: "USER"}}
+	userRepo := &fakeCabinetUserRepository{user: &repository.User{ID: "u1", StudentNo: "20230001", Name: "李四", Status: "ACTIVE", Role: "USER", IdentityVerified: true}}
 	tokenSvc := jwt.NewTokenService("test_secret_key_long_enough_32_bytes", 86400)
 
 	svc := NewCabinetService(
@@ -277,7 +293,16 @@ func TestCabinetService_FaceAuth(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	// 2. 正常刷脸通过
+	// 2. 置信度过低拦截 (< 0.80)
+	_, err = svc.FaceAuth(context.Background(), FaceAuthParams{
+		DeviceID:       "CAB001",
+		StudentNo:      "20230001",
+		Confidence:     0.75,
+		LivenessPassed: true,
+	})
+	require.Error(t, err)
+
+	// 3. 正常刷脸通过，生成短期绑定柜机的 FaceSessionToken
 	res, err := svc.FaceAuth(context.Background(), FaceAuthParams{
 		DeviceID:       "CAB001",
 		StudentNo:      "20230001",
@@ -287,5 +312,11 @@ func TestCabinetService_FaceAuth(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Equal(t, "李四", res.User.Name)
-	require.NotEmpty(t, res.CabinetToken)
+	require.NotEmpty(t, res.FaceSessionToken)
+
+	claims, err := tokenSvc.Validate(res.FaceSessionToken)
+	require.NoError(t, err)
+	require.Equal(t, "FACE_SESSION", claims.TokenType)
+	require.Equal(t, "CAB001", claims.DeviceID)
+	require.Equal(t, "u1", claims.UserID)
 }

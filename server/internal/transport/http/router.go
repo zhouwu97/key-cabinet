@@ -3,6 +3,7 @@ package http
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/zhouwu97/key-cabinet/server/internal/platform/jwt"
+	"github.com/zhouwu97/key-cabinet/server/internal/repository"
 	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/handler"
 	"github.com/zhouwu97/key-cabinet/server/internal/transport/http/middleware"
 )
@@ -17,6 +18,7 @@ type RouterConfig struct {
 	OperationHandler   *handler.OperationHandler
 	CabinetHandler     *handler.CabinetHandler
 	TokenService       *jwt.TokenService
+	DeviceRepo         repository.DeviceRepository
 }
 
 func SetupRouter(cfg RouterConfig) *gin.Engine {
@@ -36,13 +38,20 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 		}
 	}
 
-	// API v1 - Cabinet Terminal
+	// API v1 - Cabinet Terminal (Protected by Cabinet Device Auth and FaceSession Auth)
 	if cfg.CabinetHandler != nil {
 		cabinet := r.Group("/api/v1/cabinet")
+		if cfg.DeviceRepo != nil {
+			cabinet.Use(middleware.CabinetAuthMiddleware(cfg.DeviceRepo))
+		}
 		{
 			cabinet.POST("/auth/face", cfg.CabinetHandler.FaceAuth)
 			cabinet.GET("/keys/match-room", cfg.CabinetHandler.MatchRoom)
-			cabinet.POST("/direct-dispense", cfg.CabinetHandler.DirectDispense)
+			if cfg.TokenService != nil {
+				cabinet.POST("/direct-dispense", middleware.FaceSessionMiddleware(cfg.TokenService), cfg.CabinetHandler.DirectDispense)
+			} else {
+				cabinet.POST("/direct-dispense", cfg.CabinetHandler.DirectDispense)
+			}
 		}
 	}
 

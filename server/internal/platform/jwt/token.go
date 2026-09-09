@@ -20,10 +20,30 @@ func NewTokenService(secret string, expirationSeconds int) *TokenService {
 
 func (s *TokenService) Generate(userID, role string) (string, error) {
 	claims := &Claims{
-		UserID: userID,
-		Role:   role,
+		UserID:    userID,
+		Role:      role,
+		TokenType: "USER",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.expiration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(s.secret))
+}
+
+func (s *TokenService) GenerateFaceSession(userID, role, deviceID string, expiration time.Duration) (string, error) {
+	if expiration <= 0 {
+		expiration = 5 * time.Minute
+	}
+	claims := &Claims{
+		UserID:    userID,
+		Role:      role,
+		DeviceID:  deviceID,
+		TokenType: "FACE_SESSION",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}

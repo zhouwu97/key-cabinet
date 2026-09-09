@@ -40,6 +40,15 @@ func AuthMiddleware(tokenService *jwt.TokenService) gin.HandlerFunc {
 			return
 		}
 
+		if claims.TokenType != "" && claims.TokenType != "USER" {
+			c.JSON(http.StatusUnauthorized, dto.NewErrorResponse(
+				"INVALID_TOKEN_TYPE",
+				"Token is not a valid user token",
+			))
+			c.Abort()
+			return
+		}
+
 		c.Set("user_id", claims.UserID)
 		c.Set("role", claims.Role)
 		c.Next()

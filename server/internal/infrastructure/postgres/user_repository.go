@@ -100,6 +100,18 @@ func (r *PostgresUserRepository) FindIdentity(ctx context.Context, provider, sub
 	return &identity, nil
 }
 
+func (r *PostgresUserRepository) FindIdentityByUserID(ctx context.Context, userID, provider string) (*repository.UserIdentity, error) {
+	var identity repository.UserIdentity
+	err := r.db.WithContext(ctx).First(&identity, "user_id = ? AND provider = ?", userID, provider).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &identity, nil
+}
+
 func (r *PostgresUserRepository) CreateIdentity(ctx context.Context, identity *repository.UserIdentity) error {
 	return r.db.WithContext(ctx).Create(identity).Error
 }

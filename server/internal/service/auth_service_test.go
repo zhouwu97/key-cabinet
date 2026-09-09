@@ -54,6 +54,15 @@ func (m *MockUserRepository) FindIdentity(ctx context.Context, provider, subject
 	return m.identities[key], nil
 }
 
+func (m *MockUserRepository) FindIdentityByUserID(ctx context.Context, userID, provider string) (*repository.UserIdentity, error) {
+	for _, ident := range m.identities {
+		if ident.UserID == userID && ident.Provider == provider {
+			return ident, nil
+		}
+	}
+	return nil, nil
+}
+
 func (m *MockUserRepository) CreateIdentity(ctx context.Context, identity *repository.UserIdentity) error {
 	key := identity.Provider + ":" + identity.Subject
 	m.identities[key] = identity

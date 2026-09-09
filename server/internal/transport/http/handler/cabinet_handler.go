@@ -24,7 +24,14 @@ func (h *CabinetHandler) MatchRoom(c *gin.Context) {
 		return
 	}
 
-	results, err := h.cabinetService.MatchRoom(c.Request.Context(), query.DeviceID, query.RoomNo)
+	deviceID := query.DeviceID
+	if deviceID == "" {
+		if devVal, exists := c.Get("cabinet_device_id"); exists {
+			deviceID, _ = devVal.(string)
+		}
+	}
+
+	results, err := h.cabinetService.MatchRoom(c.Request.Context(), deviceID, query.RoomNo)
 	if err != nil {
 		c.Error(err)
 		return
@@ -62,11 +69,28 @@ func (h *CabinetHandler) DirectDispense(c *gin.Context) {
 		return
 	}
 
+	// 强制从经过人脸认证的 FaceSession Token 中提取身份与机柜绑定
+	userIDVal, _ := c.Get("user_id")
+	userID, _ := userIDVal.(string)
+
+	cabinetDeviceIDVal, _ := c.Get("cabinet_device_id")
+	cabinetDeviceID, _ := cabinetDeviceIDVal.(string)
+
+	deviceID := req.DeviceID
+	if cabinetDeviceID != "" {
+		if deviceID != "" && deviceID != cabinetDeviceID {
+			c.Error(apperrors.New(apperrors.CodeForbidden, "Cabinet device ID mismatch with authenticated session"))
+			return
+		}
+		deviceID = cabinetDeviceID
+	}
+
 	op, borrow, slot, key, err := h.cabinetService.DirectDispense(c.Request.Context(), service.CabinetDirectDispenseParams{
 		RequestID: req.RequestID,
-		DeviceID:  req.DeviceID,
+		DeviceID:  deviceID,
 		RoomNo:    req.RoomNo,
 		KeyID:     req.KeyID,
+		UserID:    userID,
 		StudentNo: req.StudentNo,
 		Purpose:   req.Purpose,
 	})
@@ -116,8 +140,20 @@ func (h *CabinetHandler) FaceAuth(c *gin.Context) {
 		return
 	}
 
+	cabinetDeviceIDVal, _ := c.Get("cabinet_device_id")
+	cabinetDeviceID, _ := cabinetDeviceIDVal.(string)
+
+	deviceID := req.DeviceID
+	if cabinetDeviceID != "" {
+		if deviceID != "" && deviceID != cabinetDeviceID {
+			c.Error(apperrors.New(apperrors.CodeForbidden, "Device ID mismatch with cabinet header"))
+			return
+		}
+		deviceID = cabinetDeviceID
+	}
+
 	res, err := h.cabinetService.FaceAuth(c.Request.Context(), service.FaceAuthParams{
-		DeviceID:       req.DeviceID,
+		DeviceID:       deviceID,
 		StudentNo:      req.StudentNo,
 		Confidence:     req.Confidence,
 		LivenessPassed: req.LivenessPassed,
@@ -131,6 +167,7 @@ func (h *CabinetHandler) FaceAuth(c *gin.Context) {
 		User:               res.User,
 		ActiveReservations: res.ActiveReservations,
 		ActiveBorrows:      res.ActiveBorrows,
+		FaceSessionToken:   res.FaceSessionToken,
 		CabinetToken:       res.CabinetToken,
 	}
 

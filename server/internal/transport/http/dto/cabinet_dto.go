@@ -20,10 +20,10 @@ type MatchedKeyDTO struct {
 
 type CabinetDirectDispenseRequest struct {
 	RequestID string `json:"requestId" binding:"required"`
-	DeviceID  string `json:"deviceId" binding:"required"`
+	DeviceID  string `json:"deviceId"`
 	RoomNo    string `json:"roomNo"`
 	KeyID     string `json:"keyId"`
-	StudentNo string `json:"studentNo" binding:"required"`
+	StudentNo string `json:"studentNo,omitempty"`
 	Purpose   string `json:"purpose"`
 }
 
@@ -40,7 +40,7 @@ type CabinetDirectDispenseResponse struct {
 }
 
 type FaceAuthRequest struct {
-	DeviceID       string  `json:"deviceId" binding:"required"`
+	DeviceID       string  `json:"deviceId"`
 	StudentNo      string  `json:"studentNo" binding:"required"`
 	Confidence     float64 `json:"confidence"`
 	LivenessPassed bool    `json:"livenessPassed"`
@@ -50,5 +50,6 @@ type FaceAuthResponse struct {
 	User               interface{} `json:"user"`
 	ActiveReservations interface{} `json:"activeReservations"`
 	ActiveBorrows      interface{} `json:"activeBorrows"`
+	FaceSessionToken   string      `json:"faceSessionToken"`
 	CabinetToken       string      `json:"cabinetToken"`
 }

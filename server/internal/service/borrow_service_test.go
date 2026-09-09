@@ -19,13 +19,36 @@ func (r *fakeReminderRepository) Create(_ context.Context, reminder *repository.
 	return nil
 }
 
+func (r *fakeReminderRepository) Update(_ context.Context, reminder *repository.Reminder) error {
+	for i, rem := range r.reminders {
+		if rem.ID == reminder.ID {
+			r.reminders[i] = reminder
+			return nil
+		}
+	}
+	r.reminders = append(r.reminders, reminder)
+	return nil
+}
+
 func (r *fakeReminderRepository) ExistsByTypeAndRecord(_ context.Context, recordID, reminderType string) (bool, error) {
 	for _, rem := range r.reminders {
-		if rem.BorrowRecordID == recordID && rem.Type == reminderType {
+		if rem.BorrowRecordID == recordID && rem.Type == reminderType && rem.Status == "SENT" {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+func (r *fakeReminderRepository) FindPendingOrFailedRetries(_ context.Context, now time.Time, maxAttempts int) ([]*repository.Reminder, error) {
+	var retries []*repository.Reminder
+	for _, rem := range r.reminders {
+		if rem.Status == "FAILED" && rem.AttemptCount < maxAttempts {
+			if rem.NextRetryAt == nil || rem.NextRetryAt.Before(now) || rem.NextRetryAt.Equal(now) {
+				retries = append(retries, rem)
+			}
+		}
+	}
+	return retries, nil
 }
 
 func (r *fakeReminderRepository) FindByUserID(_ context.Context, userID string) ([]*repository.Reminder, error) {

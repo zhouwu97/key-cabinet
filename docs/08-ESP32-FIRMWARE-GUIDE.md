@@ -52,7 +52,7 @@
 为满足立项书**“防错取、防错还”**核心指标，归还操作严禁在未确认 RFID 的情况下直接结束，必须遵循以下状态机时序：
 
 ```text
-[云端下发归还指令] (cmd/return, 附带 expectedRfid)
+[云端下发归还指令] (cmd/return, 附带 expectedRfidTag)
       │
       ▼
 [ESP32 回复 ACK] (event/ack, 提示设备已就绪)
@@ -66,7 +66,7 @@
       ├── 读不到卡 ──> 上报 event/rfid_scanned (isMatch=false, stage=rfid_not_found)
       │                提示“未检测到钥匙标签”，蜂鸣器短鸣报警
       │
-      ├── 读到标签 UID ──> 比对 UID 是否与 expectedRfid 一致
+      ├── 读到标签 UID ──> 比对 UID 是否与 expectedRfidTag 一致
       │        │
       │        ├── 不匹配 ──> 上报 event/rfid_scanned (isMatch=false, scannedRfid=UID)
       │        │             提示“钥匙错误”，拒绝闭门完成，服务端阻断

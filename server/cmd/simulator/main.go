@@ -30,11 +30,12 @@ type pickupCommandData struct {
 }
 
 type returnCommandData struct {
-	OperationID    string `json:"operationId"`
-	TargetSlotNo   int    `json:"targetSlotNo"`
-	ExpectedKeyID  string `json:"expectedKeyId"`
-	ExpectedRFID   string `json:"expectedRfid"`
-	TimeoutSeconds int    `json:"timeoutSeconds"`
+	OperationID     string `json:"operationId"`
+	TargetSlotNo    int    `json:"targetSlotNo"`
+	ExpectedKeyID   string `json:"expectedKeyId"`
+	ExpectedRFIDTag string `json:"expectedRfidTag"`
+	ExpectedRFID    string `json:"expectedRfid"`
+	TimeoutSeconds  int    `json:"timeoutSeconds"`
 }
 
 type eventEnvelope struct {
@@ -240,12 +241,17 @@ func handleReturn(client mqtt.Client, prefix, deviceID string, cmd commandEnvelo
 	log.Printf("  └─ 📡 RC522 射频天线感应读卡中 (槽位 #%d)...", data.TargetSlotNo)
 	time.Sleep(300 * time.Millisecond)
 
-	scannedUID := data.ExpectedRFID
+	expectedTag := data.ExpectedRFIDTag
+	if expectedTag == "" {
+		expectedTag = data.ExpectedRFID
+	}
+
+	scannedUID := expectedTag
 	isMatch := true
 	if failRFID || scannedUID == "" {
 		scannedUID = "RFID_WRONG_9999"
 		isMatch = false
-		log.Printf("  └─ ❌ [故障注入/错卡] 读卡 UID 不符! 预期=%s, 实读=%s", data.ExpectedRFID, scannedUID)
+		log.Printf("  └─ ❌ [故障注入/错卡] 读卡 UID 不符! 预期=%s, 实读=%s", expectedTag, scannedUID)
 	} else {
 		log.Printf("  └─ 🏷️ 读取到合法标签 UID: %s (匹配钥匙: %s)", scannedUID, data.ExpectedKeyID)
 	}

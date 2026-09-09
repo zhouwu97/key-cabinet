@@ -1,6 +1,7 @@
 package wechat
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
@@ -9,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -34,10 +36,13 @@ type Client interface {
 }
 
 type WechatClient struct {
-	appID       string
-	appSecret   string
-	mockEnabled bool
-	httpClient  *http.Client
+	appID          string
+	appSecret      string
+	mockEnabled    bool
+	httpClient     *http.Client
+	tokenMu        sync.RWMutex
+	accessToken    string
+	tokenExpiresAt time.Time
 }
 
 func NewClient(appID, appSecret string, mockEnabled bool) Client {
@@ -51,13 +56,17 @@ func NewClient(appID, appSecret string, mockEnabled bool) Client {
 	}
 }
 
-func (c *WechatClient) Code2Session(ctx context.Context, jsCode string) (*SessionResult, error) {
-	// Mock 只在配置显式开启且使用开发测试 code，或开发环境尚未配置微信凭据时生效。
-	isMockCode := strings.HasPrefix(jsCode, "mock_") || strings.HasPrefix(jsCode, "dev_")
-	isDevFallback := c.mockEnabled && (c.appID == "" || c.appSecret == "" ||
-		c.appID == "your-wechat-app-id" || c.appSecret == "your-wechat-app-secret")
+func (c *WechatClient) isMock() bool {
+	return c.mockEnabled
+}
 
-	if c.mockEnabled && (isMockCode || isDevFallback) {
+func (c *WechatClient) Code2Session(ctx context.Context, jsCode string) (*SessionResult, error) {
+	if !c.mockEnabled && (c.appID == "" || c.appSecret == "" || c.appID == "your-wechat-app-id" || c.appSecret == "your-wechat-app-secret") {
+		return nil, fmt.Errorf("wechat credentials are not configured")
+	}
+
+	isMockCode := strings.HasPrefix(jsCode, "mock_") || strings.HasPrefix(jsCode, "dev_")
+	if c.isMock() || isMockCode {
 		h := md5.Sum([]byte(jsCode))
 		mockOpenID := fmt.Sprintf("wx_mock_%s", hex.EncodeToString(h[:8]))
 		return &SessionResult{
@@ -67,9 +76,6 @@ func (c *WechatClient) Code2Session(ctx context.Context, jsCode string) (*Sessio
 			ErrCode:    0,
 			ErrMsg:     "ok",
 		}, nil
-	}
-	if c.appID == "" || c.appSecret == "" {
-		return nil, fmt.Errorf("wechat credentials are not configured")
 	}
 
 	url := fmt.Sprintf(
@@ -100,17 +106,113 @@ func (c *WechatClient) Code2Session(ctx context.Context, jsCode string) (*Sessio
 	return &result, nil
 }
 
+func (c *WechatClient) getAccessToken(ctx context.Context) (string, error) {
+	c.tokenMu.RLock()
+	if c.accessToken != "" && time.Now().Before(c.tokenExpiresAt) {
+		token := c.accessToken
+		c.tokenMu.RUnlock()
+		return token, nil
+	}
+	c.tokenMu.RUnlock()
+
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+
+	if c.accessToken != "" && time.Now().Before(c.tokenExpiresAt) {
+		return c.accessToken, nil
+	}
+
+	url := fmt.Sprintf("https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s",
+		c.appID, c.appSecret)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to request access token: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var res struct {
+		AccessToken string `json:"access_token"`
+		ExpiresIn   int    `json:"expires_in"`
+		ErrCode     int    `json:"errcode"`
+		ErrMsg      string `json:"errmsg"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return "", fmt.Errorf("failed to decode access token response: %w", err)
+	}
+	if res.ErrCode != 0 {
+		return "", fmt.Errorf("wechat token error %d: %s", res.ErrCode, res.ErrMsg)
+	}
+
+	c.accessToken = res.AccessToken
+	refreshBuffer := 300 * time.Second
+	c.tokenExpiresAt = time.Now().Add(time.Duration(res.ExpiresIn)*time.Second - refreshBuffer)
+
+	return c.accessToken, nil
+}
+
 func (c *WechatClient) SendSubscribeMessage(ctx context.Context, req SubscribeMessageRequest) error {
-	// 在 Mock 模式或未配置微信凭证时，记录格式化审计日志并模拟成功发送
-	if c.mockEnabled || c.appID == "" || c.appSecret == "" ||
-		c.appID == "your-wechat-app-id" || c.appSecret == "your-wechat-app-secret" {
+	if c.isMock() {
 		log.Printf("[WechatClient Mock] SendSubscribeMessage to OpenID=%s, Template=%s: %+v",
 			req.ToUser, req.TemplateID, req.Data)
 		return nil
 	}
 
-	// 真实生产环境可在配置 AccessToken 后发起微信 API 请求
-	log.Printf("[WechatClient] SendSubscribeMessage to OpenID=%s, Template=%s", req.ToUser, req.TemplateID)
-	return nil
+	token, err := c.getAccessToken(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to obtain wechat access token: %w", err)
+	}
+
+	return c.doSendSubscribe(ctx, token, req, true)
 }
 
+func (c *WechatClient) doSendSubscribe(ctx context.Context, token string, req SubscribeMessageRequest, canRetry bool) error {
+	url := fmt.Sprintf("https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=%s", token)
+
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("failed to serialize subscribe message: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create http request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("wechat subscribe send failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var res struct {
+		ErrCode int    `json:"errcode"`
+		ErrMsg  string `json:"errmsg"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+		return fmt.Errorf("failed to decode subscribe response: %w", err)
+	}
+
+	if (res.ErrCode == 40001 || res.ErrCode == 42001) && canRetry {
+		c.tokenMu.Lock()
+		c.accessToken = ""
+		c.tokenMu.Unlock()
+		newToken, err := c.getAccessToken(ctx)
+		if err != nil {
+			return err
+		}
+		return c.doSendSubscribe(ctx, newToken, req, false)
+	}
+
+	if res.ErrCode != 0 {
+		return fmt.Errorf("wechat subscribe error %d: %s", res.ErrCode, res.ErrMsg)
+	}
+
+	log.Printf("[WechatClient] Successfully sent subscribe message to OpenID=%s", req.ToUser)
+	return nil
+}

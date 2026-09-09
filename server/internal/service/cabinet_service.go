@@ -25,6 +25,7 @@ type CabinetDirectDispenseParams struct {
 	DeviceID  string
 	RoomNo    string
 	KeyID     string
+	UserID    string
 	StudentNo string
 	Purpose   string
 }
@@ -40,6 +41,7 @@ type FaceAuthResult struct {
 	User               *repository.User
 	ActiveReservations []*repository.Reservation
 	ActiveBorrows      []*repository.BorrowRecord
+	FaceSessionToken   string
 	CabinetToken       string
 }
 
@@ -125,35 +127,46 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 	params.DeviceID = strings.TrimSpace(params.DeviceID)
 	params.RoomNo = strings.TrimSpace(params.RoomNo)
 	params.KeyID = strings.TrimSpace(params.KeyID)
-	params.StudentNo = strings.TrimSpace(params.StudentNo)
+	params.UserID = strings.TrimSpace(params.UserID)
 
-	if params.RequestID == "" || params.DeviceID == "" || params.StudentNo == "" {
-		return nil, nil, nil, nil, apperrors.New(apperrors.CodeInvalidInput, "requestId, deviceId, and studentNo are required")
+	if params.RequestID == "" || params.DeviceID == "" {
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeInvalidInput, "requestId and deviceId are required")
+	}
+	if params.UserID == "" {
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeUnauthorized, "direct dispense requires an authenticated user from a valid face session")
 	}
 	if params.RoomNo == "" && params.KeyID == "" {
 		return nil, nil, nil, nil, apperrors.New(apperrors.CodeInvalidInput, "either roomNo or keyId is required")
 	}
 
-	// 1. 查验用户身份
-	user, err := s.userRepo.FindByStudentNo(ctx, params.StudentNo)
+	// 1. 验证设备存在且在线
+	dev, err := s.deviceRepo.FindByID(ctx, params.DeviceID)
 	if err != nil {
-		return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query user by studentNo")
+		return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query device")
+	}
+	if dev == nil {
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeNotFound, "未找到指定的机柜设备")
+	}
+	if dev.Status != "ONLINE" {
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeForbidden, "机柜设备当前离线或处于维护状态")
+	}
+
+	// 2. 查验用户身份 (严格根据已核验的 UserID)
+	user, err := s.userRepo.FindByID(ctx, params.UserID)
+	if err != nil {
+		return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query user by id")
 	}
 	if user == nil {
-		// 备用按 User ID 查询
-		user, err = s.userRepo.FindByID(ctx, params.StudentNo)
-		if err != nil {
-			return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query user by id")
-		}
-	}
-	if user == nil {
-		return nil, nil, nil, nil, apperrors.New(apperrors.CodeNotFound, "未找到该用户，请先在系统登记实名与学工号")
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeNotFound, "未找到该用户")
 	}
 	if user.Status != "ACTIVE" {
 		return nil, nil, nil, nil, apperrors.New(apperrors.CodeForbidden, "用户账号状态不可借用钥匙")
 	}
+	if !user.IdentityVerified {
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeForbidden, "用户未通过实名核验，不可出钥")
+	}
 
-	// 2. 幂等拦截
+	// 3. 幂等拦截
 	existingOp, err := s.operationRepo.FindByRequestID(ctx, params.RequestID)
 	if err != nil {
 		return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to check idempotent request")
@@ -162,7 +175,7 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 		return existingOp, nil, nil, nil, nil
 	}
 
-	// 3. 匹配钥匙
+	// 4. 匹配钥匙
 	var targetKey *repository.Key
 	if params.KeyID != "" {
 		k, err := s.keyRepo.FindByID(ctx, params.KeyID)
@@ -192,11 +205,14 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 		}
 	}
 
+	if !targetKey.Enabled {
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeForbidden, "钥匙已被停用")
+	}
 	if targetKey.Status != "AVAILABLE" {
 		return nil, nil, nil, nil, apperrors.New(apperrors.CodeConflict, "钥匙当前不可借出 (状态为: "+targetKey.Status+")")
 	}
 
-	// 4. 获取槽位并核验在位
+	// 5. 获取槽位并核验在位与可用
 	slot, err := s.slotRepo.FindByID(ctx, targetKey.SlotID)
 	if err != nil {
 		return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query slot")
@@ -204,8 +220,24 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 	if slot == nil {
 		return nil, nil, nil, nil, apperrors.New(apperrors.CodeNotFound, "钥匙未绑定有效槽位")
 	}
+	if !slot.Enabled {
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeForbidden, "钥匙所在槽位已被禁用")
+	}
+	if slot.Presence != "PRESENT" {
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeConflict, "钥匙当前不在槽位中 (状态为: "+slot.Presence+")")
+	}
 
-	// 5. 校验机柜当前没有正在执行中的冲突操作
+	// 6. 校验用户没有正在借用该钥匙
+	activeBorrows, err := s.borrowRepo.FindByUserID(ctx, user.ID)
+	if err == nil {
+		for _, b := range activeBorrows {
+			if (b.Status == "BORROWED" || b.Status == "BORROWING") && b.KeyID == targetKey.ID {
+				return nil, nil, nil, nil, apperrors.New(apperrors.CodeConflict, "您当前已有该钥匙的借用流程")
+			}
+		}
+	}
+
+	// 7. 校验机柜当前没有正在执行中的冲突操作
 	activeDevOp, err := s.operationRepo.FindActiveByDeviceID(ctx, params.DeviceID)
 	if err != nil {
 		return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to check active device operation")
@@ -214,7 +246,14 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 		return nil, nil, nil, nil, apperrors.New(apperrors.CodeConflict, "机柜正在执行其它借还操作，请稍候")
 	}
 
-	// 6. 生成借用记录与操作
+	// 8. 计算借用时长策略 (现场直借默认4小时，实验室钥匙默认8小时)
+	borrowDuration := 4 * time.Hour
+	if strings.Contains(strings.ToLower(targetKey.Category), "lab") {
+		borrowDuration = 8 * time.Hour
+	}
+
+	// 9. 生成借用记录与操作
+	// 审计物理一致性：在设备物理出钥前，BorrowedAt 必须为 nil，待设备确认 KEY_REMOVED 后由 CompletePickup 写入
 	now := time.Now().UTC()
 	purpose := params.Purpose
 	if purpose == "" {
@@ -227,8 +266,8 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 		DeviceID:         params.DeviceID,
 		SlotID:           slot.ID,
 		Status:           "BORROWING",
-		BorrowedAt:       &now,
-		ExpectedReturnAt: now.Add(24 * time.Hour),
+		BorrowedAt:       nil,
+		ExpectedReturnAt: now.Add(borrowDuration),
 		Purpose:          purpose,
 		CreatedAt:        now,
 		UpdatedAt:        now,
@@ -252,7 +291,7 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 		return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to prepare direct dispense")
 	}
 
-	// 7. 发送出钥指令
+	// 10. 发送出钥指令
 	if err := s.operationRepo.BeginExecution(ctx, operation.ID, now); err != nil {
 		return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to begin direct dispense execution")
 	}
@@ -277,11 +316,31 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 }
 
 func (s *cabinetService) FaceAuth(ctx context.Context, params FaceAuthParams) (*FaceAuthResult, error) {
+	params.DeviceID = strings.TrimSpace(params.DeviceID)
+	if params.DeviceID == "" {
+		return nil, apperrors.New(apperrors.CodeInvalidInput, "deviceId is required")
+	}
+
+	// 验证机柜设备是否存在且在线
+	dev, err := s.deviceRepo.FindByID(ctx, params.DeviceID)
+	if err != nil {
+		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query device")
+	}
+	if dev == nil {
+		return nil, apperrors.New(apperrors.CodeNotFound, "未找到指定的机柜设备")
+	}
+	if dev.Status != "ONLINE" {
+		return nil, apperrors.New(apperrors.CodeForbidden, "机柜设备当前处于离线或异常状态，无法进行人脸认证")
+	}
+
+	// 活体检测强校验
 	if !params.LivenessPassed {
 		return nil, apperrors.New("ERR_LIVENESS_FAILED", "活体检测未通过，拒绝开柜")
 	}
-	if params.Confidence > 0 && params.Confidence < 0.70 {
-		return nil, apperrors.New("ERR_FACE_CONFIDENCE_LOW", "人脸比对置信度过低，请重新正对摄像头")
+
+	// 置信度阈值校验：必须 >= 0.80，防止 0 或过低置信度绕过
+	if params.Confidence < 0.80 {
+		return nil, apperrors.New("ERR_FACE_CONFIDENCE_LOW", "人脸比对置信度过低 (需 >= 0.80)，请重新正对摄像头")
 	}
 
 	params.StudentNo = strings.TrimSpace(params.StudentNo)
@@ -304,6 +363,9 @@ func (s *cabinetService) FaceAuth(ctx context.Context, params FaceAuthParams) (*
 	}
 	if user.Status != "ACTIVE" {
 		return nil, apperrors.New(apperrors.CodeForbidden, "用户账号异常，无法开柜")
+	}
+	if !user.IdentityVerified {
+		return nil, apperrors.New(apperrors.CodeForbidden, "用户未通过实名身份核验，无法现场人脸取钥")
 	}
 
 	// 查该用户待取预约 (本柜机相关)
@@ -328,16 +390,17 @@ func (s *cabinetService) FaceAuth(ctx context.Context, params FaceAuthParams) (*
 		}
 	}
 
-	var token string
+	var sessionToken string
 	if s.tokenService != nil {
-		token, _ = s.tokenService.Generate(user.ID, user.Role)
+		sessionToken, _ = s.tokenService.GenerateFaceSession(user.ID, user.Role, params.DeviceID, 5*time.Minute)
 	}
 
 	return &FaceAuthResult{
 		User:               user,
 		ActiveReservations: activeReservations,
 		ActiveBorrows:      activeBorrows,
-		CabinetToken:       token,
+		FaceSessionToken:   sessionToken,
+		CabinetToken:       sessionToken,
 	}, nil
 }
 

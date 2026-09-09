@@ -91,6 +91,7 @@ func main() {
 		OperationHandler:   operationHandler,
 		CabinetHandler:     cabinetHandler,
 		TokenService:       tokenService,
+		DeviceRepo:         deviceRepo,
 	})
 
 	// Start server
