@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"log"
 	"strings"
 	"time"
 
+	"github.com/zhouwu97/key-cabinet/server/internal/infrastructure/wechat"
 	apperrors "github.com/zhouwu97/key-cabinet/server/internal/platform/errors"
 	"github.com/zhouwu97/key-cabinet/server/internal/repository"
 )
@@ -23,11 +25,28 @@ type BorrowService interface {
 }
 
 type borrowService struct {
-	borrowRepo repository.BorrowRepository
+	borrowRepo   repository.BorrowRepository
+	reminderRepo repository.ReminderRepository
+	wechatClient wechat.Client
+	userRepo     repository.UserRepository
 }
 
 func NewBorrowService(borrowRepo repository.BorrowRepository) BorrowService {
 	return &borrowService{borrowRepo: borrowRepo}
+}
+
+func NewBorrowServiceWithReminders(
+	borrowRepo repository.BorrowRepository,
+	reminderRepo repository.ReminderRepository,
+	wechatClient wechat.Client,
+	userRepo repository.UserRepository,
+) BorrowService {
+	return &borrowService{
+		borrowRepo:   borrowRepo,
+		reminderRepo: reminderRepo,
+		wechatClient: wechatClient,
+		userRepo:     userRepo,
+	}
 }
 
 func (s *borrowService) ListUserBorrowRecords(ctx context.Context, userID, keyID, status string) ([]*repository.BorrowRecord, error) {
@@ -210,7 +229,89 @@ func (s *borrowService) CheckOverdue(ctx context.Context, now time.Time) error {
 	if err := s.borrowRepo.MarkOverdue(ctx, now); err != nil {
 		return apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to mark overdue borrow records")
 	}
+
+	if s.reminderRepo != nil {
+		s.dispatchReminders(ctx, now)
+	}
+
 	return nil
+}
+
+func (s *borrowService) dispatchReminders(ctx context.Context, now time.Time) {
+	borrowed, err := s.borrowRepo.List(ctx, repository.BorrowListFilter{Status: "BORROWED"})
+	if err != nil {
+		log.Printf("[BorrowService] failed to list active borrows for reminders: %v", err)
+		return
+	}
+
+	for _, record := range borrowed {
+		if record == nil {
+			continue
+		}
+
+		// 场景 A: 已经逾期催还 (expected_return_at < now)
+		if record.ExpectedReturnAt.Before(now) {
+			exists, _ := s.reminderRepo.ExistsByTypeAndRecord(ctx, record.ID, "OVERDUE")
+			if !exists {
+				s.sendAndRecordReminder(ctx, record, "OVERDUE", now)
+			}
+			continue
+		}
+
+		// 场景 B: 临期 30 分钟预警 (now <= expected_return_at <= now + 30m)
+		if record.ExpectedReturnAt.Before(now.Add(30*time.Minute)) && !record.ExpectedReturnAt.Before(now) {
+			exists, _ := s.reminderRepo.ExistsByTypeAndRecord(ctx, record.ID, "APPROACHING_OVERDUE")
+			if !exists {
+				s.sendAndRecordReminder(ctx, record, "APPROACHING_OVERDUE", now)
+			}
+		}
+	}
+}
+
+func (s *borrowService) sendAndRecordReminder(ctx context.Context, record *repository.BorrowRecord, reminderType string, now time.Time) {
+	reminder := &repository.Reminder{
+		ID:             "rem_" + generateRandomID(8),
+		BorrowRecordID: record.ID,
+		UserID:         record.UserID,
+		Type:           reminderType,
+		Status:         "SENT",
+		Channel:        "WECHAT_SUBSCRIBE",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+
+	if s.wechatClient != nil {
+		openID := record.UserID
+		if s.userRepo != nil {
+			if ident, err := s.userRepo.FindIdentity(ctx, "WECHAT", record.UserID); err == nil && ident != nil {
+				openID = ident.Subject
+			}
+		}
+
+		keyName := record.KeyName
+		if keyName == "" {
+			keyName = record.KeyID
+		}
+
+		msgReq := wechat.SubscribeMessageRequest{
+			ToUser:     openID,
+			TemplateID: reminderType + "_TEMPLATE_ID",
+			Page:       "pages/borrow-detail/borrow-detail?id=" + record.ID,
+			Data: map[string]interface{}{
+				"thing1": map[string]string{"value": keyName},
+				"time2":  map[string]string{"value": record.ExpectedReturnAt.Format("2006-01-02 15:04")},
+				"phrase3": map[string]string{"value": reminderType},
+			},
+		}
+		if err := s.wechatClient.SendSubscribeMessage(ctx, msgReq); err != nil {
+			reminder.Status = "FAILED"
+			reminder.ErrorMessage = err.Error()
+		}
+	}
+
+	if err := s.reminderRepo.Create(ctx, reminder); err != nil {
+		log.Printf("[BorrowService] failed to save reminder: %v", err)
+	}
 }
 
 func isBorrowStatus(status string) bool {

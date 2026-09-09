@@ -63,7 +63,35 @@ func (g *MockDeviceGateway) StartReturn(ctx context.Context, cmd DeviceCommand) 
 		case <-operationCtx.Done():
 			return
 		}
+		expectedTag := cmd.ExpectedRFID
+		if expectedTag == "" {
+			expectedTag = "RFID-MOCK-" + cmd.SlotID
+		}
+		rfidEvent := DeviceEvent{
+			EventID:     "mock_evt_rfid_" + cmd.OperationID,
+			OperationID: cmd.OperationID,
+			DeviceID:    cmd.DeviceID,
+			EventType:   "RFID_CONFIRMED",
+			Timestamp:   time.Now(),
+			Data: map[string]interface{}{
+				"isMatch":     true,
+				"scannedRfid": expectedTag,
+			},
+		}
+		if g.handler != nil {
+			if err := g.handler.OnDeviceEvent(context.Background(), rfidEvent); err != nil {
+				log.Printf("[MockDeviceGateway] OnDeviceEvent RFID_CONFIRMED failed: %v", err)
+			}
+		}
+
+		select {
+		case <-time.After(50 * time.Millisecond):
+		case <-operationCtx.Done():
+			return
+		}
+
 		event := DeviceEvent{
+			EventID:     "mock_evt_ret_" + cmd.OperationID,
 			OperationID: cmd.OperationID,
 			DeviceID:    cmd.DeviceID,
 			EventType:   "RETURN_SUCCESS",

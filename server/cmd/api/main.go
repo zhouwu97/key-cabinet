@@ -42,6 +42,7 @@ func main() {
 	reservationRepo := postgres.NewReservationRepository(db)
 	borrowRepo := postgres.NewBorrowRepository(db)
 	operationRepo := postgres.NewOperationRepository(db)
+	reminderRepo := postgres.NewReminderRepository(db)
 
 	// Initialize infrastructure clients
 	wechatClient := wechat.NewClient(cfg.Wechat.AppID, cfg.Wechat.AppSecret, cfg.Wechat.MockEnabled)
@@ -62,8 +63,9 @@ func main() {
 	keyService := service.NewKeyService(keyRepo, slotRepo)
 	deviceService := service.NewDeviceService(deviceRepo, slotRepo)
 	reservationService := service.NewReservationService(reservationRepo, keyRepo, deviceRepo, borrowRepo, userRepo)
-	borrowService := service.NewBorrowService(borrowRepo)
+	borrowService := service.NewBorrowServiceWithReminders(borrowRepo, reminderRepo, wechatClient, userRepo)
 	operationService := service.NewOperationService(operationRepo, reservationService, borrowService, keyRepo, deviceRepo, slotRepo, deviceGateway, userRepo)
+	cabinetService := service.NewCabinetService(userRepo, keyRepo, slotRepo, deviceRepo, reservationRepo, borrowRepo, operationRepo, deviceGateway, tokenService)
 	startOverdueScheduler(borrowService)
 	startOperationTimeoutScheduler(operationService)
 	startReservationExpiryScheduler(reservationService)
@@ -76,6 +78,7 @@ func main() {
 	reservationHandler := handler.NewReservationHandler(reservationService)
 	borrowHandler := handler.NewBorrowHandler(borrowService)
 	operationHandler := handler.NewOperationHandler(operationService)
+	cabinetHandler := handler.NewCabinetHandler(cabinetService)
 
 	// Setup router
 	router := http.SetupRouter(http.RouterConfig{
@@ -86,6 +89,7 @@ func main() {
 		ReservationHandler: reservationHandler,
 		BorrowHandler:      borrowHandler,
 		OperationHandler:   operationHandler,
+		CabinetHandler:     cabinetHandler,
 		TokenService:       tokenService,
 	})
 

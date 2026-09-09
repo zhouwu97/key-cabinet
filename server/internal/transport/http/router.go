@@ -15,6 +15,7 @@ type RouterConfig struct {
 	ReservationHandler *handler.ReservationHandler
 	BorrowHandler      *handler.BorrowHandler
 	OperationHandler   *handler.OperationHandler
+	CabinetHandler     *handler.CabinetHandler
 	TokenService       *jwt.TokenService
 }
 
@@ -32,6 +33,16 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	{
 		if cfg.AuthHandler != nil {
 			v1Public.POST("/auth/wechat-login", cfg.AuthHandler.WechatLogin)
+		}
+	}
+
+	// API v1 - Cabinet Terminal
+	if cfg.CabinetHandler != nil {
+		cabinet := r.Group("/api/v1/cabinet")
+		{
+			cabinet.POST("/auth/face", cfg.CabinetHandler.FaceAuth)
+			cabinet.GET("/keys/match-room", cfg.CabinetHandler.MatchRoom)
+			cabinet.POST("/direct-dispense", cfg.CabinetHandler.DirectDispense)
 		}
 	}
 

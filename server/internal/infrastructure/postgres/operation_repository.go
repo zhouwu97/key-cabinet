@@ -171,6 +171,7 @@ func operationPersistenceValues(operation *repository.DeviceOperation) map[strin
 		"key_id":           nullableOperationID(operation.KeyID),
 		"operation_type":   operation.Action,
 		"status":           operation.Status,
+		"scanned_rfid":     operation.ScannedRFID,
 		"created_at":       operation.CreatedAt,
 		"initiated_at":     operation.StartedAt,
 		"sent_at":          operation.SentAt,
@@ -324,9 +325,53 @@ func (r *PostgresOperationRepository) CompleteReturn(ctx context.Context, operat
 		if operation.BorrowRecordID == "" {
 			return errors.New("return operation has no borrow record")
 		}
+
+		// 严格校验 RFID 是否已确认且匹配
+		var rfidEvents []repository.OperationEvent
+		if err := tx.Where("operation_id = ? AND event_type = ?", operationID, "RFID_CONFIRMED").
+			Order("seq desc").
+			Find(&rfidEvents).Error; err != nil {
+			return err
+		}
+
+		scannedRFID := strings.TrimSpace(operation.ScannedRFID)
+		if len(rfidEvents) == 0 && scannedRFID == "" {
+			return repository.ErrRFIDNotVerified
+		}
+
+		if scannedRFID == "" && len(rfidEvents) > 0 {
+			if uid, ok := rfidEvents[0].Data["scannedRfid"].(string); ok && uid != "" {
+				scannedRFID = uid
+			} else if uid, ok := rfidEvents[0].Data["uid"].(string); ok && uid != "" {
+				scannedRFID = uid
+			} else if uid, ok := rfidEvents[0].Data["rfidTag"].(string); ok && uid != "" {
+				scannedRFID = uid
+			}
+		}
+
+		// 如果钥匙定义了预期 RFIDTag，校验是否匹配
+		if operation.KeyID != "" {
+			var key repository.Key
+			if err := tx.First(&key, "id = ?", operation.KeyID).Error; err == nil {
+				if key.RFIDTag != "" && scannedRFID != "" && !strings.EqualFold(scannedRFID, key.RFIDTag) {
+					return repository.ErrRFIDMismatch
+				}
+				if scannedRFID == "" {
+					scannedRFID = key.RFIDTag
+				}
+			}
+		}
+
 		result := tx.Model(&repository.BorrowRecord{}).
 			Where("id = ? AND status = ?", operation.BorrowRecordID, "RETURNING").
-			Updates(map[string]interface{}{"status": "COMPLETED", "returned_at": now, "rfid_verified": true, "notes": "", "updated_at": now})
+			Updates(map[string]interface{}{
+				"status":        "COMPLETED",
+				"returned_at":   now,
+				"rfid_verified": true,
+				"scanned_rfid":  scannedRFID,
+				"notes":         "",
+				"updated_at":    now,
+			})
 		if result.Error != nil {
 			return result.Error
 		}
@@ -336,7 +381,15 @@ func (r *PostgresOperationRepository) CompleteReturn(ctx context.Context, operat
 		if err := updateKeyAndSlot(tx, operation.KeyID, operation.SlotID, "AVAILABLE", "PRESENT", now); err != nil {
 			return err
 		}
-		if err := updateOperationStatus(tx, operationID, "SUCCESS", "", "", now); err != nil {
+		if err := tx.Model(&repository.DeviceOperation{}).Where("id = ?", operationID).Updates(map[string]interface{}{
+			"status":        "SUCCESS",
+			"scanned_rfid":  scannedRFID,
+			"error_code":    "",
+			"error_message": "",
+			"ack_at":        now,
+			"completed_at":  now,
+			"updated_at":    now,
+		}).Error; err != nil {
 			return err
 		}
 		return createEventTx(tx, operationID, "SUCCESS", now)

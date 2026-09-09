@@ -9,6 +9,8 @@ import (
 var (
 	ErrOperationTerminal     = errors.New("operation is already terminal")
 	ErrOperationInvalidState = errors.New("operation state transition is not allowed")
+	ErrRFIDNotVerified       = errors.New("rfid was not confirmed before return completion")
+	ErrRFIDMismatch          = errors.New("scanned rfid does not match expected key")
 )
 
 type DeviceOperation struct {
@@ -22,6 +24,7 @@ type DeviceOperation struct {
 	KeyID          string            `gorm:"column:key_id" json:"keyId,omitempty"`
 	Action         string            `gorm:"column:operation_type" json:"action"`
 	Status         string            `gorm:"column:status" json:"status"`
+	ScannedRFID    string            `gorm:"column:scanned_rfid" json:"scannedRfid,omitempty"`
 	CreatedAt      time.Time         `gorm:"column:created_at" json:"createdAt"`
 	StartedAt      *time.Time        `gorm:"column:initiated_at" json:"startedAt,omitempty"`
 	SentAt         *time.Time        `gorm:"column:sent_at" json:"sentAt,omitempty"`

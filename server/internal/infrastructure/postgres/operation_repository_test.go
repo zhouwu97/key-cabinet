@@ -29,4 +29,9 @@ func TestOperationPersistenceValuesUsesNullForOptionalIDs(t *testing.T) {
 	if values["borrow_record_id"] != "bor_test" {
 		t.Fatalf("borrow_record_id = %#v, want bor_test", values["borrow_record_id"])
 	}
+	operation.ScannedRFID = "RFID-TEST-001"
+	valuesWithRFID := operationPersistenceValues(operation)
+	if valuesWithRFID["scanned_rfid"] != "RFID-TEST-001" {
+		t.Fatalf("scanned_rfid = %#v, want RFID-TEST-001", valuesWithRFID["scanned_rfid"])
+	}
 }

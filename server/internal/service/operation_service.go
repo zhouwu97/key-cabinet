@@ -342,6 +342,18 @@ func (s *operationService) OnDeviceEvent(ctx context.Context, event device.Devic
 	case "FAILED", "ERROR", "PICKUP_FAILED", "RETURN_FAILED":
 		return s.operationRepo.Fail(ctx, operation.ID, event.ErrorCode, event.ErrorMessage, event.Timestamp)
 	default:
+		if eventType == "RFID_CONFIRMED" && event.Data != nil {
+			var uid string
+			if u, ok := event.Data["scannedRfid"].(string); ok && u != "" {
+				uid = u
+			} else if u, ok := event.Data["uid"].(string); ok && u != "" {
+				uid = u
+			}
+			if uid != "" {
+				operation.ScannedRFID = uid
+				_ = s.operationRepo.Update(ctx, operation)
+			}
+		}
 		return s.operationRepo.AppendEventIfActive(ctx, &repository.OperationEvent{
 			ID:          event.EventID,
 			OperationID: operation.ID,

@@ -20,6 +20,7 @@ type BorrowRecord struct {
 	OverdueAt        *time.Time `gorm:"column:overdue_at" json:"overdueAt,omitempty"`
 	ReturnedAt       *time.Time `gorm:"column:returned_at" json:"returnedAt,omitempty"`
 	RFIDVerified     bool       `gorm:"column:rfid_verified" json:"rfidVerified"`
+	ScannedRFID      string     `gorm:"column:scanned_rfid" json:"scannedRfid,omitempty"`
 	Purpose          string     `gorm:"column:purpose" json:"purpose,omitempty"`
 	Notes            string     `gorm:"column:notes" json:"notes,omitempty"`
 	CreatedAt        time.Time  `gorm:"column:created_at" json:"createdAt"`

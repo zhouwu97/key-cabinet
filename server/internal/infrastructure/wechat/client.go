@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -19,8 +20,17 @@ type SessionResult struct {
 	ErrMsg     string `json:"errmsg"`
 }
 
+type SubscribeMessageRequest struct {
+	ToUser           string                 `json:"touser"`
+	TemplateID       string                 `json:"template_id"`
+	Page             string                 `json:"page,omitempty"`
+	MiniprogramState string                 `json:"miniprogram_state,omitempty"`
+	Data             map[string]interface{} `json:"data"`
+}
+
 type Client interface {
 	Code2Session(ctx context.Context, jsCode string) (*SessionResult, error)
+	SendSubscribeMessage(ctx context.Context, req SubscribeMessageRequest) error
 }
 
 type WechatClient struct {
@@ -89,3 +99,18 @@ func (c *WechatClient) Code2Session(ctx context.Context, jsCode string) (*Sessio
 
 	return &result, nil
 }
+
+func (c *WechatClient) SendSubscribeMessage(ctx context.Context, req SubscribeMessageRequest) error {
+	// 在 Mock 模式或未配置微信凭证时，记录格式化审计日志并模拟成功发送
+	if c.mockEnabled || c.appID == "" || c.appSecret == "" ||
+		c.appID == "your-wechat-app-id" || c.appSecret == "your-wechat-app-secret" {
+		log.Printf("[WechatClient Mock] SendSubscribeMessage to OpenID=%s, Template=%s: %+v",
+			req.ToUser, req.TemplateID, req.Data)
+		return nil
+	}
+
+	// 真实生产环境可在配置 AccessToken 后发起微信 API 请求
+	log.Printf("[WechatClient] SendSubscribeMessage to OpenID=%s, Template=%s", req.ToUser, req.TemplateID)
+	return nil
+}
+
