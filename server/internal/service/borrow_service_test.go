@@ -39,6 +39,15 @@ func (r *fakeReminderRepository) ExistsByTypeAndRecord(_ context.Context, record
 	return false, nil
 }
 
+func (r *fakeReminderRepository) FindByRecordAndType(_ context.Context, recordID, reminderType string) (*repository.Reminder, error) {
+	for _, rem := range r.reminders {
+		if rem.BorrowRecordID == recordID && rem.Type == reminderType {
+			return rem, nil
+		}
+	}
+	return nil, nil
+}
+
 func (r *fakeReminderRepository) FindPendingOrFailedRetries(_ context.Context, now time.Time, maxAttempts int) ([]*repository.Reminder, error) {
 	var retries []*repository.Reminder
 	for _, rem := range r.reminders {

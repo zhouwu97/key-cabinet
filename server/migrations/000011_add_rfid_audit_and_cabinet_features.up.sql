@@ -8,10 +8,7 @@ CREATE TABLE IF NOT EXISTS reminders (
     borrow_record_id VARCHAR(64) NOT NULL REFERENCES borrow_records(id),
     user_id VARCHAR(64) NOT NULL REFERENCES users(id),
     type VARCHAR(32) NOT NULL, -- 'APPROACHING_OVERDUE', 'OVERDUE'
-    status VARCHAR(32) NOT NULL DEFAULT 'SENT', -- 'PENDING', 'SENT', 'FAILED'
-    attempt_count INT NOT NULL DEFAULT 1,
-    next_retry_at TIMESTAMPTZ,
-    sent_at TIMESTAMPTZ,
+    status VARCHAR(32) NOT NULL DEFAULT 'SENT', -- 'SENT', 'FAILED'
     channel VARCHAR(32) NOT NULL DEFAULT 'WECHAT_SUBSCRIBE',
     error_message TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,

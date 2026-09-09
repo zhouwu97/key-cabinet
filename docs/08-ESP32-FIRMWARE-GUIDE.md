@@ -22,7 +22,7 @@
 | **限位与在位传感器** | 机构原点限位 | GPIO 32 | 下拉输入，推杆归位微动开关 |
 | | 槽位 1 在位微动 | GPIO 33 | 上拉输入，检测钥匙是否插入槽位 |
 | | 槽位 2 在位微动 | GPIO 25 | 上拉输入，槽位2在位检测 |
-| | 安全柜门磁传感器 | GPIO 35 | 上拉输入，检测柜门开闭状态 |
+| | 安全柜门磁传感器 | GPIO 35 | 外部上拉输入 (注: ESP32 GPIO 34-39 无内部上下拉，需硬件外接 10kΩ 上拉电阻至 3.3V)，检测柜门开闭状态 |
 | **通信与状态指示** | 状态指示 LED | GPIO 2 | 板载蓝色 LED (网络/操作指示) |
 | | 蜂鸣器 (可选) | GPIO 4 | 操作成功/错卡报警提示 |
 
@@ -94,6 +94,7 @@
   ```
 
 ### 4.2 归还时 RFID 扫描上报 (`event/rfid_scanned`)
+* **技术标准**: RC522 工作于 13.56MHz 高频 (ISO/IEC 14443 Type A / Mifare Classic/Ultralight)，UID 为 4 字节或 7 字节十六进制格式 (如 `04A1B2C3` 或 `04AABBCCDDEEFF`)，非 915MHz UHF EPC 格式。
 * **Topic**: `kcab/cab/{deviceId}/event/rfid_scanned`
 * **Payload (标签匹配正常)**:
   ```json
@@ -105,8 +106,8 @@
       "operationId": "op_98a72b",
       "stage": "rfid_scanned",
       "isMatch": true,
-      "scannedRfid": "E28011606000021A",
-      "uid": "E28011606000021A"
+      "scannedRfid": "04A1B2C3",
+      "uid": "04A1B2C3"
     }
   }
   ```
@@ -120,8 +121,8 @@
       "operationId": "op_98a72b",
       "stage": "rfid_scanned",
       "isMatch": false,
-      "scannedRfid": "E280999999999999",
-      "uid": "E280999999999999"
+      "scannedRfid": "04998877",
+      "uid": "04998877"
     }
   }
   ```

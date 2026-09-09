@@ -12,6 +12,7 @@ type Device struct {
 	Capacity        int        `gorm:"column:capacity" json:"capacity"`
 	Status          string     `gorm:"column:status" json:"status"`
 	IPAddress       string     `gorm:"column:ip_address" json:"ipAddress,omitempty"`
+	DeviceSecret    string     `gorm:"column:device_secret" json:"-"`
 	LastHeartbeatAt *time.Time `gorm:"column:last_heartbeat_at" json:"lastHeartbeatAt"`
 	CreatedAt       time.Time  `gorm:"column:created_at" json:"createdAt"`
 	UpdatedAt       time.Time  `gorm:"column:updated_at" json:"updatedAt"`

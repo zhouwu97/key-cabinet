@@ -212,6 +212,24 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 		return nil, nil, nil, nil, apperrors.New(apperrors.CodeConflict, "钥匙当前不可借出 (状态为: "+targetKey.Status+")")
 	}
 
+	// 4.1 校验审批规则：若配置了需要审批，必须存在当前用户处于 APPROVED/ACTIVE 的预约，否则禁止现场直借
+	if targetKey.RequiresApproval {
+		userReservations, err := s.reservationRepo.FindByUserID(ctx, user.ID)
+		if err != nil {
+			return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query user reservations")
+		}
+		hasApprovedReservation := false
+		for _, rsv := range userReservations {
+			if rsv.KeyID == targetKey.ID && (rsv.Status == "APPROVED" || rsv.Status == "ACTIVE") {
+				hasApprovedReservation = true
+				break
+			}
+		}
+		if !hasApprovedReservation {
+			return nil, nil, nil, nil, apperrors.New(apperrors.CodeForbidden, "该钥匙已被设置为需要管理员审批，请先在小程序完成预约审批后再取钥")
+		}
+	}
+
 	// 5. 获取槽位并核验在位与可用
 	slot, err := s.slotRepo.FindByID(ctx, targetKey.SlotID)
 	if err != nil {

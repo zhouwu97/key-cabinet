@@ -266,6 +266,18 @@ func TestCabinetService_DirectDispense(t *testing.T) {
 	require.Equal(t, "EXECUTING", op.Status)
 	// 关键审计检查：物理出钥前 BorrowedAt 必须为 nil
 	require.Nil(t, borrow.BorrowedAt)
+
+	// 3. 需审批钥匙 (RequiresApproval=true) 无审批预约拦截
+	keyRepo.keys[0].RequiresApproval = true
+	_, _, _, _, err = svc.DirectDispense(context.Background(), CabinetDirectDispenseParams{
+		RequestID: "req_dispense_2",
+		DeviceID:  "CAB001",
+		RoomNo:    "101",
+		UserID:    "u1",
+		StudentNo: "20230001",
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "需要管理员审批")
 }
 
 func TestCabinetService_FaceAuth(t *testing.T) {

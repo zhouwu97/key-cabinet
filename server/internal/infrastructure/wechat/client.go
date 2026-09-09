@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 )
@@ -65,8 +64,8 @@ func (c *WechatClient) Code2Session(ctx context.Context, jsCode string) (*Sessio
 		return nil, fmt.Errorf("wechat credentials are not configured")
 	}
 
-	isMockCode := strings.HasPrefix(jsCode, "mock_") || strings.HasPrefix(jsCode, "dev_")
-	if c.isMock() || isMockCode {
+	// 生产环境下 (mockEnabled = false)，严禁任何 mock_/dev_ 代码绕过真实微信服务器
+	if c.mockEnabled {
 		h := md5.Sum([]byte(jsCode))
 		mockOpenID := fmt.Sprintf("wx_mock_%s", hex.EncodeToString(h[:8]))
 		return &SessionResult{

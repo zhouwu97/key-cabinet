@@ -251,24 +251,61 @@ func (s *borrowService) dispatchReminders(ctx context.Context, now time.Time) {
 
 		// 场景 A: 已经逾期催还 (expected_return_at < now)
 		if record.ExpectedReturnAt.Before(now) {
-			exists, _ := s.reminderRepo.ExistsByTypeAndRecord(ctx, record.ID, "OVERDUE")
-			if !exists {
-				s.sendAndRecordReminder(ctx, record, "OVERDUE", now)
-			}
+			s.processReminder(ctx, record, "OVERDUE", now)
 			continue
 		}
 
 		// 场景 B: 临期 30 分钟预警 (now <= expected_return_at <= now + 30m)
 		if record.ExpectedReturnAt.Before(now.Add(30*time.Minute)) && !record.ExpectedReturnAt.Before(now) {
-			exists, _ := s.reminderRepo.ExistsByTypeAndRecord(ctx, record.ID, "APPROACHING_OVERDUE")
-			if !exists {
-				s.sendAndRecordReminder(ctx, record, "APPROACHING_OVERDUE", now)
-			}
+			s.processReminder(ctx, record, "APPROACHING_OVERDUE", now)
 		}
 	}
 
-	// 触发失败单指数退避重试
+	// 触发已有失败单指数退避重试
 	s.retryFailedReminders(ctx, now)
+}
+
+func (s *borrowService) processReminder(ctx context.Context, record *repository.BorrowRecord, reminderType string, now time.Time) {
+	existing, err := s.reminderRepo.FindByRecordAndType(ctx, record.ID, reminderType)
+	if err != nil {
+		log.Printf("[BorrowService] failed to query existing reminder: %v", err)
+		return
+	}
+
+	if existing != nil {
+		// 已经成功发送，无需重复投递
+		if existing.Status == "SENT" {
+			return
+		}
+		// 达到最大重试次数，收敛终态
+		if existing.AttemptCount >= 3 {
+			return
+		}
+		// 未到退避重试时间，等待下一次调度
+		if existing.NextRetryAt != nil && existing.NextRetryAt.After(now) {
+			return
+		}
+		s.executeReminderSend(ctx, record, existing, now)
+		return
+	}
+
+	// 首次创建：先持久化 PENDING 记录，依托唯一索引 (borrow_record_id, type) 杜绝重复投递
+	newReminder := &repository.Reminder{
+		ID:             "rem_" + generateRandomID(8),
+		BorrowRecordID: record.ID,
+		UserID:         record.UserID,
+		Type:           reminderType,
+		Status:         "PENDING",
+		AttemptCount:   0,
+		Channel:        "WECHAT_SUBSCRIBE",
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	if err := s.reminderRepo.Create(ctx, newReminder); err != nil {
+		return
+	}
+
+	s.executeReminderSend(ctx, record, newReminder, now)
 }
 
 func (s *borrowService) retryFailedReminders(ctx context.Context, now time.Time) {
@@ -285,42 +322,7 @@ func (s *borrowService) retryFailedReminders(ctx context.Context, now time.Time)
 		if err != nil || record == nil || record.Status != "BORROWED" {
 			continue
 		}
-
-		openID := s.resolveUserOpenID(ctx, rem.UserID)
-		if openID == "" {
-			continue
-		}
-
-		keyName := record.KeyName
-		if keyName == "" {
-			keyName = record.KeyID
-		}
-
-		msgReq := wechat.SubscribeMessageRequest{
-			ToUser:     openID,
-			TemplateID: rem.Type + "_TEMPLATE_ID",
-			Page:       "pages/records/records",
-			Data: map[string]interface{}{
-				"thing1":  map[string]string{"value": keyName},
-				"time2":   map[string]string{"value": record.ExpectedReturnAt.Format("2006-01-02 15:04")},
-				"phrase3": map[string]string{"value": rem.Type},
-			},
-		}
-
-		rem.AttemptCount++
-		rem.UpdatedAt = now
-		if err := s.wechatClient.SendSubscribeMessage(ctx, msgReq); err != nil {
-			rem.Status = "FAILED"
-			rem.ErrorMessage = err.Error()
-			nextRetry := now.Add(time.Duration(rem.AttemptCount*10) * time.Minute)
-			rem.NextRetryAt = &nextRetry
-		} else {
-			rem.Status = "SENT"
-			rem.SentAt = &now
-			rem.ErrorMessage = ""
-			rem.NextRetryAt = nil
-		}
-		_ = s.reminderRepo.Update(ctx, rem)
+		s.executeReminderSend(ctx, record, rem, now)
 	}
 }
 
@@ -333,50 +335,47 @@ func (s *borrowService) resolveUserOpenID(ctx context.Context, userID string) st
 	return userID
 }
 
-func (s *borrowService) sendAndRecordReminder(ctx context.Context, record *repository.BorrowRecord, reminderType string, now time.Time) {
-	sentAt := now
-	reminder := &repository.Reminder{
-		ID:             "rem_" + generateRandomID(8),
-		BorrowRecordID: record.ID,
-		UserID:         record.UserID,
-		Type:           reminderType,
-		Status:         "SENT",
-		AttemptCount:   1,
-		SentAt:         &sentAt,
-		Channel:        "WECHAT_SUBSCRIBE",
-		CreatedAt:      now,
-		UpdatedAt:      now,
+func (s *borrowService) executeReminderSend(ctx context.Context, record *repository.BorrowRecord, reminder *repository.Reminder, now time.Time) {
+	if s.wechatClient == nil {
+		return
 	}
 
-	if s.wechatClient != nil {
-		openID := s.resolveUserOpenID(ctx, record.UserID)
-
-		keyName := record.KeyName
-		if keyName == "" {
-			keyName = record.KeyID
-		}
-
-		msgReq := wechat.SubscribeMessageRequest{
-			ToUser:     openID,
-			TemplateID: reminderType + "_TEMPLATE_ID",
-			Page:       "pages/records/records",
-			Data: map[string]interface{}{
-				"thing1":  map[string]string{"value": keyName},
-				"time2":   map[string]string{"value": record.ExpectedReturnAt.Format("2006-01-02 15:04")},
-				"phrase3": map[string]string{"value": reminderType},
-			},
-		}
-		if err := s.wechatClient.SendSubscribeMessage(ctx, msgReq); err != nil {
-			reminder.Status = "FAILED"
-			reminder.SentAt = nil
-			reminder.ErrorMessage = err.Error()
-			nextRetry := now.Add(10 * time.Minute)
-			reminder.NextRetryAt = &nextRetry
-		}
+	openID := s.resolveUserOpenID(ctx, record.UserID)
+	keyName := record.KeyName
+	if keyName == "" {
+		keyName = record.KeyID
 	}
 
-	if err := s.reminderRepo.Create(ctx, reminder); err != nil {
-		log.Printf("[BorrowService] failed to save reminder: %v", err)
+	msgReq := wechat.SubscribeMessageRequest{
+		ToUser:     openID,
+		TemplateID: reminder.Type + "_TEMPLATE_ID",
+		Page:       "pages/records/records",
+		Data: map[string]interface{}{
+			"thing1":  map[string]string{"value": keyName},
+			"time2":   map[string]string{"value": record.ExpectedReturnAt.Format("2006-01-02 15:04")},
+			"phrase3": map[string]string{"value": reminder.Type},
+		},
+	}
+
+	reminder.AttemptCount++
+	reminder.UpdatedAt = now
+
+	if err := s.wechatClient.SendSubscribeMessage(ctx, msgReq); err != nil {
+		reminder.Status = "FAILED"
+		reminder.SentAt = nil
+		reminder.ErrorMessage = err.Error()
+		backoffMinutes := time.Duration(1<<(reminder.AttemptCount-1)) * 10 * time.Minute
+		nextRetry := now.Add(backoffMinutes)
+		reminder.NextRetryAt = &nextRetry
+	} else {
+		reminder.Status = "SENT"
+		reminder.SentAt = &now
+		reminder.ErrorMessage = ""
+		reminder.NextRetryAt = nil
+	}
+
+	if err := s.reminderRepo.Update(ctx, reminder); err != nil {
+		log.Printf("[BorrowService] failed to update reminder status: %v", err)
 	}
 }
 

@@ -36,6 +36,20 @@ func (r *PostgresReminderRepository) ExistsByTypeAndRecord(ctx context.Context, 
 	return count > 0, nil
 }
 
+func (r *PostgresReminderRepository) FindByRecordAndType(ctx context.Context, borrowRecordID, reminderType string) (*repository.Reminder, error) {
+	var reminder repository.Reminder
+	err := r.db.WithContext(ctx).
+		Where("borrow_record_id = ? AND type = ?", borrowRecordID, reminderType).
+		First(&reminder).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &reminder, nil
+}
+
 func (r *PostgresReminderRepository) FindPendingOrFailedRetries(ctx context.Context, now time.Time, maxAttempts int) ([]*repository.Reminder, error) {
 	var reminders []*repository.Reminder
 	err := r.db.WithContext(ctx).

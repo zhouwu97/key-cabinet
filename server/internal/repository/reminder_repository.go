@@ -28,6 +28,7 @@ type ReminderRepository interface {
 	Create(ctx context.Context, reminder *Reminder) error
 	Update(ctx context.Context, reminder *Reminder) error
 	ExistsByTypeAndRecord(ctx context.Context, borrowRecordID, reminderType string) (bool, error)
+	FindByRecordAndType(ctx context.Context, borrowRecordID, reminderType string) (*Reminder, error)
 	FindPendingOrFailedRetries(ctx context.Context, now time.Time, maxAttempts int) ([]*Reminder, error)
 	FindByUserID(ctx context.Context, userID string) ([]*Reminder, error)
 }
