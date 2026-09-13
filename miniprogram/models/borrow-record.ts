@@ -41,3 +41,8 @@ export function isRecordOverdue(record: BorrowRecord, now: number = Date.now()):
   }
   return now > record.expectedReturnAt
 }
+
+/** 出柜和入柜中的记录必须先完成当前设备会话，不能重复发起归还。 */
+export function canReturnBorrow(record: BorrowRecord): boolean {
+  return record.status === BorrowRecordStatus.BORROWED && !record.returnedAt
+}

@@ -13,6 +13,7 @@ import (
 
 type OperationService interface {
 	StartPickup(ctx context.Context, userID, reservationID, requestID string) (*repository.DeviceOperation, error)
+	StartCabinetPickup(ctx context.Context, userID, reservationID, deviceID, requestID string) (*repository.DeviceOperation, error)
 	StartReturn(ctx context.Context, userID, borrowRecordID, deviceID, requestID string) (*repository.DeviceOperation, error)
 	GetOperation(ctx context.Context, userID, operationID string) (*repository.DeviceOperation, error)
 	GetActiveOperation(ctx context.Context, userID string) (*repository.DeviceOperation, error)
@@ -56,6 +57,18 @@ func NewOperationService(
 }
 
 func (s *operationService) StartPickup(ctx context.Context, userID, reservationID, requestID string) (*repository.DeviceOperation, error) {
+	return s.startPickup(ctx, userID, reservationID, requestID, "")
+}
+
+func (s *operationService) StartCabinetPickup(ctx context.Context, userID, reservationID, deviceID, requestID string) (*repository.DeviceOperation, error) {
+	deviceID = strings.TrimSpace(deviceID)
+	if deviceID == "" {
+		return nil, apperrors.New(apperrors.CodeUnauthorized, "authenticated cabinet is required")
+	}
+	return s.startPickup(ctx, userID, reservationID, requestID, deviceID)
+}
+
+func (s *operationService) startPickup(ctx context.Context, userID, reservationID, requestID, expectedDeviceID string) (*repository.DeviceOperation, error) {
 	userID = strings.TrimSpace(userID)
 	reservationID = strings.TrimSpace(reservationID)
 	requestID = strings.TrimSpace(requestID)
@@ -70,6 +83,10 @@ func (s *operationService) StartPickup(ctx context.Context, userID, reservationI
 		return nil, apperrors.New(apperrors.CodeForbidden, "verified active identity is required for pickup")
 	}
 	if existing, err := s.findIdempotent(ctx, userID, requestID); existing != nil || err != nil {
+		if existing != nil && (existing.Action != "PICKUP" || existing.ReservationID != reservationID ||
+			(expectedDeviceID != "" && existing.DeviceID != expectedDeviceID)) {
+			return nil, apperrors.New(apperrors.CodeConflict, "request id belongs to a different pickup")
+		}
 		return existing, err
 	}
 
@@ -78,7 +95,7 @@ func (s *operationService) StartPickup(ctx context.Context, userID, reservationI
 		return nil, err
 	}
 	now := time.Now().UTC()
-	if reservation.Status == "APPROVED" && now.Before(reservation.PickupWindowStart) {
+	if (reservation.Status == "ACTIVE" || reservation.Status == "APPROVED") && now.Before(reservation.PickupWindowStart) {
 		return nil, apperrors.New(apperrors.CodeTooEarly, "pickup window has not started")
 	}
 	if (reservation.Status == "ACTIVE" || reservation.Status == "APPROVED") && now.After(reservation.PickupWindowEnd) {
@@ -94,6 +111,10 @@ func (s *operationService) StartPickup(ctx context.Context, userID, reservationI
 	}
 	if key.DeviceID == "" || slot.DeviceID != key.DeviceID {
 		return nil, apperrors.New(apperrors.CodeInvalidState, "key and slot are not bound to the same device")
+	}
+	// 在创建借还记录和发送指令前校验柜机，不能仅在返回响应时过滤。
+	if expectedDeviceID != "" && key.DeviceID != expectedDeviceID {
+		return nil, apperrors.New(apperrors.CodeForbidden, "reservation belongs to a different cabinet")
 	}
 	if key.Status != "AVAILABLE" && key.Status != "RESERVED" {
 		return nil, apperrors.New(apperrors.CodeInvalidState, "key is not available for pickup")
@@ -165,6 +186,10 @@ func (s *operationService) StartReturn(ctx context.Context, userID, borrowRecord
 		return nil, apperrors.New(apperrors.CodeInvalidInput, "borrow record id and client request id are required")
 	}
 	if existing, err := s.findIdempotent(ctx, userID, requestID); existing != nil || err != nil {
+		if existing != nil && (existing.Action != "RETURN" || existing.BorrowRecordID != borrowRecordID ||
+			(deviceID != "" && existing.DeviceID != deviceID)) {
+			return nil, apperrors.New(apperrors.CodeConflict, "request id belongs to a different return")
+		}
 		return existing, err
 	}
 
@@ -339,7 +364,7 @@ func (s *operationService) OnDeviceEvent(ctx context.Context, event device.Devic
 			return s.operationRepo.CompletePickup(ctx, operation.ID, event.Timestamp)
 		}
 		return s.operationRepo.CompleteReturn(ctx, operation.ID, event.Timestamp)
-	case "FAILED", "ERROR", "PICKUP_FAILED", "RETURN_FAILED":
+	case "FAILED", "ERROR", "PICKUP_FAILED", "RETURN_FAILED", "DOOR_OPEN_TIMEOUT", "MOTOR_ERROR", "TIMEOUT", "KEY_NOT_PRESENT":
 		return s.operationRepo.Fail(ctx, operation.ID, event.ErrorCode, event.ErrorMessage, event.Timestamp)
 	default:
 		if eventType == "RFID_CONFIRMED" && event.Data != nil {
@@ -473,6 +498,11 @@ func (s *operationService) resolvePrepareError(ctx context.Context, operation *r
 		if existing, lookupErr := s.operationRepo.FindByRequestID(ctx, operation.RequestID); lookupErr == nil && existing != nil {
 			if existing.UserID != operation.UserID {
 				return nil, apperrors.New(apperrors.CodeForbidden, "operation request belongs to another user")
+			}
+			if existing.DeviceID != operation.DeviceID || existing.Action != operation.Action ||
+				existing.KeyID != operation.KeyID || existing.ReservationID != operation.ReservationID ||
+				(operation.Action == "RETURN" && existing.BorrowRecordID != operation.BorrowRecordID) {
+				return nil, apperrors.New(apperrors.CodeConflict, "operation request belongs to a different task")
 			}
 			return existing, nil
 		}

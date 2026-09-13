@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -43,6 +44,7 @@ type FaceAuthResult struct {
 	ActiveBorrows      []*repository.BorrowRecord
 	FaceSessionToken   string
 	CabinetToken       string
+	ExpiresIn          int
 }
 
 type CabinetService interface {
@@ -172,6 +174,10 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 		return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to check idempotent request")
 	}
 	if existingOp != nil {
+		if existingOp.UserID != user.ID || existingOp.DeviceID != params.DeviceID || existingOp.Action != "PICKUP" ||
+			(params.KeyID != "" && existingOp.KeyID != params.KeyID) {
+			return nil, nil, nil, nil, apperrors.New(apperrors.CodeConflict, "request id belongs to a different operation")
+		}
 		return existingOp, nil, nil, nil, nil
 	}
 
@@ -212,22 +218,9 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 		return nil, nil, nil, nil, apperrors.New(apperrors.CodeConflict, "钥匙当前不可借出 (状态为: "+targetKey.Status+")")
 	}
 
-	// 4.1 校验审批规则：若配置了需要审批，必须存在当前用户处于 APPROVED/ACTIVE 的预约，否则禁止现场直借
+	// 需审批的钥匙统一走预约取钥事务，才能核销预约并沿用应还时间。
 	if targetKey.RequiresApproval {
-		userReservations, err := s.reservationRepo.FindByUserID(ctx, user.ID)
-		if err != nil {
-			return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query user reservations")
-		}
-		hasApprovedReservation := false
-		for _, rsv := range userReservations {
-			if rsv.KeyID == targetKey.ID && (rsv.Status == "APPROVED" || rsv.Status == "ACTIVE") {
-				hasApprovedReservation = true
-				break
-			}
-		}
-		if !hasApprovedReservation {
-			return nil, nil, nil, nil, apperrors.New(apperrors.CodeForbidden, "该钥匙已被设置为需要管理员审批，请先在小程序完成预约审批后再取钥")
-		}
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeForbidden, "该钥匙需要管理员审批，请在柜机预约列表选择已批准的预约取钥")
 	}
 
 	// 5. 获取槽位并核验在位与可用
@@ -241,18 +234,20 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 	if !slot.Enabled {
 		return nil, nil, nil, nil, apperrors.New(apperrors.CodeForbidden, "钥匙所在槽位已被禁用")
 	}
+	if slot.DeviceID != params.DeviceID || slot.KeyID == nil || *slot.KeyID != targetKey.ID {
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeInvalidState, "钥匙与柜机槽位绑定不一致")
+	}
 	if slot.Presence != "PRESENT" {
 		return nil, nil, nil, nil, apperrors.New(apperrors.CodeConflict, "钥匙当前不在槽位中 (状态为: "+slot.Presence+")")
 	}
 
 	// 6. 校验用户没有正在借用该钥匙
-	activeBorrows, err := s.borrowRepo.FindByUserID(ctx, user.ID)
-	if err == nil {
-		for _, b := range activeBorrows {
-			if (b.Status == "BORROWED" || b.Status == "BORROWING") && b.KeyID == targetKey.ID {
-				return nil, nil, nil, nil, apperrors.New(apperrors.CodeConflict, "您当前已有该钥匙的借用流程")
-			}
-		}
+	activeBorrow, err := s.borrowRepo.FindActiveByKeyID(ctx, targetKey.ID)
+	if err != nil {
+		return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query active borrow")
+	}
+	if activeBorrow != nil {
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeConflict, "该钥匙已有未完成借用")
 	}
 
 	// 7. 校验机柜当前没有正在执行中的冲突操作
@@ -273,6 +268,13 @@ func (s *cabinetService) DirectDispense(ctx context.Context, params CabinetDirec
 	// 9. 生成借用记录与操作
 	// 审计物理一致性：在设备物理出钥前，BorrowedAt 必须为 nil，待设备确认 KEY_REMOVED 后由 CompletePickup 写入
 	now := time.Now().UTC()
+	conflicts, err := s.reservationRepo.FindConflicts(ctx, targetKey.ID, now, now.Add(borrowDuration))
+	if err != nil {
+		return nil, nil, nil, nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query reservation conflicts")
+	}
+	if len(conflicts) > 0 {
+		return nil, nil, nil, nil, apperrors.New(apperrors.CodeConflict, "该钥匙已有预约，请通过预约列表取钥或选择其他钥匙")
+	}
 	purpose := params.Purpose
 	if purpose == "" {
 		purpose = "现场房间号自助出钥"
@@ -357,7 +359,7 @@ func (s *cabinetService) FaceAuth(ctx context.Context, params FaceAuthParams) (*
 	}
 
 	// 置信度阈值校验：必须 >= 0.80，防止 0 或过低置信度绕过
-	if params.Confidence < 0.80 {
+	if math.IsNaN(params.Confidence) || math.IsInf(params.Confidence, 0) || params.Confidence < 0.80 || params.Confidence > 1 {
 		return nil, apperrors.New("ERR_FACE_CONFIDENCE_LOW", "人脸比对置信度过低 (需 >= 0.80)，请重新正对摄像头")
 	}
 
@@ -387,30 +389,46 @@ func (s *cabinetService) FaceAuth(ctx context.Context, params FaceAuthParams) (*
 	}
 
 	// 查该用户待取预约 (本柜机相关)
-	var activeReservations []*repository.Reservation
+	activeReservations := make([]*repository.Reservation, 0)
 	allReservations, err := s.reservationRepo.FindByUserID(ctx, user.ID)
-	if err == nil {
-		for _, rsv := range allReservations {
-			if rsv.Status == "APPROVED" || rsv.Status == "ACTIVE" {
-				activeReservations = append(activeReservations, rsv)
-			}
+	if err != nil {
+		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query face session reservations")
+	}
+	now := time.Now().UTC()
+	for _, rsv := range allReservations {
+		if rsv.UserID != user.ID || (rsv.Status != "APPROVED" && rsv.Status != "ACTIVE") ||
+			now.Before(rsv.PickupWindowStart) || now.After(rsv.PickupWindowEnd) {
+			continue
+		}
+		key, err := s.keyRepo.FindByID(ctx, rsv.KeyID)
+		if err != nil {
+			return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query reservation cabinet")
+		}
+		if key != nil && key.DeviceID == params.DeviceID {
+			copy := *rsv
+			copy.KeyName, copy.RoomNo, copy.DeviceID = key.Name, key.RoomNo, key.DeviceID
+			activeReservations = append(activeReservations, &copy)
 		}
 	}
 
 	// 查该用户借用中记录
-	var activeBorrows []*repository.BorrowRecord
+	activeBorrows := make([]*repository.BorrowRecord, 0)
 	allBorrows, err := s.borrowRepo.FindByUserID(ctx, user.ID)
-	if err == nil {
-		for _, b := range allBorrows {
-			if b.Status == "BORROWED" || b.Status == "RETURNING" {
-				activeBorrows = append(activeBorrows, b)
-			}
+	if err != nil {
+		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to query face session borrows")
+	}
+	for _, b := range allBorrows {
+		if b.UserID == user.ID && b.DeviceID == params.DeviceID && b.Status == "BORROWED" {
+			activeBorrows = append(activeBorrows, b)
 		}
 	}
 
-	var sessionToken string
-	if s.tokenService != nil {
-		sessionToken, _ = s.tokenService.GenerateFaceSession(user.ID, user.Role, params.DeviceID, 5*time.Minute)
+	if s.tokenService == nil {
+		return nil, apperrors.New(apperrors.CodeServiceUnavailable, "face session signing is not configured")
+	}
+	sessionToken, err := s.tokenService.GenerateFaceSession(user.ID, user.Role, params.DeviceID, 5*time.Minute)
+	if err != nil {
+		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to sign face session")
 	}
 
 	return &FaceAuthResult{
@@ -419,6 +437,7 @@ func (s *cabinetService) FaceAuth(ctx context.Context, params FaceAuthParams) (*
 		ActiveBorrows:      activeBorrows,
 		FaceSessionToken:   sessionToken,
 		CabinetToken:       sessionToken,
+		ExpiresIn:          300,
 	}, nil
 }
 

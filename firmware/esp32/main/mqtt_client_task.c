@@ -32,9 +32,27 @@ static void execute_command(const cabinet_command_t *cmd) {
             free(ack);
         }
 
-        // 2. 步进电机驱动推杆推出钥匙
+        // 2. 起始态安全检验：确认槽位起始确实处于 PRESENT 状态
+        // 若微动检测原本无钥匙在位 (ABSENT)，禁止盲目驱动电机推杆，快速拦截上报
+        if (!sensor_get_slot_presence(cmd->slot_no)) {
+            ESP_LOGE(TAG, "槽位 #%d 起始无钥匙在位 (ABSENT)，禁止驱动电机！", cmd->slot_no);
+            char *fail_evt = protocol_build_progress_event(
+                CABINET_DEVICE_ID, cmd->operation_id, "KEY_NOT_PRESENT", "FAILED",
+                cmd->key_id, cmd->slot_no, "SLOT_EMPTY", "出钥前槽位未检测到钥匙在位");
+            if (fail_evt) {
+                mqtt_publish_event("event/operation_progress", fail_evt);
+                free(fail_evt);
+            }
+            return;
+        }
+
+        // 3. 步进电机驱动推杆推出钥匙
         bool motor_ok = motor_dispense_slot(cmd->slot_no);
         if (!motor_ok) {
+            if (motor_is_abort_requested()) {
+                ESP_LOGW(TAG, "出钥电机执行已被 ABORT 指令抢占中止，终态由 ABORT 回调发布");
+                return;
+            }
             ESP_LOGE(TAG, "出钥电机卡死或限位超时!");
             char *fail_evt = protocol_build_progress_event(
                 CABINET_DEVICE_ID, cmd->operation_id, "MOTOR_ERROR", "FAILED",
@@ -46,7 +64,7 @@ static void execute_command(const cabinet_command_t *cmd) {
             return;
         }
 
-        // 3. 物理闭环检验：轮询等待用户真正从槽位中拔走钥匙 (微动闭合 -> 断开，即 PRESENT -> ABSENT)
+        // 4. 物理闭环检验：轮询等待用户真正从槽位中拔走钥匙 (微动闭合 -> 断开，即 PRESENT -> ABSENT)
         ESP_LOGI(TAG, "推杆动作完成，等待用户拔出钥匙 (槽位 #%d)...", cmd->slot_no);
         bool key_removed = false;
         int wait_seconds = cmd->timeout_sec > 0 ? cmd->timeout_sec : 60;

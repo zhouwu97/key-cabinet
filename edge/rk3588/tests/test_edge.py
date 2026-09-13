@@ -81,35 +81,72 @@ class TestRK3588Edge(unittest.TestCase):
 
     def test_production_mode_requires_model(self):
         """测试生产模式强制要求深度人脸模型，严禁静默回退手工伪特征"""
-        with self.assertRaises(RuntimeError):
-            # 无模型且禁用回退，必须抛出 RuntimeError
-            FaceEngine(template_dir=self.test_dir, model_path="non_existent_model.onnx", allow_handcrafted_fallback=False)
+        with self.assertRaises(RuntimeError) as ctx:
+            # 注入有效密钥但模型缺失，必须抛出缺少模型相关的 RuntimeError
+            FaceEngine(
+                template_dir=self.test_dir,
+                device_secret="valid_test_secret_32_bytes_long_ok",
+                model_path="non_existent_model.onnx",
+                allow_handcrafted_fallback=False
+            )
+        self.assertIn("未检测到有效 ArcFace/MobileFaceNet 模型", str(ctx.exception))
 
     def test_deep_model_onnx_inference(self):
         """测试加载真实 MobileFaceNet ONNX 深度模型提取 512 维特征"""
         mfn_path = os.path.join(os.path.dirname(__file__), "..", "face_app", "models", "mobilefacenet.onnx")
         if os.path.exists(mfn_path):
-            engine = FaceEngine(template_dir=self.test_dir, model_path=mfn_path, allow_handcrafted_fallback=False)
+            engine = FaceEngine(
+                template_dir=self.test_dir,
+                device_secret="valid_test_secret_32_bytes_long_ok",
+                model_path=mfn_path,
+                allow_handcrafted_fallback=False
+            )
             self.assertIsNotNone(engine.onnx_session)
             face_img = np.random.randint(0, 256, (112, 112, 3), dtype=np.uint8)
             feat = engine.extract_features(face_img)
             self.assertEqual(feat.shape, (512,))
             self.assertAlmostEqual(np.linalg.norm(feat), 1.0, places=4)
 
-    def test_5_point_affine_alignment(self):
-        """测试 5 点面部关键点相似变换仿射对齐到标准 112x112"""
+    def test_5_point_affine_alignment_geometry_and_topology(self):
+        """测试 5 点面部关键点相似变换仿射对齐几何精度与拓扑防镜像纠偏"""
+        from face_engine import STANDARD_LANDMARKS_112
+        import cv2
+
         engine = FaceEngine(template_dir=self.test_dir, allow_handcrafted_fallback=True)
         frame = np.zeros((300, 300, 3), dtype=np.uint8)
-        # 构造旋转/缩放后的 5 个关键点
-        pts = np.array([
-            [80.0, 100.0],  # 右眼
-            [150.0, 98.0],  # 左眼
-            [115.0, 140.0], # 鼻尖
-            [88.0, 180.0],  # 右嘴角
-            [145.0, 178.0]  # 左嘴角
+
+        # 1. 构造具有刚体缩放 (1.5x)、旋转 (10 度) 与平移 (+50, +40) 的面部关键点
+        scale = 1.5
+        tx, ty = 50.0, 40.0
+        angle_rad = np.radians(10.0)
+        rot_mat = np.array([
+            [np.cos(angle_rad), -np.sin(angle_rad)],
+            [np.sin(angle_rad),  np.cos(angle_rad)]
         ], dtype=np.float32)
+        pts = np.dot(STANDARD_LANDMARKS_112 * scale, rot_mat.T) + np.array([tx, ty], dtype=np.float32)
+
         aligned = engine.align_face(frame, landmarks=pts)
         self.assertEqual(aligned.shape, (112, 112, 3))
+
+        # 真实几何对齐误差校验：计算对齐变换后点与标准点之间的几何残差
+        M, _ = cv2.estimateAffinePartial2D(pts, STANDARD_LANDMARKS_112)
+        self.assertIsNotNone(M)
+        mapped_pts = cv2.transform(pts.reshape(1, 5, 2), M).reshape(5, 2)
+        errors = np.linalg.norm(mapped_pts - STANDARD_LANDMARKS_112, axis=1)
+        mean_error = float(np.mean(errors))
+        self.assertLess(mean_error, 1.0, f"仿射对齐几何重合误差过大: {mean_error}")
+
+        # 2. 拓扑颠倒容错测试：输入左右眼与左右嘴角颠倒时，确保自动校正不发生镜像翻转
+        swapped_pts = pts.copy()
+        swapped_pts[[0, 1]] = swapped_pts[[1, 0]]
+        swapped_pts[[3, 4]] = swapped_pts[[4, 3]]
+        aligned_swapped = engine.align_face(frame, landmarks=swapped_pts)
+        self.assertEqual(aligned_swapped.shape, (112, 112, 3))
+
+    def test_production_mode_requires_device_secret(self):
+        """测试生产模式若未注入有效 device_secret 必须 fail-fast 抛出 RuntimeError"""
+        with self.assertRaises(RuntimeError):
+            FaceEngine(template_dir=self.test_dir, device_secret="", allow_handcrafted_fallback=False)
 
     def test_face_features_512d_normalization(self):
         """测试真实 512 维生物特征向量与单位球 L2 范数归一化"""

@@ -78,8 +78,8 @@
   <!-- P2: 待取预约 -->
   <view wx:if="{{activeReservations.length > 0}}" class="section">
     <section-header
-      title="待取预约 ({{activeReservations.length}})"
-      subTitle="请在预约窗口内到柜取钥匙"
+      title="当前预约 ({{activeReservations.length}})"
+      subTitle="审批通过后，请在取钥窗口内到柜扫码"
       actionText="查看记录"
       bindaction="goRecords"
     />

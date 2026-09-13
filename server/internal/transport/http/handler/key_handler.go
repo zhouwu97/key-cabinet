@@ -14,6 +14,27 @@ type KeyHandler struct {
 	keyService service.KeyService
 }
 
+func (h *KeyHandler) UpdateStatus(c *gin.Context) {
+	var req struct {
+		Status string `json:"status" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(errors.New(errors.CodeInvalidInput, "status is required"))
+		return
+	}
+	updater, ok := h.keyService.(service.KeyStatusUpdater)
+	if !ok {
+		c.Error(errors.New(errors.CodeInternalError, "key status update is unavailable"))
+		return
+	}
+	key, err := updater.UpdateKeyStatus(c.Request.Context(), c.Param("id"), req.Status)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.NewSuccessResponse(key))
+}
+
 func NewKeyHandler(keyService service.KeyService) *KeyHandler {
 	return &KeyHandler{keyService: keyService}
 }

@@ -69,6 +69,7 @@ export class ApiOperationService implements OperationService {
   private readonly pollTimers = new Map<string, ReturnType<typeof setInterval>>()
   private readonly lastStatus = new Map<string, DeviceOperationStatus>()
   private readonly lastEventSeq = new Map<string, number>()
+  private readonly polling = new Set<string>()
 
   async startOperation(input: StartOperationInput, _scenario?: MockScenario): Promise<DeviceOperation> {
     const action = input.action === DeviceOperationAction.PICKUP ? 'pickup' : 'return'
@@ -93,7 +94,8 @@ export class ApiOperationService implements OperationService {
   }
 
   async getOperation(operationId: string): Promise<DeviceOperation | null> {
-    return this.fetchOperation(operationId, true)
+    const operation = await this.fetchOperation(operationId, true)
+    return operation ? normalizeOperation(operation) : null
   }
 
   private async fetchOperation(operationId: string, logError: boolean): Promise<ApiOperation | null> {
@@ -127,11 +129,12 @@ export class ApiOperationService implements OperationService {
   }
 
   async cancelOperation(operationId: string): Promise<void> {
-    this.stopPolling(operationId)
     await httpClient.request<unknown>({
       url: `/api/v1/device-operations/${encodeURIComponent(operationId)}/cancel`,
       method: 'POST',
     })
+    // 只有服务端确认取消后才停止；被拒绝或网络失败时继续跟踪设备进度。
+    this.stopPolling(operationId)
   }
 
   subscribeOperation(operationId: string, listener: OperationEventListener): void {
@@ -157,59 +160,73 @@ export class ApiOperationService implements OperationService {
   }
 
   private async pollOperation(operationId: string): Promise<void> {
-    const snapshot = await this.fetchOperation(operationId, false)
-    if (!snapshot) return
-    const operation = normalizeOperation(snapshot)
+    const timer = this.pollTimers.get(operationId)
+    if (timer === undefined || this.polling.has(operationId)) return
+    this.polling.add(operationId)
+    try {
+      const snapshot = await this.fetchOperation(operationId, false)
+      // 慢请求不得回写已离开页面或已重新订阅的会话。
+      if (!snapshot || this.pollTimers.get(operationId) !== timer) return
+      const operation = normalizeOperation(snapshot)
 
-    const events = snapshot.events || []
-    const previousEventSeq = this.lastEventSeq.get(operationId) || 0
-    const newEvents = events.filter(event => typeof event.seq === 'number' && event.seq > previousEventSeq)
-    if (newEvents.length > 0) {
-      this.lastEventSeq.set(
-        operationId,
-        Math.max(...newEvents.map(event => event.seq as number)),
-      )
-      newEvents.forEach(event => {
+      const events = snapshot.events || []
+      const previousEventSeq = this.lastEventSeq.get(operationId) || 0
+      const newEvents = events
+        .filter(event => typeof event.seq === 'number' && event.seq > previousEventSeq)
+        .sort((a, b) => (a.seq as number) - (b.seq as number))
+      if (newEvents.length > 0) {
+        this.lastEventSeq.set(
+          operationId,
+          Math.max(...newEvents.map(event => event.seq as number)),
+        )
+        newEvents.forEach(event => {
+          const message: DeviceEventMessage = {
+            version: '1.0',
+            operationId: operation.id,
+            requestId: operation.requestId,
+            eventId: event.eventId || `poll_${operation.id}_${event.seq}`,
+            seq: event.seq || 0,
+            deviceId: operation.deviceId,
+            event: normalizeEvent(event.event || event.type, operation.status),
+            errorCode: event.errorCode || operation.errorCode,
+            errorMessage: event.errorMessage || operation.errorMessage,
+            timestamp: toTimestamp(event.timestamp),
+          }
+          this.listeners.get(operationId)?.forEach(listener => listener(message))
+        })
+      }
+      const terminalEvent = eventForStatus(operation.status)
+      const needsTerminalEvent = isTerminal(operation.status) &&
+        !newEvents.some(event => normalizeEvent(event.event || event.type, operation.status) === terminalEvent)
+      if (needsTerminalEvent || (newEvents.length === 0 && this.lastStatus.get(operationId) !== operation.status)) {
+        // 事件记录可能滞后于事务状态，终态仍须驱动页面完成，不能停留在复位中。
         const message: DeviceEventMessage = {
           version: '1.0',
           operationId: operation.id,
           requestId: operation.requestId,
-          eventId: event.eventId || `poll_${operation.id}_${event.seq}`,
-          seq: event.seq || 0,
+          eventId: `poll_${operation.id}_${operation.status}`,
+          seq: 0,
           deviceId: operation.deviceId,
-          event: normalizeEvent(event.event || event.type, operation.status),
-          errorCode: event.errorCode || operation.errorCode,
-          errorMessage: event.errorMessage || operation.errorMessage,
-          timestamp: toTimestamp(event.timestamp),
+          event: eventForStatus(operation.status),
+          errorCode: operation.errorCode,
+          errorMessage: operation.errorMessage,
+          timestamp: Date.now(),
         }
         this.listeners.get(operationId)?.forEach(listener => listener(message))
-      })
-    } else if (this.lastStatus.get(operationId) !== operation.status) {
-      // 后端暂未返回事件数组时，至少通过状态变化驱动终态和恢复提示。
-      const message: DeviceEventMessage = {
-        version: '1.0',
-        operationId: operation.id,
-        requestId: operation.requestId,
-        eventId: `poll_${operation.id}_${operation.status}`,
-        seq: 0,
-        deviceId: operation.deviceId,
-        event: eventForStatus(operation.status),
-        errorCode: operation.errorCode,
-        errorMessage: operation.errorMessage,
-        timestamp: Date.now(),
       }
-      this.listeners.get(operationId)?.forEach(listener => listener(message))
-    }
-    this.lastStatus.set(operationId, operation.status)
+      this.lastStatus.set(operationId, operation.status)
 
-    if (isTerminal(operation.status)) {
-      this.stopPolling(operationId)
+      if (isTerminal(operation.status)) {
+        this.stopPolling(operationId)
+      }
+    } finally {
+      this.polling.delete(operationId)
     }
   }
 
   private stopPolling(operationId: string): void {
     const timer = this.pollTimers.get(operationId)
-    if (timer) {
+    if (timer !== undefined) {
       clearInterval(timer)
       this.pollTimers.delete(operationId)
     }

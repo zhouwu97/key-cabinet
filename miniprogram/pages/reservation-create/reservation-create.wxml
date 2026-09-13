@@ -3,6 +3,21 @@
     <text>正在加载钥匙信息...</text>
   </view>
 
+  <view wx:elif="{{loadError}}" class="card">
+    <error-state title="暂时无法预约" message="{{loadError}}" bindretry="retryLoad" />
+  </view>
+
+  <view wx:elif="{{createdReservation}}" class="card form-card">
+    <view class="key-room-title">{{createdReservation.status === 'PENDING' ? '预约已提交，等待审批' : '预约成功'}}</view>
+    <view class="result-description">{{createdReservation.status === 'PENDING' ? '管理员审批通过后，请在取钥窗口内到指定柜机扫码。审批结果和拒绝原因可在借还记录中查看。' : '请在取钥窗口内到指定柜机扫码取钥，超时未取将自动过期。'}}</view>
+    <view class="result-description">{{keyDisplayName}} · {{deviceName}}</view>
+    <view class="result-description">
+      <view>取钥窗口：{{createdPickupWindowText}}</view>
+      <view>预计归还：{{createdReturnText}}</view>
+    </view>
+    <button class="submit-btn" bindtap="goRecords">查看预约与取钥</button>
+  </view>
+
   <view wx:else>
     <!-- 钥匙基本信息头卡片 -->
     <view class="key-header-card card">
@@ -49,7 +64,7 @@
       <!-- 取钥时间说明 -->
       <view class="info-cell">
         <text class="cell-label">到柜取钥窗口</text>
-        <text class="cell-val">{{pickupWindowText}} (30分钟)</text>
+        <text class="cell-val">提交后 30 分钟内</text>
       </view>
 
       <!-- 预计归还时间 -->
@@ -58,15 +73,19 @@
           <text class="label-title">预计归还时间</text>
           <text class="label-req">*</text>
         </view>
+        <picker mode="date" value="{{returnDate}}" start="{{minReturnDate}}" bindchange="onReturnDateChange">
+          <view class="picker-selector date-selector">
+            <text class="picker-text">{{returnDate}}</text>
+            <text class="picker-arrow">修改日期 ›</text>
+          </view>
+        </picker>
         <picker
           mode="time"
           value="{{returnTime}}"
-          start="08:00"
-          end="23:00"
           bindchange="onReturnTimeChange"
         >
           <view class="picker-selector">
-            <text class="picker-text">{{returnDateText}} {{returnTime}}</text>
+            <text class="picker-text">{{returnTime}}</text>
             <text class="picker-arrow">修改时间 ›</text>
           </view>
         </picker>
@@ -93,6 +112,7 @@
       <button
         class="btn-primary center submit-btn {{submitting || !agreedRules ? 'disabled' : ''}}"
         loading="{{submitting}}"
+        disabled="{{submitting || !agreedRules}}"
         bindtap="submitReservation"
       >
         确认预约

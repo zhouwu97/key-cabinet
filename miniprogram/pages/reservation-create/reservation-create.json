@@ -1,4 +1,6 @@
 {
   "navigationBarTitleText": "预约借用",
-  "usingComponents": {}
+  "usingComponents": {
+    "error-state": "/components/error-state/error-state"
+  }
 }

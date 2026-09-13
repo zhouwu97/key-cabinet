@@ -25,10 +25,12 @@ func (h *CabinetHandler) MatchRoom(c *gin.Context) {
 	}
 
 	deviceID := query.DeviceID
-	if deviceID == "" {
-		if devVal, exists := c.Get("cabinet_device_id"); exists {
-			deviceID, _ = devVal.(string)
+	if authenticatedDevice := c.GetString("cabinet_device_id"); authenticatedDevice != "" {
+		if deviceID != "" && deviceID != authenticatedDevice {
+			c.Error(apperrors.New(apperrors.CodeForbidden, "device query does not match authenticated cabinet"))
+			return
 		}
+		deviceID = authenticatedDevice
 	}
 
 	results, err := h.cabinetService.MatchRoom(c.Request.Context(), deviceID, query.RoomNo)
@@ -106,8 +108,10 @@ func (h *CabinetHandler) DirectDispense(c *gin.Context) {
 	borrowID := ""
 	if borrow != nil {
 		borrowID = borrow.ID
+	} else {
+		borrowID = op.BorrowRecordID
 	}
-	keyID := ""
+	keyID := op.KeyID
 	keyName := ""
 	roomNo := req.RoomNo
 	if key != nil {
@@ -169,6 +173,7 @@ func (h *CabinetHandler) FaceAuth(c *gin.Context) {
 		ActiveBorrows:      res.ActiveBorrows,
 		FaceSessionToken:   res.FaceSessionToken,
 		CabinetToken:       res.CabinetToken,
+		ExpiresIn:          res.ExpiresIn,
 	}
 
 	c.JSON(http.StatusOK, dto.NewSuccessResponse(resp))

@@ -29,6 +29,12 @@ export class AuthService implements IAuthService {
    * 微信登录
    */
 	login(): Promise<LoginResponse> {
+		// 启动阶段优先复用本地会话，服务端返回 401 时由 HttpClient 再触发登录刷新。
+		const accessToken = wx.getStorageSync('accessToken')
+		const cachedUser = wx.getStorageSync('user') as User | undefined
+		if (accessToken && cachedUser) {
+			return Promise.resolve({ accessToken, expiresIn: 0, user: cachedUser })
+		}
 		if (!this.loginPromise) {
 			this.loginPromise = this.performLogin().finally(() => {
 				this.loginPromise = null

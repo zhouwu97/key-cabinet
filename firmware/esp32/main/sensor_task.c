@@ -75,6 +75,10 @@ void sensor_get_all_slots(slot_status_t *out_slots, int *out_count) {
 // 外部声明 MQTT 发布接口
 extern void mqtt_publish_status(const char *subtopic, const char *payload);
 
+// 硬件架构职责界定说明：
+// 1. 每槽独立微动开关：负责全天候实时监测钥匙物理在位状态 (Presence: PRESENT / ABSENT)。
+// 2. 单 RC522 读卡模块：物理布置于归还口/目标槽位导引区，由 rfid_verify_return() 在归还时
+//    进行目标钥匙防错还校验；常态 inventory 盘点只上传 slotNo + presence，避免单 RC522 在无多路 RF 开关时产生槽位歧义。
 static void sensor_periodic_task(void *pvParameters) {
     while (1) {
         bool changed = false;
@@ -83,13 +87,7 @@ static void sensor_periodic_task(void *pvParameters) {
             if (current_presence != s_slots[i].presence) {
                 s_slots[i].presence = current_presence;
                 changed = true;
-                if (current_presence) {
-                    // 若检测到钥匙新插入，尝试读取射频标签
-                    char uid[32] = {0};
-                    if (rc522_read_uid(uid, sizeof(uid))) {
-                        strncpy(s_slots[i].rfid_tag, uid, sizeof(s_slots[i].rfid_tag) - 1);
-                    }
-                } else {
+                if (!current_presence) {
                     s_slots[i].rfid_tag[0] = '\0';
                 }
             }

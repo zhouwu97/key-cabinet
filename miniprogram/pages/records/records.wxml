@@ -13,7 +13,7 @@
       bindtap="onTabChange"
       data-tab="HISTORY"
     >
-      历史 {{historyBorrows.length}}
+      历史 {{historyTotalCount}}
     </view>
     <view
       class="record-tab {{activeTab === 'EXCEPTION' ? 'active' : ''}}"
@@ -24,10 +24,22 @@
     </view>
   </view>
 
+  <view wx:if="{{!loading && !loadError && activeOperation}}" class="card resume-card" bindtap="resumeOperation">
+    设备操作尚未完成，继续查看取还进度 ›
+  </view>
+
   <!-- 1. 加载中状态 (Loading) -->
   <view wx:if="{{loading}}" class="card center-loading">
     <view class="loading-spinner"></view>
     <view class="loading-text">正在同步借还台账...</view>
+  </view>
+
+  <view wx:elif="{{loadError}}" class="card">
+    <error-state title="记录加载失败" message="{{loadError}}" bindretry="loadData" />
+  </view>
+
+  <view wx:elif="{{!loggedIn}}" class="card">
+    <empty-state title="登录后查看借还记录" description="预约结果、取钥进度和归还记录将在这里展示" actionText="去登录" bindaction="goProfile" />
   </view>
 
   <!-- 2. 当前任务 TAB (CURRENT: 待取预约 + 借用与归还中) -->
@@ -46,8 +58,8 @@
       <!-- 待取钥预约区 -->
       <view wx:if="{{activeReservations.length > 0}}" class="record-group">
         <section-header
-          title="待取钥预约 ({{activeReservations.length}})"
-          subTitle="请按预约时间到柜取钥匙"
+          title="当前预约 ({{activeReservations.length}})"
+          subTitle="审批通过后，请在取钥窗口内到柜扫码"
         />
         <view wx:for="{{activeReservations}}" wx:key="id">
           <reservation-card
@@ -78,23 +90,29 @@
 
   <!-- 3. 历史记录 TAB (HISTORY) -->
   <view wx:elif="{{activeTab === 'HISTORY'}}">
-    <view wx:if="{{historyBorrows.length === 0}}" class="card">
+    <view wx:if="{{historyTotalCount === 0}}" class="card">
       <empty-state
         icon="/assets/icons/icon-record.svg"
-        title="暂无历史归还记录"
-        description="您完成的钥匙借还台账流水将在此展示"
+        title="暂无历史记录"
+        description="已结束的预约和已归还的钥匙将在此展示"
       />
     </view>
     <view wx:else>
-      <section-header
-        title="已完成记录"
-        subTitle="最近 90 天的借还流水"
-      />
-      <view wx:for="{{historyBorrows}}" wx:key="id">
-        <borrow-card
-          borrow="{{item}}"
-          showReturnBtn="{{false}}"
+      <view wx:if="{{historyReservations.length > 0}}" class="record-group">
+        <section-header title="已结束的预约" subTitle="已取钥、取消、过期与审批结果" />
+        <reservation-card wx:for="{{historyReservations}}" wx:key="id" reservation="{{item}}" showActions="{{false}}" />
+      </view>
+      <view wx:if="{{historyBorrows.length > 0}}" class="record-group">
+        <section-header
+          title="已归还的钥匙"
+          subTitle="已完成的借还流水"
         />
+        <view wx:for="{{historyBorrows}}" wx:key="id">
+          <borrow-card
+            borrow="{{item}}"
+            showReturnBtn="{{false}}"
+          />
+        </view>
       </view>
     </view>
   </view>

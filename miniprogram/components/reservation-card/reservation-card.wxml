@@ -17,11 +17,15 @@
       <text class="kv-label">借用用途</text>
       <text class="kv-val">{{reservation.purpose}}</text>
     </view>
+    <view wx:if="{{reservation.rejectionReason}}" class="kv">
+      <text class="kv-label">拒绝原因</text>
+      <text class="kv-val rejection-reason">{{reservation.rejectionReason}}</text>
+    </view>
   </view>
 
-  <view wx:if="{{reservation.canPickup || reservation.canCancel || showActions}}" class="card-actions">
+  <view wx:if="{{showActions && (reservation.canPickup || reservation.canCancel)}}" class="card-actions">
     <view
-      wx:if="{{reservation.canPickup !== false}}"
+      wx:if="{{reservation.canPickup}}"
       class="primary-btn action-btn"
       catchtap="onPickup"
     >

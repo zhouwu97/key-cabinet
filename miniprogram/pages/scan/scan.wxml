@@ -29,9 +29,11 @@
       <text class="error-text">{{verifyError}}</text>
     </view>
 
-    <view class="btn-primary center scan-main-btn" bindtap="startScan">
-      打开相机扫码
-    </view>
+    <button class="btn-primary center scan-main-btn" loading="{{verifying}}" disabled="{{verifying || starting}}" bindtap="startScan">
+      {{verifying ? '正在核验任务' : '打开相机扫码'}}
+    </button>
+
+    <view wx:if="{{activeOperationId}}" class="re-scan-btn" bindtap="resumeOperation">继续已有的设备操作 ›</view>
 
 	<view wx:if="{{showMockTools}}" class="sim-btn center" bindtap="simulateScanSuccess">
 	  开发测试：模拟扫描目标柜机
@@ -79,6 +81,7 @@
       <button
         class="btn-primary center confirm-btn {{starting ? 'disabled' : ''}}"
         loading="{{starting}}"
+        disabled="{{starting || verifying}}"
         bindtap="onConfirmOperation"
       >
         {{mode === 'PICKUP' ? '确认开始取钥' : '确认开始归还'}}

@@ -52,4 +52,5 @@ type FaceAuthResponse struct {
 	ActiveBorrows      interface{} `json:"activeBorrows"`
 	FaceSessionToken   string      `json:"faceSessionToken"`
 	CabinetToken       string      `json:"cabinetToken"`
+	ExpiresIn          int         `json:"expiresIn"`
 }

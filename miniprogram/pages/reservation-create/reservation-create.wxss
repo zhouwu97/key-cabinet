@@ -207,3 +207,14 @@
 .submit-btn.disabled {
   opacity: 0.55;
 }
+
+.date-selector {
+  margin-bottom: 16rpx;
+}
+
+.result-description {
+  margin: 24rpx 0;
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: var(--kc-text-secondary, #737a87);
+}

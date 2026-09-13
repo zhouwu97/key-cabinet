@@ -15,7 +15,7 @@ Component({
   methods: {
     onReturn() {
       const b = this.data.borrow;
-      if (b && b.id) {
+      if (this.data.showReturnBtn && b?.canReturn && b.id) {
         this.triggerEvent('return', {
           id: b.id,
           keyId: b.keyId

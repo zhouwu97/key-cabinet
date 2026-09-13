@@ -16,6 +16,26 @@ type KeyService interface {
 	GetKeySlot(ctx context.Context, keyOrSlotID string) (*repository.Slot, error)
 }
 
+type KeyStatusUpdater interface {
+	UpdateKeyStatus(ctx context.Context, id, status string) (*repository.Key, error)
+}
+
+func (s *keyService) UpdateKeyStatus(ctx context.Context, id, status string) (*repository.Key, error) {
+	key, err := s.GetKey(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	status = strings.ToUpper(strings.TrimSpace(status))
+	if !isSupportedKeyStatus(status) {
+		return nil, apperrors.New(apperrors.CodeInvalidInput, "unsupported key status")
+	}
+	key.Status = status
+	if err := s.keyRepo.Update(ctx, key); err != nil {
+		return nil, apperrors.WrapWithCode(err, apperrors.CodeInternalError, "failed to update key status")
+	}
+	return key, nil
+}
+
 type keyService struct {
 	keyRepo  repository.KeyRepository
 	slotRepo repository.SlotRepository

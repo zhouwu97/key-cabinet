@@ -17,7 +17,6 @@ type mqttTestHandler struct {
 	events []DeviceEvent
 	err    error
 }
-
 func (h *mqttTestHandler) OnDeviceEvent(_ context.Context, event DeviceEvent) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -322,4 +321,75 @@ func TestMQTTGatewayReceivesAndProcessesInventory(t *testing.T) {
 
 	// 验证未对时时间戳 (10000 = 1970年) 自动收敛为当前时间
 	assert.GreaterOrEqual(t, invSink.snapshot.Timestamp.Year(), 2024)
+}
+
+func TestMQTTGatewayFailureEventSemantics(t *testing.T) {
+	testCases := []struct {
+		name          string
+		payload       string
+		expectedType  string
+		expectedStage string
+		expectedCode  string
+	}{
+		{
+			name: "DoorOpenTimeout",
+			payload: `{
+				"msgId":"evt-fail-1","timestamp":1788350403000,"deviceId":"CAB001","status":"FAILED",
+				"errorCode":"DOOR_NOT_CLOSED","errorMessage":"柜门超时未关紧",
+				"data":{"operationId":"op-fail-1","stage":"DOOR_OPEN_TIMEOUT","slotNo":1}
+			}`,
+			expectedType:  "FAILED",
+			expectedStage: "DOOR_OPEN_TIMEOUT",
+			expectedCode:  "DOOR_NOT_CLOSED",
+		},
+		{
+			name: "MotorError",
+			payload: `{
+				"msgId":"evt-fail-2","timestamp":1788350403000,"deviceId":"CAB001","status":"FAILED",
+				"errorCode":"MOTOR_POSITION_FAILED","errorMessage":"步进电机推进超时",
+				"data":{"operationId":"op-fail-2","stage":"MOTOR_ERROR","slotNo":1}
+			}`,
+			expectedType:  "FAILED",
+			expectedStage: "MOTOR_ERROR",
+			expectedCode:  "MOTOR_POSITION_FAILED",
+		},
+		{
+			name: "PickupTimeout",
+			payload: `{
+				"msgId":"evt-fail-3","timestamp":1788350403000,"deviceId":"CAB001","status":"FAILED",
+				"errorCode":"KEY_NOT_TAKEN_TIMEOUT","errorMessage":"钥匙超时未拔出",
+				"data":{"operationId":"op-fail-3","stage":"TIMEOUT","slotNo":1}
+			}`,
+			expectedType:  "FAILED",
+			expectedStage: "TIMEOUT",
+			expectedCode:  "KEY_NOT_TAKEN_TIMEOUT",
+		},
+		{
+			name: "KeyNotPresent",
+			payload: `{
+				"msgId":"evt-fail-4","timestamp":1788350403000,"deviceId":"CAB001","status":"FAILED",
+				"errorCode":"SLOT_EMPTY","errorMessage":"槽位起始未检测到钥匙",
+				"data":{"operationId":"op-fail-4","stage":"KEY_NOT_PRESENT","slotNo":1}
+			}`,
+			expectedType:  "FAILED",
+			expectedStage: "KEY_NOT_PRESENT",
+			expectedCode:  "SLOT_EMPTY",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			handler := &mqttTestHandler{}
+			gateway := newMQTTGatewayForTest(handler, nil)
+
+			err := gateway.handleIncoming("kcab/cab/CAB001/event/operation_progress", []byte(tc.payload))
+			require.NoError(t, err)
+
+			require.Len(t, handler.events, 1)
+			assert.Equal(t, tc.expectedType, handler.events[0].EventType)
+			assert.Equal(t, tc.expectedCode, handler.events[0].ErrorCode)
+			require.NotNil(t, handler.events[0].Data)
+			assert.Equal(t, tc.expectedStage, handler.events[0].Data["stage"])
+		})
+	}
 }

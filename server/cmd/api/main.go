@@ -43,6 +43,7 @@ func main() {
 	borrowRepo := postgres.NewBorrowRepository(db)
 	operationRepo := postgres.NewOperationRepository(db)
 	reminderRepo := postgres.NewReminderRepository(db)
+	alertRepo := postgres.NewAlertRepository(db)
 
 	// Initialize infrastructure clients
 	wechatClient := wechat.NewClient(cfg.Wechat.AppID, cfg.Wechat.AppSecret, cfg.Wechat.MockEnabled)
@@ -50,7 +51,7 @@ func main() {
 	if !ok {
 		log.Fatal("Device repository does not support runtime status updates")
 	}
-	inventoryReconciler := service.NewInventoryReconciler(slotRepo, keyRepo, deviceRepo)
+	inventoryReconciler := service.NewInventoryReconciler(slotRepo, keyRepo, deviceRepo, alertRepo)
 	deviceGateway, err := newDeviceGateway(cfg.Device, deviceStatusSink, inventoryReconciler)
 	if err != nil {
 		log.Fatalf("Failed to initialize device gateway: %v", err)

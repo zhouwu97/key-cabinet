@@ -35,17 +35,20 @@ type InventoryReconciler struct {
 	slotRepo   repository.SlotRepository
 	keyRepo    repository.KeyRepository
 	deviceRepo repository.DeviceRepository
+	alertRepo  repository.AlertRepository
 }
 
 func NewInventoryReconciler(
 	slotRepo repository.SlotRepository,
 	keyRepo repository.KeyRepository,
 	deviceRepo repository.DeviceRepository,
+	alertRepo repository.AlertRepository,
 ) *InventoryReconciler {
 	return &InventoryReconciler{
 		slotRepo:   slotRepo,
 		keyRepo:    keyRepo,
 		deviceRepo: deviceRepo,
+		alertRepo:  alertRepo,
 	}
 }
 
@@ -109,6 +112,8 @@ func (r *InventoryReconciler) OnInventorySnapshot(ctx context.Context, snapshot 
 		}
 
 		// 3.2 槽位绑定钥匙的 RFID 与在位逻辑对账检验
+		var slotDiscrepancy *InventoryDiscrepancy
+
 		if dbSlot.KeyID != nil && *dbSlot.KeyID != "" {
 			key, err := r.keyRepo.FindByID(ctx, *dbSlot.KeyID)
 			if err != nil {
@@ -122,7 +127,7 @@ func (r *InventoryReconciler) OnInventorySnapshot(ctx context.Context, snapshot 
 			// (a) 物理有卡时进行 RFID 强比对（防错还 / 错插异常）
 			if pSlot.Presence && pSlot.RFID != "" && key.RFIDTag != "" {
 				if !strings.EqualFold(pSlot.RFID, key.RFIDTag) {
-					disc := InventoryDiscrepancy{
+					slotDiscrepancy = &InventoryDiscrepancy{
 						DeviceID:     snapshot.DeviceID,
 						SlotNo:       pSlot.SlotNo,
 						Type:         DiscrepancyWrongKeyInSlot,
@@ -132,14 +137,13 @@ func (r *InventoryReconciler) OnInventorySnapshot(ctx context.Context, snapshot 
 						Message:      fmt.Sprintf("槽位 #%d 检测到错误钥匙 (实读 RFID=%s, 期望钥匙 [%s] RFID=%s)", pSlot.SlotNo, pSlot.RFID, key.Name, key.RFIDTag),
 						DetectedAt:   timestamp,
 					}
-					discrepancies = append(discrepancies, disc)
-					log.Printf("[InventoryReconciler] 🚨 错卡警告: %s", disc.Message)
+					log.Printf("[InventoryReconciler] 🚨 错卡警告: %s", slotDiscrepancy.Message)
 				}
 			}
 
 			// (b) 数据库标记可用在柜，但物理槽位钥匙缺失
 			if !pSlot.Presence && key.Status == "AVAILABLE" {
-				disc := InventoryDiscrepancy{
+				slotDiscrepancy = &InventoryDiscrepancy{
 					DeviceID:     snapshot.DeviceID,
 					SlotNo:       pSlot.SlotNo,
 					Type:         DiscrepancyMissingKey,
@@ -148,13 +152,12 @@ func (r *InventoryReconciler) OnInventorySnapshot(ctx context.Context, snapshot 
 					Message:      fmt.Sprintf("槽位 #%d 钥匙 [%s] 在数据库中标记可用在位，但物理微动检测为空缺", pSlot.SlotNo, key.Name),
 					DetectedAt:   timestamp,
 				}
-				discrepancies = append(discrepancies, disc)
-				log.Printf("[InventoryReconciler] ⚠️ 钥匙失位警告: %s", disc.Message)
+				log.Printf("[InventoryReconciler] ⚠️ 钥匙失位警告: %s", slotDiscrepancy.Message)
 			}
 
 			// (c) 数据库标记已被借出，但物理槽位钥匙已被插入
 			if pSlot.Presence && key.Status == "BORROWED" {
-				disc := InventoryDiscrepancy{
+				slotDiscrepancy = &InventoryDiscrepancy{
 					DeviceID:     snapshot.DeviceID,
 					SlotNo:       pSlot.SlotNo,
 					Type:         DiscrepancyUnexpectedKey,
@@ -164,13 +167,12 @@ func (r *InventoryReconciler) OnInventorySnapshot(ctx context.Context, snapshot 
 					Message:      fmt.Sprintf("槽位 #%d 钥匙 [%s] 在数据库中标记借出中，但物理槽位存在钥匙", pSlot.SlotNo, key.Name),
 					DetectedAt:   timestamp,
 				}
-				discrepancies = append(discrepancies, disc)
-				log.Printf("[InventoryReconciler] ⚠️ 异常在位警告: %s", disc.Message)
+				log.Printf("[InventoryReconciler] ⚠️ 异常在位警告: %s", slotDiscrepancy.Message)
 			}
 		} else {
 			// 未绑定钥匙的空闲槽位却插有钥匙
 			if pSlot.Presence && pSlot.RFID != "" {
-				disc := InventoryDiscrepancy{
+				slotDiscrepancy = &InventoryDiscrepancy{
 					DeviceID:   snapshot.DeviceID,
 					SlotNo:     pSlot.SlotNo,
 					Type:       DiscrepancyUnregisteredKey,
@@ -178,8 +180,47 @@ func (r *InventoryReconciler) OnInventorySnapshot(ctx context.Context, snapshot 
 					Message:    fmt.Sprintf("未绑定钥匙的槽位 #%d 物理检测到插入钥匙 (RFID=%s)", pSlot.SlotNo, pSlot.RFID),
 					DetectedAt: timestamp,
 				}
-				discrepancies = append(discrepancies, disc)
-				log.Printf("[InventoryReconciler] ⚠️ 未注册钥匙警告: %s", disc.Message)
+				log.Printf("[InventoryReconciler] ⚠️ 未注册钥匙警告: %s", slotDiscrepancy.Message)
+			}
+		}
+
+		// 3.3 持久化异常告警与自动恢复
+		if slotDiscrepancy != nil {
+			discrepancies = append(discrepancies, *slotDiscrepancy)
+			if r.alertRepo != nil {
+				existing, _ := r.alertRepo.FindOpenBySlotAndType(ctx, snapshot.DeviceID, pSlot.SlotNo, string(slotDiscrepancy.Type))
+				if existing == nil {
+					slotID := dbSlot.ID
+					var expRFID, actRFID *string
+					if slotDiscrepancy.ExpectedRFID != "" {
+						expRFID = &slotDiscrepancy.ExpectedRFID
+					}
+					if slotDiscrepancy.ActualRFID != "" {
+						actRFID = &slotDiscrepancy.ActualRFID
+					}
+					alert := &repository.DeviceAlert{
+						ID:           fmt.Sprintf("alt_%d_%d", timestamp.UnixNano(), pSlot.SlotNo),
+						DeviceID:     snapshot.DeviceID,
+						SlotID:       &slotID,
+						SlotNo:       &pSlot.SlotNo,
+						Type:         string(slotDiscrepancy.Type),
+						ExpectedRFID: expRFID,
+						ActualRFID:   actRFID,
+						Message:      slotDiscrepancy.Message,
+						Status:       "OPEN",
+						DetectedAt:   timestamp,
+					}
+					if err := r.alertRepo.Create(ctx, alert); err != nil {
+						log.Printf("[InventoryReconciler] failed to persist alert: %v", err)
+					} else {
+						log.Printf("[InventoryReconciler] 🚨 告警已持久化入库 device_alerts: ID=%s, Type=%s, Slot=#%d", alert.ID, alert.Type, pSlot.SlotNo)
+					}
+				}
+			}
+		} else {
+			// 槽位物理与数据库完全正常，若此前存在未关闭告警，则自动关闭 (RESOLVED)
+			if r.alertRepo != nil {
+				_ = r.alertRepo.ResolveAllBySlot(ctx, snapshot.DeviceID, pSlot.SlotNo, timestamp)
 			}
 		}
 	}

@@ -439,17 +439,17 @@ func (g *MQTTDeviceGateway) handleIncoming(topic string, payload []byte) error {
 		return errors.New("event operationId is required")
 	}
 	eventType := strings.ToUpper(strings.TrimSpace(data.Stage))
-	if strings.HasSuffix(suffix, "rfid_scanned") && data.IsMatch != nil {
+	if strings.EqualFold(envelope.Status, "FAILED") || strings.EqualFold(envelope.Status, "ERROR") {
+		eventType = "FAILED"
+	} else if strings.HasSuffix(suffix, "rfid_scanned") && data.IsMatch != nil {
 		if *data.IsMatch {
 			eventType = "RFID_CONFIRMED"
 		} else {
 			eventType = "FAILED"
 		}
-	}
-	if eventType == "" && envelope.ReplyMsgID != "" && strings.EqualFold(envelope.Status, "SUCCESS") {
+	} else if eventType == "" && envelope.ReplyMsgID != "" && strings.EqualFold(envelope.Status, "SUCCESS") {
 		eventType = "COMMAND_ACK"
-	}
-	if eventType == "" {
+	} else if eventType == "" {
 		eventType = strings.ToUpper(strings.TrimSpace(envelope.Status))
 	}
 	if eventType == "" {
@@ -473,6 +473,12 @@ func (g *MQTTDeviceGateway) handleIncoming(topic string, payload []byte) error {
 	var eventData map[string]interface{}
 	if len(envelope.Data) > 0 {
 		_ = json.Unmarshal(envelope.Data, &eventData)
+	}
+	if eventData == nil {
+		eventData = make(map[string]interface{})
+	}
+	if data.Stage != "" {
+		eventData["stage"] = data.Stage
 	}
 	g.handlerMu.RLock()
 	handler := g.handler

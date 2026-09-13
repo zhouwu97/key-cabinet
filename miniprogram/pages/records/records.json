@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "借还台账与历史",
+  "enablePullDownRefresh": true,
   "usingComponents": {
     "reservation-card": "/components/reservation-card/reservation-card",
     "borrow-card": "/components/borrow-card/borrow-card",

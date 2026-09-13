@@ -30,7 +30,7 @@ func mapErrorToHTTPStatus(code errors.Code) int {
 		return http.StatusBadRequest
 	case errors.CodeUnauthorized:
 		return http.StatusUnauthorized
-	case errors.CodeForbidden:
+	case errors.CodeForbidden, "ERR_LIVENESS_FAILED", "ERR_FACE_CONFIDENCE_LOW":
 		return http.StatusForbidden
 	case errors.CodeNotFound:
 		return http.StatusNotFound

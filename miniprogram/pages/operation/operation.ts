@@ -166,6 +166,7 @@ Page({
   },
 
   handleEventProgress(msg: DeviceEventMessage) {
+    if (msg.operationId !== this.data.operationId || this.data.isFinished || this.data.hasError) return
     const isPickup = this.data.operation?.action === DeviceOperationAction.PICKUP
     const key = this.data.key
     const keyName = key ? ((!key.roomNo || key.name.includes(key.roomNo)) ? key.name : `${key.roomNo}室 · ${key.name}`) : '钥匙'
@@ -223,13 +224,16 @@ Page({
           currentStepNumber: 5,
           userPromptTitle: '柜门已开启',
           userPromptDesc: isPickup
-            ? `柜门已打开，请取走 ${keyName} 并在 60 秒内关闭柜门`
+            ? `柜门已打开，请取走 ${keyName} 后及时关闭柜门`
             : '柜门已打开，请将钥匙插入归还口槽位',
         })
         break
 
       case DeviceEvent.WAITING_REMOVE:
+        steps[4].status = 'process'
         this.setData({
+          steps,
+          currentStepNumber: 5,
           userPromptTitle: '等待取走钥匙',
           userPromptDesc: `请取走槽位中的 ${keyName} 并随手关闭安全门`,
         })
@@ -240,14 +244,17 @@ Page({
         steps[5].status = 'process'
         this.setData({
           steps,
-          currentStepNumber: 5,
+          currentStepNumber: 6,
           userPromptTitle: '钥匙已取走',
-          userPromptDesc: '传感器已检测到钥匙离柜，正在关闭安全门并复位...',
+          userPromptDesc: '传感器已检测到钥匙离柜，请关闭安全门，等待设备确认完成。',
         })
         break
 
       case DeviceEvent.KEY_RETURNED:
+        steps[4].status = 'process'
         this.setData({
+          steps,
+          currentStepNumber: 5,
           userPromptTitle: '正在扫描 RFID 芯片',
           userPromptDesc: '检测到钥匙已放入归还口，正在扫描芯片 UID 校验...',
         })
@@ -258,15 +265,18 @@ Page({
         steps[5].status = 'process'
         this.setData({
           steps,
-          currentStepNumber: 5,
+          currentStepNumber: 6,
           userPromptTitle: 'RFID 芯片验证通过',
-          userPromptDesc: '钥匙身份核对正确，正在关闭柜门完成归还结算...',
+          userPromptDesc: '钥匙身份核对正确，请关闭柜门，等待设备确认归还完成。',
         })
         break
 
       case DeviceEvent.DOOR_CLOSED:
       case DeviceEvent.HOMING:
+        steps[5].status = 'process'
         this.setData({
+          steps,
+          currentStepNumber: 6,
           userPromptTitle: '设备复位中',
           userPromptDesc: '柜门已安全锁止，机构正在归零复位...',
         })
@@ -294,6 +304,11 @@ Page({
           userPromptDesc: msg.errorMessage || '设备执行遇到异常，请检查并重试',
         })
         break
+    }
+    if (!this.data.hasError) {
+      this.setData({ steps: this.data.steps.map((step, index) =>
+        index < this.data.currentStepNumber - 1 ? { ...step, status: 'finish' as const } : step,
+      ) })
     }
   },
 

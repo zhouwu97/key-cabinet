@@ -58,4 +58,21 @@ python face_app/app.py --enroll 20230001
 ```bash
 python face_app/app.py --config config.yaml
 ```
-用户正对摄像头，活体与比对通过后，输入房间号即可触发机械出钥。
+用户正对摄像头，活体与比对通过后，可选择本柜的有效预约取钥、选择借用记录归还，或输入房间号借用免审批且无预约冲突的钥匙。终端先恢复未完成操作，指令受理后持续查询设备状态，只有 `SUCCESS` 才显示成功；网络中断时沿用原请求编号核实受理结果。
+
+### 3.4 柜端接口
+
+以下接口均需 `X-Cabinet-ID`、`X-Timestamp`、`X-Nonce`、`X-Signature` 设备签名。除人脸认证与房间查询外，还需 `Authorization: Bearer <faceSessionToken>`；令牌绑定用户和柜机，有效期由认证响应的 `expiresIn` 给出，当前为 300 秒。
+
+| 方法与路径（前缀 `/api/v1/cabinet`） | 请求与用途 |
+| --- | --- |
+| `POST /auth/face` | `studentNo`、`confidence`、`livenessPassed`；返回本柜当前可取预约、可还记录和人脸令牌 |
+| `GET /keys/match-room?roomNo=101` | 查询本柜房间钥匙 |
+| `POST /device-operations/pickup` | `reservationId`、`clientRequestId`；按预约取钥并沿用应还时间 |
+| `POST /device-operations/return` | `borrowRecordId`、`clientRequestId`；向会话绑定柜机归还 |
+| `GET /device-operations/active` | 恢复当前用户在本柜的未完成操作，无记录返回 `data: null` |
+| `GET /device-operations/:id` | 获取操作状态及设备事件，不能查询其他柜机的操作 |
+| `POST /device-operations/:id/cancel` | 请求安全取消；拒绝时应继续查询进度 |
+| `POST /direct-dispense` | `requestId`、`roomNo` 或 `keyId`；现场免审批直借 |
+
+每次重试生成新的签名 nonce，但同一取还任务必须复用 `clientRequestId`（直借使用 `requestId`），防止网络超时后重复发指令。`202` 仅代表受理，机械动作结果以进度接口为准。柜机密钥不能下发到微信小程序；本地录入仍使用上面的 `--enroll` 命令，小程序身份资料核验与人脸模板录入是两个步骤。

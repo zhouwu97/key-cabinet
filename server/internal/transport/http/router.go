@@ -39,18 +39,22 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 	}
 
 	// API v1 - Cabinet Terminal (Protected by Cabinet Device Auth and FaceSession Auth)
-	if cfg.CabinetHandler != nil {
+	// 柜端接口只有在设备验签和会话签发配置齐全时才注册，避免缺失依赖时降级为匿名访问。
+	if cfg.CabinetHandler != nil && cfg.DeviceRepo != nil && cfg.TokenService != nil {
 		cabinet := r.Group("/api/v1/cabinet")
-		if cfg.DeviceRepo != nil {
-			cabinet.Use(middleware.CabinetAuthMiddleware(cfg.DeviceRepo))
-		}
+		cabinet.Use(middleware.CabinetAuthMiddleware(cfg.DeviceRepo))
 		{
 			cabinet.POST("/auth/face", cfg.CabinetHandler.FaceAuth)
 			cabinet.GET("/keys/match-room", cfg.CabinetHandler.MatchRoom)
-			if cfg.TokenService != nil {
-				cabinet.POST("/direct-dispense", middleware.FaceSessionMiddleware(cfg.TokenService), cfg.CabinetHandler.DirectDispense)
-			} else {
-				cabinet.POST("/direct-dispense", cfg.CabinetHandler.DirectDispense)
+			face := cabinet.Group("")
+			face.Use(middleware.FaceSessionMiddleware(cfg.TokenService))
+			face.POST("/direct-dispense", cfg.CabinetHandler.DirectDispense)
+			if cfg.OperationHandler != nil {
+				face.POST("/device-operations/pickup", cfg.OperationHandler.StartPickup)
+				face.POST("/device-operations/return", cfg.OperationHandler.StartReturn)
+				face.GET("/device-operations/active", cfg.OperationHandler.GetActive)
+				face.GET("/device-operations/:id", cfg.OperationHandler.GetByID)
+				face.POST("/device-operations/:id/cancel", cfg.OperationHandler.Cancel)
 			}
 		}
 	}
@@ -71,6 +75,7 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			v1Protected.GET("/keys", cfg.KeyHandler.List)
 			v1Protected.GET("/keys/:id/slot", cfg.KeyHandler.GetSlot)
 			v1Protected.GET("/keys/:id", cfg.KeyHandler.GetByID)
+			v1Protected.PATCH("/keys/:id/status", cfg.KeyHandler.UpdateStatus)
 		}
 		if cfg.DeviceHandler != nil {
 			v1Protected.GET("/devices", cfg.DeviceHandler.List)
@@ -85,8 +90,12 @@ func SetupRouter(cfg RouterConfig) *gin.Engine {
 			v1Protected.POST("/reservations/:id/cancel", cfg.ReservationHandler.Cancel)
 		}
 		if cfg.BorrowHandler != nil {
+			v1Protected.POST("/borrow-records", cfg.BorrowHandler.Create)
 			v1Protected.GET("/me/borrow-records", cfg.BorrowHandler.ListMine)
 			v1Protected.GET("/borrow-records/:id", cfg.BorrowHandler.GetMine)
+			v1Protected.PATCH("/borrow-records/:id/status", cfg.BorrowHandler.UpdateStatus)
+			v1Protected.POST("/borrow-records/:id/complete", cfg.BorrowHandler.Complete)
+			v1Protected.POST("/borrow-records/check-overdue", cfg.BorrowHandler.CheckOverdue)
 		}
 		if cfg.OperationHandler != nil {
 			v1Protected.POST("/device-operations/pickup", cfg.OperationHandler.StartPickup)

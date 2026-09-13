@@ -5,7 +5,8 @@
   "scripts": {
     "check": "tsc --noEmit && node scripts/check-pages.mjs && node miniprogram/scripts/check-directory-imports.mjs",
     "check:imports": "node miniprogram/scripts/check-directory-imports.mjs",
-    "test": "node scripts/run-stage2-tests.mjs",
+    "test": "node scripts/run-stage2-tests.mjs && node scripts/test-miniprogram-flows.mjs",
+    "test:flows": "tsc -p tsconfig.test.json && node scripts/test-miniprogram-flows.mjs",
     "checklist": "node scripts/run-stage3-checklist.mjs"
   },
   "keywords": [],

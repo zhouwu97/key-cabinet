@@ -20,7 +20,8 @@ import { BorrowService } from '../borrow/borrow-service'
 import { STORAGE_KEYS } from '../../mocks/mock-data'
 import { KeyStatus } from '../../models/key'
 import { KeyPresenceState } from '../../models/key-presence'
-import { BorrowRecordStatus } from '../../models/borrow-record'
+import { BorrowRecordStatus, canReturnBorrow } from '../../models/borrow-record'
+import { canPickupReservation } from '../../models/reservation'
 import { generateRequestId } from '../../utils/request-id'
 
 export class MockOperationService implements OperationService {
@@ -127,6 +128,12 @@ export class MockOperationService implements OperationService {
           reservationId = activeRes.id
         }
 
+        const reservation = await this.reservationService.getReservationById(reservationId)
+        if (!reservation || !canPickupReservation(reservation)) throw new Error(OperationErrorCode.RESERVATION_NOT_ACTIVE)
+        if (reservation.userId !== input.userId || reservation.keyId !== input.keyId) {
+          throw new Error(OperationErrorCode.OPERATION_USER_MISMATCH)
+        }
+
         // 创建初始借还记录 (BORROWING)
         const borrowRecord = await this.borrowService.createBorrowRecord(
           input.userId,
@@ -134,7 +141,8 @@ export class MockOperationService implements OperationService {
           input.deviceId,
           slotId,
           reservationId,
-          '实验科研借用',
+          reservation.purpose,
+          reservation.expectedReturnAt,
         )
         borrowRecordId = borrowRecord.id
       } else if (input.action === DeviceOperationAction.RETURN) {
@@ -150,6 +158,11 @@ export class MockOperationService implements OperationService {
           if (!record || record.userId !== input.userId) {
             throw new Error(OperationErrorCode.OPERATION_USER_MISMATCH)
           }
+        }
+        const record = await this.borrowService.getBorrowRecordById(borrowRecordId)
+        if (!record || !canReturnBorrow(record)) throw new Error(OperationErrorCode.OPERATION_STATE_CONFLICT)
+        if (record.keyId !== input.keyId || record.deviceId !== input.deviceId || record.slotId !== slotId) {
+          throw new Error(OperationErrorCode.OPERATION_USER_MISMATCH)
         }
         // 更新借还记录为 RETURNING
         await this.borrowService.updateBorrowStatus(

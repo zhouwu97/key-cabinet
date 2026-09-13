@@ -101,6 +101,54 @@ func (r *fakeReconcilerKeyRepo) Update(_ context.Context, key *repository.Key) e
 	return nil
 }
 
+type fakeReconcilerAlertRepo struct {
+	alerts []*repository.DeviceAlert
+}
+
+func (r *fakeReconcilerAlertRepo) Create(_ context.Context, alert *repository.DeviceAlert) error {
+	r.alerts = append(r.alerts, alert)
+	return nil
+}
+
+func (r *fakeReconcilerAlertRepo) ResolveBySlotAndType(_ context.Context, deviceID string, slotNo int, alertType string, resolvedAt time.Time) error {
+	for _, a := range r.alerts {
+		if a.DeviceID == deviceID && a.SlotNo != nil && *a.SlotNo == slotNo && a.Type == alertType {
+			a.Status = "RESOLVED"
+			a.ResolvedAt = &resolvedAt
+		}
+	}
+	return nil
+}
+
+func (r *fakeReconcilerAlertRepo) ResolveAllBySlot(_ context.Context, deviceID string, slotNo int, resolvedAt time.Time) error {
+	for _, a := range r.alerts {
+		if a.DeviceID == deviceID && a.SlotNo != nil && *a.SlotNo == slotNo {
+			a.Status = "RESOLVED"
+			a.ResolvedAt = &resolvedAt
+		}
+	}
+	return nil
+}
+
+func (r *fakeReconcilerAlertRepo) FindOpenBySlotAndType(_ context.Context, deviceID string, slotNo int, alertType string) (*repository.DeviceAlert, error) {
+	for _, a := range r.alerts {
+		if a.DeviceID == deviceID && a.SlotNo != nil && *a.SlotNo == slotNo && a.Type == alertType && a.Status == "OPEN" {
+			return a, nil
+		}
+	}
+	return nil, nil
+}
+
+func (r *fakeReconcilerAlertRepo) ListOpen(_ context.Context, deviceID string) ([]*repository.DeviceAlert, error) {
+	var result []*repository.DeviceAlert
+	for _, a := range r.alerts {
+		if a.Status == "OPEN" && (deviceID == "" || a.DeviceID == deviceID) {
+			result = append(result, a)
+		}
+	}
+	return result, nil
+}
+
 func TestInventoryReconciler_SyncPresenceAndDetectDiscrepancies(t *testing.T) {
 	key1ID := "key-101"
 	key2ID := "key-102"
@@ -120,7 +168,8 @@ func TestInventoryReconciler_SyncPresenceAndDetectDiscrepancies(t *testing.T) {
 		},
 	}
 
-	reconciler := NewInventoryReconciler(slotRepo, keyRepo, devRepo)
+	alertRepo := &fakeReconcilerAlertRepo{}
+	reconciler := NewInventoryReconciler(slotRepo, keyRepo, devRepo, alertRepo)
 
 	// Case 1: Slot 1 physically returned with correct RFID; Slot 2 has wrong RFID
 	snapshot := device.DeviceInventorySnapshot{
@@ -141,5 +190,35 @@ func TestInventoryReconciler_SyncPresenceAndDetectDiscrepancies(t *testing.T) {
 	// Verify Slot 1 presence updated in DB to PRESENT
 	if slot1.Presence != "PRESENT" {
 		t.Errorf("expected slot 1 presence to be PRESENT, got %s", slot1.Presence)
+	}
+
+	// Verify alert created for Slot 2
+	openAlerts, _ := alertRepo.ListOpen(context.Background(), "CAB001")
+	if len(openAlerts) != 1 {
+		t.Fatalf("expected 1 open alert, got %d", len(openAlerts))
+	}
+	if openAlerts[0].Type != string(DiscrepancyWrongKeyInSlot) {
+		t.Errorf("expected alert type %s, got %s", DiscrepancyWrongKeyInSlot, openAlerts[0].Type)
+	}
+
+	// Case 2: Slot 2 is now corrected with correct RFID
+	snapshot2 := device.DeviceInventorySnapshot{
+		DeviceID:   "CAB001",
+		Timestamp:  time.Now().UTC(),
+		DoorClosed: true,
+		Slots: []device.DeviceInventorySlot{
+			{SlotNo: 1, Presence: true, RFID: "E2001122"},
+			{SlotNo: 2, Presence: true, RFID: "E2003344"},
+		},
+	}
+	err = reconciler.OnInventorySnapshot(context.Background(), snapshot2)
+	if err != nil {
+		t.Fatalf("unexpected error on snapshot2: %v", err)
+	}
+
+	// Verify alert for Slot 2 has been resolved
+	openAlertsAfter, _ := alertRepo.ListOpen(context.Background(), "CAB001")
+	if len(openAlertsAfter) != 0 {
+		t.Errorf("expected 0 open alerts after correction, got %d", len(openAlertsAfter))
 	}
 }

@@ -183,3 +183,15 @@
   font-size: 26rpx;
   color: var(--kc-text-muted, #9299a6);
 }
+
+.logout-button {
+  margin: 28rpx 0 40rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16rpx;
+  background: #fff;
+  color: #e05252;
+  font-size: 26rpx;
+}

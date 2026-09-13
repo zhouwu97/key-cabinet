@@ -1,6 +1,6 @@
 import { httpClient } from '../../api/http-client'
 import { toISOTime, toQueryString, toTimestamp } from '../../api/serializers'
-import { Reservation, ReservationStatus } from '../../models/reservation'
+import { Reservation, canPickupReservation } from '../../models/reservation'
 import {
   CreateReservationParams,
   ReservationService,
@@ -81,10 +81,7 @@ export class ApiReservationService implements ReservationService {
       reservations.find(
         reservation =>
           (!keyId || reservation.keyId === keyId) &&
-          (reservation.status === ReservationStatus.ACTIVE ||
-            (reservation.status === ReservationStatus.APPROVED &&
-              now >= reservation.pickupWindowStart &&
-              now <= reservation.pickupWindowEnd)),
+          canPickupReservation(reservation, now),
       ) || null
     )
   }

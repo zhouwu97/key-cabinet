@@ -23,7 +23,7 @@
         <view class="op-title-wrap">
           <view class="op-action-tag">
             <status-badge
-              text="{{operation.action === 'PICKUP' ? '取钥中' : '归还中'}}"
+              text="{{isFinished ? '已完成' : (hasError ? '未完成' : (operation.action === 'PICKUP' ? '取钥中' : '归还中'))}}"
               tone="{{isFinished ? 'green' : (hasError ? 'red' : 'blue')}}"
               dot="{{true}}"
             />
@@ -82,7 +82,7 @@
     <view wx:elif="{{hasError}}" class="card error-op-card">
       <view class="error-action-title">操作未成功完成</view>
       <view class="error-action-desc">{{errorMessage || '设备响应异常，请重新发起或联系现场管理员'}}</view>
-      <view class="btn-primary mt-16" bindtap="goHome">返回首页重新发起</view>
+      <view class="btn-primary mt-16" bindtap="goRecords">查看记录与处理状态</view>
     </view>
 
 	<view wx:else class="card">

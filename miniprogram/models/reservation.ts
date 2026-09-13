@@ -43,3 +43,15 @@ export interface Reservation {
 	deviceId?: string
 	deviceName?: string
 }
+
+/** 预约状态与取钥窗口同时满足，才允许进入现场操作。 */
+export function canPickupReservation(reservation: Reservation, now: number = Date.now()): boolean {
+  return (
+    (reservation.status === ReservationStatus.ACTIVE || reservation.status === ReservationStatus.APPROVED) &&
+    now >= reservation.pickupWindowStart && now <= reservation.pickupWindowEnd
+  )
+}
+
+export function canCancelReservation(reservation: Reservation): boolean {
+  return [ReservationStatus.PENDING, ReservationStatus.ACTIVE, ReservationStatus.APPROVED].includes(reservation.status)
+}

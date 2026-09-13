@@ -2,6 +2,7 @@ import { userService, borrowService, reservationService, deviceService } from '.
 import { User } from '../../models/user'
 import { BorrowRecordStatus } from '../../models/borrow-record'
 import { ReservationStatus } from '../../models/reservation'
+import { authService } from '../../services/auth/index'
 
 Page({
   data: {
@@ -136,5 +137,18 @@ Page({
       return
     }
     wx.navigateTo({ url: '/pages/admin/admin' })
+  },
+
+  async logout() {
+    const result = await wx.showModal({
+      title: '退出登录',
+      content: '退出后需要重新登录才能继续借还钥匙，确定退出吗？',
+      confirmText: '退出',
+      confirmColor: '#e05252',
+    })
+    if (!result.confirm) return
+    authService.logout()
+    this.setData({ user: null, loading: false, currentBorrowCount: 0, activeReservationCount: 0, totalBorrowCount: 0 })
+    wx.showToast({ title: '已退出登录', icon: 'success' })
   },
 })

@@ -48,7 +48,11 @@ func (r *fakeCabinetDeviceRepository) FindAll(_ context.Context) ([]*repository.
 	return nil, nil
 }
 
-type fakeCabinetReservationRepository struct{}
+type fakeCabinetReservationRepository struct {
+	reservations []*repository.Reservation
+	conflicts    []*repository.Reservation
+	err          error
+}
 
 func (r *fakeCabinetReservationRepository) Create(_ context.Context, _ *repository.Reservation) error {
 	return nil
@@ -57,19 +61,22 @@ func (r *fakeCabinetReservationRepository) FindByID(_ context.Context, _ string)
 	return nil, nil
 }
 func (r *fakeCabinetReservationRepository) FindByUserID(_ context.Context, _ string) ([]*repository.Reservation, error) {
-	return nil, nil
+	return r.reservations, r.err
 }
 func (r *fakeCabinetReservationRepository) List(_ context.Context, _ repository.ReservationListFilter) ([]*repository.Reservation, error) {
 	return nil, nil
 }
 func (r *fakeCabinetReservationRepository) FindConflicts(_ context.Context, _ string, _, _ time.Time) ([]*repository.Reservation, error) {
-	return nil, nil
+	return r.conflicts, r.err
 }
 func (r *fakeCabinetReservationRepository) Update(_ context.Context, _ *repository.Reservation) error {
 	return nil
 }
 
-type fakeCabinetBorrowRepository struct{}
+type fakeCabinetBorrowRepository struct {
+	borrows []*repository.BorrowRecord
+	err     error
+}
 
 func (r *fakeCabinetBorrowRepository) Create(_ context.Context, _ *repository.BorrowRecord) error {
 	return nil
@@ -81,7 +88,7 @@ func (r *fakeCabinetBorrowRepository) FindByReservationID(_ context.Context, _ s
 	return nil, nil
 }
 func (r *fakeCabinetBorrowRepository) FindByUserID(_ context.Context, _ string) ([]*repository.BorrowRecord, error) {
-	return nil, nil
+	return r.borrows, r.err
 }
 func (r *fakeCabinetBorrowRepository) List(_ context.Context, _ repository.BorrowListFilter) ([]*repository.BorrowRecord, error) {
 	return nil, nil
@@ -195,7 +202,8 @@ func TestCabinetService_MatchRoom(t *testing.T) {
 		{ID: "k1", Name: "101室主钥匙", RoomNo: "101", DeviceID: "CAB001", SlotID: "s1", Status: "AVAILABLE", Enabled: true},
 		{ID: "k2", Name: "102室钥匙", RoomNo: "102", DeviceID: "CAB001", SlotID: "s2", Status: "BORROWED", Enabled: true},
 	}}
-	slotRepo := &fakeSlotRepository{slot: &repository.Slot{ID: "s1", DeviceID: "CAB001", SlotNo: 1, Presence: "PRESENT", Enabled: true}}
+	keyID := "k1"
+	slotRepo := &fakeSlotRepository{slot: &repository.Slot{ID: "s1", DeviceID: "CAB001", KeyID: &keyID, SlotNo: 1, Presence: "PRESENT", Enabled: true}}
 
 	svc := NewCabinetService(
 		&fakeCabinetUserRepository{},
@@ -225,7 +233,8 @@ func TestCabinetService_DirectDispense(t *testing.T) {
 	keyRepo := &fakeKeyRepository{keys: []*repository.Key{
 		{ID: "k1", Name: "101室主钥匙", RoomNo: "101", DeviceID: "CAB001", SlotID: "s1", Status: "AVAILABLE", Enabled: true},
 	}}
-	slotRepo := &fakeSlotRepository{slot: &repository.Slot{ID: "s1", DeviceID: "CAB001", SlotNo: 1, Presence: "PRESENT", Enabled: true}}
+	keyID := "k1"
+	slotRepo := &fakeSlotRepository{slot: &repository.Slot{ID: "s1", DeviceID: "CAB001", KeyID: &keyID, SlotNo: 1, Presence: "PRESENT", Enabled: true}}
 	userRepo := &fakeCabinetUserRepository{user: &repository.User{ID: "u1", StudentNo: "20230001", Name: "张三", Status: "ACTIVE", Role: "USER", IdentityVerified: true}}
 	opRepo := &fakeCabinetOperationRepository{operations: make(map[string]*repository.DeviceOperation)}
 

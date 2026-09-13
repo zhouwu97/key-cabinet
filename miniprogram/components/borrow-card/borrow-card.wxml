@@ -31,7 +31,7 @@
     </view>
   </view>
 
-  <view wx:if="{{borrow.canReturn !== false && showReturnBtn}}" class="card-actions">
+  <view wx:if="{{borrow.canReturn && showReturnBtn}}" class="card-actions">
     <view
       class="{{borrow.isOverdue ? 'danger-btn' : 'primary-btn'}}"
       catchtap="onReturn"

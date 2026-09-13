@@ -7,7 +7,8 @@ import {
 import { Key } from '../../models/key'
 import { CreateReservationParams } from '../../services/reservation/index'
 import { OperationErrorCode } from '../../models/operation-error'
-import { formatTime } from '../../utils/date'
+import { formatDate, formatDateTime, formatPickupWindow, parseLocalDateTime } from '../../utils/date'
+import { Reservation, ReservationStatus } from '../../models/reservation'
 import { ApiException } from '../../api/http-client'
 import { currentConfig } from '../../config/index'
 
@@ -20,12 +21,16 @@ Page({
     purposeTags: ['实验教学', '设备调试', '会议/答辩', '自习开发'],
     selectedTag: '实验教学',
     purpose: '实验教学：课程专项实验上机使用',
-    pickupWindowText: '',
-    returnDateText: '今天',
+    returnDate: '',
+    minReturnDate: '',
     returnTime: '18:00',
     agreedRules: true,
     loading: true,
     submitting: false,
+    loadError: '',
+    createdReservation: null as Reservation | null,
+    createdPickupWindowText: '',
+    createdReturnText: '',
   },
 
   onLoad(options: any) {
@@ -37,8 +42,6 @@ Page({
     }
 
     const now = Date.now()
-    const pickupStart = formatTime(now)
-    const pickupEnd = formatTime(now + 1800000)
 
     // 默认预计归还时间为当前时间后 3 小时
     const defaultReturn = new Date(now + 3 * 3600000)
@@ -47,7 +50,8 @@ Page({
 
     this.setData({
       keyId,
-      pickupWindowText: `${pickupStart} - ${pickupEnd}`,
+      returnDate: formatDate(defaultReturn.getTime()),
+      minReturnDate: formatDate(now),
       returnTime: `${defHour}:${defMin}`,
     })
 
@@ -56,12 +60,11 @@ Page({
 
   async loadKeyInfo(keyId: string) {
     try {
-      this.setData({ loading: true })
+      this.setData({ loading: true, loadError: '' })
       const key = await keyService.getKeyById(keyId)
 
       if (!key) {
-        wx.showToast({ title: '钥匙不存在', icon: 'none' })
-        setTimeout(() => wx.navigateBack(), 1500)
+        this.setData({ key: null, loading: false, loadError: '钥匙不存在或已下架，请返回重新选择' })
         return
       }
 
@@ -78,8 +81,7 @@ Page({
 		})
     } catch (e) {
       console.error('加载钥匙信息失败', e)
-      this.setData({ loading: false })
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      this.setData({ loading: false, key: null, loadError: '无法加载钥匙信息，请检查网络后重试' })
     }
   },
 
@@ -105,14 +107,27 @@ Page({
     this.setData({ returnTime: e.detail.value })
   },
 
+  onReturnDateChange(e: any) {
+    this.setData({ returnDate: e.detail.value })
+  },
+
+  retryLoad() {
+    this.loadKeyInfo(this.data.keyId)
+  },
+
+  goRecords() {
+    wx.setStorageSync('kcab_records_initial_tab', 'CURRENT')
+    wx.switchTab({ url: '/pages/records/records' })
+  },
+
   toggleRulesAgree() {
     this.setData({ agreedRules: !this.data.agreedRules })
   },
 
   async submitReservation() {
-    const { keyId, purpose, returnTime, agreedRules, submitting } = this.data
+    const { keyId, key, purpose, returnDate, returnTime, agreedRules, submitting } = this.data
 
-    if (submitting) return
+    if (submitting || this.data.createdReservation || !key || this.data.loading || this.data.loadError) return
 
     if (!agreedRules) {
       wx.showToast({ title: '请先阅读并同意借用规则', icon: 'none' })
@@ -143,14 +158,12 @@ Page({
 		}
 
       const now = Date.now()
-      const [hStr, mStr] = returnTime.split(':')
-      const targetDate = new Date()
-      targetDate.setHours(parseInt(hStr, 10), parseInt(mStr, 10), 0, 0)
-
-      let expectedReturnAt = targetDate.getTime()
-      if (expectedReturnAt <= now) {
-        // 如果选择的时间小于当前时间，推迟到第二天
-        expectedReturnAt += 24 * 3600000
+      const expectedReturnAt = parseLocalDateTime(returnDate, returnTime)
+      // 与服务端一致：归还时间必须晚于完整的 30 分钟取钥窗口。
+      if (!Number.isFinite(expectedReturnAt) || expectedReturnAt <= now + 1800000) {
+        wx.showToast({ title: '归还时间须晚于取钥窗口结束时间，请调整日期或时间', icon: 'none', duration: 3000 })
+        this.setData({ submitting: false, minReturnDate: formatDate(now) })
+        return
       }
 
       const params: CreateReservationParams = {
@@ -163,15 +176,22 @@ Page({
         expectedReturnAt,
       }
 
-      await reservationService.createReservation(params)
+      const reservation = await reservationService.createReservation(params)
+      this.setData({
+        createdReservation: reservation,
+        createdPickupWindowText: formatPickupWindow(reservation.pickupWindowStart, reservation.pickupWindowEnd),
+        createdReturnText: formatDateTime(reservation.expectedReturnAt),
+        submitting: false,
+      })
 
       // 引导用户授权微信归还与逾期服务通知
-      if (typeof wx !== 'undefined' && typeof wx.requestSubscribeMessage === 'function') {
+      const tmplIds = [...new Set(Object.values(currentConfig.subscriptionTemplates))]
+        .filter(id => id && !id.startsWith('kcab_tmpl_'))
+      if (tmplIds.length > 0 && typeof wx.requestSubscribeMessage === 'function') {
         try {
           await new Promise<void>((resolve) => {
-            const tmpl = currentConfig.subscriptionTemplates
             wx.requestSubscribeMessage({
-              tmplIds: [tmpl.returnReminder, tmpl.overdueAlert],
+              tmplIds,
               success: (res) => {
                 console.log('微信服务通知订阅成功:', res)
                 resolve()
@@ -187,11 +207,7 @@ Page({
         }
       }
 
-      wx.showToast({ title: '预约成功', icon: 'success' })
-
-      setTimeout(() => {
-        wx.switchTab({ url: '/pages/home/home' })
-      }, 1200)
+      wx.showToast({ title: reservation.status === ReservationStatus.PENDING ? '已提交，待审批' : '预约成功', icon: 'success' })
     } catch (e: any) {
       console.error('预约失败', e)
       let msg = '预约失败'

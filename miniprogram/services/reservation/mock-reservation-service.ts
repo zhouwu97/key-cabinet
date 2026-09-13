@@ -1,4 +1,4 @@
-import { Reservation, ReservationStatus } from '../../models/reservation'
+import { Reservation, ReservationStatus, canCancelReservation, canPickupReservation } from '../../models/reservation'
 import {
   CreateReservationParams,
   ReservationService,
@@ -20,7 +20,27 @@ export class MockReservationService implements ReservationService {
     try {
       const stored = wx.getStorageSync(STORAGE_KEYS.RESERVATIONS)
       this.reservations =
-        stored && stored.length > 0 ? stored : [...MOCK_RESERVATIONS]
+        Array.isArray(stored) ? stored : MOCK_RESERVATIONS.map(r => ({ ...r }))
+      const now = Date.now()
+      const borrows = wx.getStorageSync(STORAGE_KEYS.BORROW_RECORDS) || []
+      const expiredKeyIds = new Set<string>()
+      this.reservations.forEach(reservation => {
+        const pickingUp = borrows.some((b: any) => b.reservationId === reservation.id && b.status === BorrowRecordStatus.BORROWING)
+        if (canCancelReservation(reservation) && now > reservation.pickupWindowEnd && !pickingUp) {
+          reservation.status = ReservationStatus.EXPIRED
+          expiredKeyIds.add(reservation.keyId)
+        }
+      })
+      if (expiredKeyIds.size > 0) {
+        const keys = wx.getStorageSync(STORAGE_KEYS.KEYS) || []
+        keys.forEach((key: any) => {
+          if (expiredKeyIds.has(key.id) && key.status === KeyStatus.RESERVED &&
+            !this.reservations.some(r => r.keyId === key.id && canCancelReservation(r))) {
+            key.status = KeyStatus.AVAILABLE
+          }
+        })
+        wx.setStorageSync(STORAGE_KEYS.KEYS, keys)
+      }
       this.saveToStorage()
     } catch (e) {
       console.error('加载预约数据失败', e)
@@ -51,11 +71,15 @@ export class MockReservationService implements ReservationService {
         const end = params.pickupWindowEnd || (start + 1800000) // 默认窗口 30 分钟
         const duration = params.expectedDuration || 7200000 // 默认借用 2 小时
         const expectedReturn = params.expectedReturnAt || (start + duration)
+        if (![start, end, expectedReturn].every(Number.isFinite) || start >= end || end >= expectedReturn) {
+          reject(new Error('归还时间须晚于取钥窗口结束时间'))
+          return
+        }
 
         // 1. 检查钥匙基础状态
         const keys = wx.getStorageSync(STORAGE_KEYS.KEYS) || []
         const key = keys.find((k: any) => k.id === params.keyId)
-        if (!key || !key.enabled) {
+        if (!key || !key.enabled || key.status === KeyStatus.DISABLED || key.status === KeyStatus.MAINTENANCE) {
           reject(new Error(OperationErrorCode.KEY_NOT_AVAILABLE))
           return
         }
@@ -77,8 +101,8 @@ export class MockReservationService implements ReservationService {
               b.status === BorrowRecordStatus.BORROWED ||
               b.status === BorrowRecordStatus.RETURNING),
         )
-        if (activeBorrow && now < (activeBorrow.expectedReturnAt || now)) {
-          // 当前若已被借出且还在借期内
+        if (activeBorrow) {
+          // 逾期也仍占用钥匙，只有实际归还后才能再次预约。
           reject(new Error(OperationErrorCode.KEY_ALREADY_BORROWED))
           return
         }
@@ -88,7 +112,7 @@ export class MockReservationService implements ReservationService {
           r =>
             r.userId === params.userId &&
             r.keyId === params.keyId &&
-            (r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.APPROVED),
+            canCancelReservation(r),
         )
         if (userActive) {
           reject(new Error(OperationErrorCode.RESERVATION_CONFLICT))
@@ -98,7 +122,7 @@ export class MockReservationService implements ReservationService {
         // 5. 检查时间冲突 (new.start < old.end && new.end > old.start)
         const hasConflict = this.reservations.some(r => {
           if (r.keyId !== params.keyId) return false
-          if (r.status !== ReservationStatus.ACTIVE && r.status !== ReservationStatus.APPROVED) {
+          if (!canCancelReservation(r)) {
             return false
           }
           // 比较预约覆盖的完整周期 (从取钥窗口起到预计归还)
@@ -113,8 +137,9 @@ export class MockReservationService implements ReservationService {
         }
 
         // 6. 创建预约对象（自动确定 ACTIVE 或 APPROVED）
-        const isCurrentlyActive = now >= (start - 300000) && now <= end
-        const status = isCurrentlyActive ? ReservationStatus.ACTIVE : ReservationStatus.APPROVED
+        const isCurrentlyActive = now >= start && now <= end
+        const status = key.requiresApproval ? ReservationStatus.PENDING :
+          isCurrentlyActive ? ReservationStatus.ACTIVE : ReservationStatus.APPROVED
 
         const reservation: Reservation = {
           id: this.generateId(),
@@ -126,7 +151,7 @@ export class MockReservationService implements ReservationService {
           pickupWindowStart: start,
           pickupWindowEnd: end,
           expectedReturnAt: expectedReturn,
-          approvedAt: now,
+          approvedAt: key.requiresApproval ? undefined : now,
         }
 
         this.reservations.push(reservation)
@@ -192,7 +217,7 @@ export class MockReservationService implements ReservationService {
               r =>
                 r.keyId === reservation.keyId &&
                 r.id !== id &&
-                (r.status === ReservationStatus.ACTIVE || r.status === ReservationStatus.APPROVED),
+                canCancelReservation(r),
             )
             if (key && !otherActive && key.status === KeyStatus.RESERVED) {
               key.status = KeyStatus.AVAILABLE
@@ -237,7 +262,7 @@ export class MockReservationService implements ReservationService {
 
           const hasConflict = this.reservations.some(r => {
             if (r.keyId !== keyId) return false
-            if (r.status !== ReservationStatus.ACTIVE && r.status !== ReservationStatus.APPROVED) {
+            if (!canCancelReservation(r)) {
               return false
             }
             const existingStart = r.pickupWindowStart || r.createdAt
@@ -266,8 +291,7 @@ export class MockReservationService implements ReservationService {
           r =>
             r.userId === userId &&
             (!keyId || r.keyId === keyId) &&
-            (r.status === ReservationStatus.ACTIVE ||
-              (r.status === ReservationStatus.APPROVED && now >= (r.pickupWindowStart - 300000))),
+            canPickupReservation(r, now),
         )
         resolve(reservation ? { ...reservation } : null)
       }, 50)

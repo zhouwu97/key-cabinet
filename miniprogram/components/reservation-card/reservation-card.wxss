@@ -44,6 +44,11 @@
   font-weight: 550;
   text-align: right;
   flex: 1;
+  word-break: break-all;
+}
+
+.rejection-reason {
+  color: var(--kc-danger, #e5484d);
 }
 
 .card {

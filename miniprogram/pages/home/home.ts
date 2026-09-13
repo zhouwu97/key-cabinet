@@ -8,9 +8,10 @@ import {
 } from '../../services/index'
 import { Key } from '../../models/key'
 import { DeviceOperation, DeviceOperationStatus } from '../../models/device-operation'
-import { ReservationStatus } from '../../models/reservation'
-import { BorrowRecord } from '../../models/borrow-record'
-import { formatTime } from '../../utils/date'
+import { canCancelReservation, canPickupReservation } from '../../models/reservation'
+import { BorrowRecord, canReturnBorrow, isRecordOverdue } from '../../models/borrow-record'
+import { formatDateTime, formatTime, formatPickupWindow } from '../../utils/date'
+import { getBorrowRecordDisplayStatus, RESERVATION_STATUS_LABEL, RESERVATION_STATUS_TONE } from '../../constants/labels'
 import { User } from '../../models/user'
 
 interface ReservationViewModel {
@@ -45,11 +46,6 @@ function getGreeting(): string {
   if (hour < 14) return '中午好'
   if (hour < 19) return '下午好'
   return '晚上好'
-}
-
-function isRecordOverdue(record: BorrowRecord): boolean {
-  if (record.returnedAt) return false
-  return Date.now() > record.expectedReturnAt
 }
 
 function formatKeyDisplayName(key: Key | null | undefined, fallback: string): string {
@@ -137,13 +133,9 @@ Page({
         const keyMap = new Map<string, Key>()
         allKeys.forEach(k => keyMap.set(k.id, k))
 
-        // 筛选可取钥的预约 (ACTIVE / APPROVED)
+        // 待审批也保留在首页，避免提交后找不到当前预约。
         const activeReservations: ReservationViewModel[] = reservations
-          .filter(
-            r =>
-              r.status === ReservationStatus.ACTIVE ||
-              r.status === ReservationStatus.APPROVED,
-          )
+          .filter(canCancelReservation)
           .map(r => {
             const key = keyMap.get(r.keyId)
             return {
@@ -153,10 +145,12 @@ Page({
 				deviceId: key?.deviceId || '',
               pickupWindowStartText: formatTime(r.pickupWindowStart),
               pickupWindowEndText: formatTime(r.pickupWindowEnd),
-              statusLabel: r.status === ReservationStatus.APPROVED ? '已审批通过' : '待现场取钥',
-              statusTone: 'blue',
-				canPickup: Boolean(user.identityVerified),
-              canCancel: true,
+              pickupWindowText: formatPickupWindow(r.pickupWindowStart, r.pickupWindowEnd),
+              expectedReturnText: formatDateTime(r.expectedReturnAt),
+              statusLabel: RESERVATION_STATUS_LABEL[r.status],
+              statusTone: RESERVATION_STATUS_TONE[r.status],
+              canPickup: Boolean(user.identityVerified) && canPickupReservation(r),
+              canCancel: canCancelReservation(r),
             }
           })
 
@@ -167,16 +161,17 @@ Page({
         borrows.forEach(b => {
           const key = keyMap.get(b.keyId)
           const overdue = isRecordOverdue(b)
+          const status = getBorrowRecordDisplayStatus(b)
           const vm: BorrowViewModel = {
             ...b,
             keyName: formatKeyDisplayName(key, b.keyId),
             roomNo: key?.roomNo || '',
             isOverdue: overdue,
-            expectedReturnText: formatTime(b.expectedReturnAt),
-            borrowedAtText: formatTime(b.borrowedAt),
-            statusLabel: overdue ? '已逾期' : '借用中',
-            statusTone: overdue ? 'red' : 'green',
-            canReturn: true,
+            expectedReturnText: formatDateTime(b.expectedReturnAt),
+            borrowedAtText: b.borrowedAt ? formatDateTime(b.borrowedAt) : '',
+            statusLabel: status.label,
+            statusTone: status.tone,
+            canReturn: canReturnBorrow(b),
           }
           if (overdue) {
             overdueBorrows.push(vm)
@@ -260,19 +255,25 @@ Page({
 
   // 首页主扫码行动入口
   onMainScanTap() {
-    // 智能选择首要任务进入核验
-    if (this.data.overdueBorrows.length > 0) {
-      const b = this.data.overdueBorrows[0]
+    if (this.data.activeOperation) {
+      this.resumeOperation()
+      return
+    }
+    const overdue = this.data.overdueBorrows.find(b => b.canReturn)
+    const reservation = this.data.activeReservations.find(r => r.canPickup)
+    const borrow = this.data.normalBorrows.find(b => b.canReturn)
+    if (overdue) {
+      const b = overdue
       wx.navigateTo({
 		url: `/pages/scan/scan?mode=RETURN&borrowRecordId=${b.id}&keyId=${b.keyId}&expectedDeviceId=${b.deviceId}`,
       })
-    } else if (this.data.activeReservations.length > 0) {
-      const r = this.data.activeReservations[0]
+    } else if (reservation) {
+      const r = reservation
       wx.navigateTo({
 		url: `/pages/scan/scan?mode=PICKUP&reservationId=${r.id}&keyId=${r.keyId}&expectedDeviceId=${r.deviceId}`,
       })
-    } else if (this.data.normalBorrows.length > 0) {
-      const b = this.data.normalBorrows[0]
+    } else if (borrow) {
+      const b = borrow
       wx.navigateTo({
 		url: `/pages/scan/scan?mode=RETURN&borrowRecordId=${b.id}&keyId=${b.keyId}&expectedDeviceId=${b.deviceId}`,
       })
@@ -320,8 +321,9 @@ Page({
   async onBorrowCardReturn(e: any) {
     const { id: borrowId, keyId } = e.detail
     try {
-      const key = await keyService.getKeyById(keyId)
-		const deviceId = key?.deviceId
+      const borrow = [...this.data.normalBorrows, ...this.data.overdueBorrows].find(b => b.id === borrowId)
+      if (!borrow || !canReturnBorrow(borrow)) return
+      const deviceId = borrow.deviceId
 		if (!deviceId) throw new Error('钥匙尚未绑定可用柜机')
       wx.navigateTo({
         url: `/pages/scan/scan?mode=RETURN&borrowRecordId=${borrowId}&keyId=${keyId}&expectedDeviceId=${deviceId}`,

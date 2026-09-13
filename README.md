@@ -79,19 +79,22 @@ key-cabinet/
 - ✅ 预约 → 取钥 → 借用 → 归还完整主链
 - ✅ 取消、迟到事件和操作超时安全收敛
 
-### v0.5 - 实体机电与网络固件（代码实现完成，待实体硬件验收）
-- ✅ MQTT 设备通信网关 (QoS 1 保证、实时 Inventory 数据库对账器注入)
+### v0.5 - 实体机电与网络固件（代码实现完成，待实体硬件联调）
+- ✅ MQTT 设备通信网关 (QoS 1 保证、状态失败语义修正、实时 Inventory 数据库对账器注入)
 - ✅ ESP32 固件工程 (FreeRTOS 模块化架构)
 - ✅ Wi-Fi STA 联网与 SNTP 毫秒授时
-- 📐 4G 模组串口接口规划与引脚定义 (GPIO13 独立使能，待实插 SIM 拨号)
-- ✅ RC522 13.56MHz 4 字节标准 UID 防错还
-- ✅ 步进电机原点限位与 MQTT 抢占式异步硬件失能中止 (Abort Preemption)
+- 📐 4G 模组串口接口规划与引脚定义 (GPIO13 独立使能，待实机硬件联调)
+- ✅ 硬件职责物理定界：每槽独立微动实时监测在位 (Presence)，单 RC522 专用于归还口防错还校验
+- ✅ 出钥起始态安全检测：出钥前确认槽位处于 PRESENT，若空位则禁止动作并快速拦截
+- ✅ 步进电机原点限位与 MQTT 抢占式异步硬件失能中止 (Abort Preemption，单终态无竞态)
 - ✅ 物理全闭环保障：取还未确认关门 (DoorClosed) 绝不上报 SUCCESS，超时报告 DOOR_OPEN_TIMEOUT (FAILED)
-- ✅ `status/inventory` 槽位物理状态上报与 `InventoryReconciler` 自动对账 (RFID 错还检测、失位检测)
+- ✅ `status/inventory` 槽位物理状态上报与 `InventoryReconciler` 自动对账，异常持久化入库 `device_alerts` 并支持自愈
 
 ### v0.6 - 边缘人脸识别与触屏终端（边缘终端框架完成，待真实模型与真人 PAD 验收）
 - ✅ 强制部署真实深度人脸模型 (MobileFaceNet ONNX 512-d)，生产模式禁止静默回退手工梯度
-- ✅ YuNet 5 点面部关键点仿射相似变换对齐 (`cv2.estimateAffinePartial2D` + `cv2.warpAffine` 映射至 112×112)
+- ✅ 配置文件相对路径无歧义解析 (按 config 文件所在目录解析模型与模板路径，支持根目录与 edge 子目录一致启动)
+- ✅ 生产模式机柜安全通信密钥 Fail-Fast 致命性拦截
+- ✅ YuNet 5 点面部关键点仿射相似变换对齐 (`cv2.estimateAffinePartial2D` + `cv2.warpAffine` 映射至 112×112，拓扑左右排序与防镜像几何校验)
 - ✅ AES-256-GCM 模板强加密持久化存储 (`.enc`)
 - ✅ 静默活体防攻击 (PAD: Laplacian 散焦 + FFT 频域摩尔尖峰 PAPR + HSV 过曝分析)
 - ✅ 柜机设备 HMAC-SHA256 防篡改防重放签名通信

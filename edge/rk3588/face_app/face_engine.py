@@ -8,13 +8,13 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 logger = logging.getLogger("FaceEngine")
 
-# 标准 ArcFace / MobileFaceNet 112x112 五点标准人脸参考坐标
+# 标准 ArcFace / MobileFaceNet 112x112 五点标准人脸参考坐标 (画面坐标系)
 STANDARD_LANDMARKS_112 = np.array([
-    [38.2946, 51.6963],   # 左眼
-    [73.5318, 51.5014],   # 右眼
-    [56.0252, 71.7366],   # 鼻尖
-    [41.5493, 92.3655],   # 左嘴角
-    [70.7299, 92.2041]    # 右嘴角
+    [38.2946, 51.6963],   # 画面左眼 (viewer-left / subject-right)
+    [73.5318, 51.5014],   # 画面右眼 (viewer-right / subject-left)
+    [56.0252, 71.7366],   # 鼻尖 (nose tip)
+    [41.5493, 92.3655],   # 画面左嘴角 (viewer-left / subject-right)
+    [70.7299, 92.2041]    # 画面右嘴角 (viewer-right / subject-left)
 ], dtype=np.float32)
 
 MAGIC_HEADER = b"KCFE"  # Key Cabinet Face Encryption
@@ -29,16 +29,26 @@ class FaceEngine:
         self,
         template_dir: str = "templates",
         min_face_size: int = 60,
-        device_secret: str = "default_secret_key_change_in_production",
+        device_secret: str = "",
         model_path: Optional[str] = None,
         allow_handcrafted_fallback: bool = False
     ):
         self.template_dir = template_dir
         self.min_face_size = min_face_size
-        self.device_secret = device_secret or "default_secret_key_change_in_production"
         self.model_path = model_path
         self.allow_handcrafted_fallback = allow_handcrafted_fallback
         self.last_landmarks: Optional[np.ndarray] = None
+
+        if not device_secret:
+            if not self.allow_handcrafted_fallback:
+                raise RuntimeError(
+                    "生产模式必须配置机柜安全密钥 device_secret 用于人脸特征 AES-256-GCM 模板加密！"
+                    "严禁在未配置密钥的情况下启动生产人脸识别引擎。"
+                )
+            self.device_secret = "dev_default_secret_key_testing_only"
+        else:
+            self.device_secret = device_secret
+
         os.makedirs(self.template_dir, exist_ok=True)
 
         # 1. 深度检测器与特征提取器初始化
@@ -147,13 +157,30 @@ class FaceEngine:
                 # 选取置信度与面积综合最大的人脸
                 best_face = max(faces, key=lambda f: f[2] * f[3] * f[14])
                 fx, fy, fw, fh = int(best_face[0]), int(best_face[1]), int(best_face[2]), int(best_face[3])
-                # 提取 YuNet 5 点关键点: [右眼, 左眼, 鼻尖, 右嘴角, 左嘴角]
+                # 提取 YuNet 5 点关键点并显式按画面左右坐标重排：
+                # [画面左眼 (viewer-left), 画面右眼 (viewer-right), 鼻尖, 画面左嘴角, 画面右嘴角]
+                pt_eye1 = np.array([best_face[4], best_face[5]], dtype=np.float32)
+                pt_eye2 = np.array([best_face[6], best_face[7]], dtype=np.float32)
+                if pt_eye1[0] <= pt_eye2[0]:
+                    left_eye, right_eye = pt_eye1, pt_eye2
+                else:
+                    left_eye, right_eye = pt_eye2, pt_eye1
+
+                nose = np.array([best_face[8], best_face[9]], dtype=np.float32)
+
+                pt_m1 = np.array([best_face[10], best_face[11]], dtype=np.float32)
+                pt_m2 = np.array([best_face[12], best_face[13]], dtype=np.float32)
+                if pt_m1[0] <= pt_m2[0]:
+                    left_mouth, right_mouth = pt_m1, pt_m2
+                else:
+                    left_mouth, right_mouth = pt_m2, pt_m1
+
                 landmarks = np.array([
-                    [best_face[4], best_face[5]],
-                    [best_face[6], best_face[7]],
-                    [best_face[8], best_face[9]],
-                    [best_face[10], best_face[11]],
-                    [best_face[12], best_face[13]]
+                    left_eye,
+                    right_eye,
+                    nose,
+                    left_mouth,
+                    right_mouth
                 ], dtype=np.float32)
                 self.last_landmarks = landmarks
 
@@ -195,11 +222,24 @@ class FaceEngine:
         """
         根据 5 点面部关键点执行相似变换仿射对齐 (cv2.estimateAffinePartial2D + warpAffine)，
         生成标准 112×112 ArcFace / MobileFaceNet 对齐人脸；若无关键点则回退扩边裁剪。
+        关键点映射基准为：
+          [0]: 画面左眼 (viewer-left eye, x 较小)
+          [1]: 画面右眼 (viewer-right eye, x 较大)
+          [2]: 鼻尖 (nose)
+          [3]: 画面左嘴角 (viewer-left mouth, x 较小)
+          [4]: 画面右嘴角 (viewer-right mouth, x 较大)
         """
         lm = landmarks if landmarks is not None else self.last_landmarks
         if lm is not None and len(lm) == 5:
             try:
-                M, _ = cv2.estimateAffinePartial2D(lm.astype(np.float32), STANDARD_LANDMARKS_112)
+                lm = np.array(lm, dtype=np.float32).copy()
+                # 几何拓扑防御保护：若双眼或双嘴角的 x 坐标逆序，自动按画面左右重排，杜绝仿射矩阵反向镜像畸变
+                if lm[0, 0] > lm[1, 0]:
+                    lm[[0, 1]] = lm[[1, 0]]
+                if lm[3, 0] > lm[4, 0]:
+                    lm[[3, 4]] = lm[[4, 3]]
+
+                M, _ = cv2.estimateAffinePartial2D(lm, STANDARD_LANDMARKS_112)
                 if M is not None:
                     aligned = cv2.warpAffine(frame, M, (112, 112), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
                     return aligned

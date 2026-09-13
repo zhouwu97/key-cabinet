@@ -67,8 +67,10 @@ Page({
         isCabinetOffline,
         loading: false,
         hasError: false,
+      }, () => {
+        // 列表数据写入后再应用筛选，避免首次加载读取到旧 keys。
+        this.applyFilter()
       })
-      this.applyFilter()
     } catch (e) {
       console.error('加载钥匙列表失败', e)
       this.setData({ loading: false, hasError: true })
@@ -78,39 +80,42 @@ Page({
   onSearchInput(e: any) {
     const keyword = e.detail.value
     this.setData({ searchKeyword: keyword })
-    this.applyFilter()
+    // setData 异步更新，直接读取 data 会拿到上一次输入；显式传入最新值保证列表即时更新。
+    this.applyFilter(keyword, this.data.activeFilter)
   },
 
   clearSearch() {
     this.setData({ searchKeyword: '' })
-    this.applyFilter()
+    this.applyFilter('', this.data.activeFilter)
   },
 
   onFilterTap(e: any) {
     const filter = e.currentTarget.dataset.filter as FilterType
     this.setData({ activeFilter: filter })
-    this.applyFilter()
+    this.applyFilter(this.data.searchKeyword, filter)
   },
 
-  applyFilter() {
-    const { keys, searchKeyword, activeFilter } = this.data
+  applyFilter(searchKeyword?: string, activeFilter?: FilterType) {
+    const { keys } = this.data
+    const keywordValue = searchKeyword ?? this.data.searchKeyword
+    const filterValue = activeFilter ?? this.data.activeFilter
     let results = [...keys]
 
     // 搜索过滤
-    if (searchKeyword.trim()) {
-      const keyword = searchKeyword.toLowerCase().trim()
+    if (keywordValue.trim()) {
+      const keyword = keywordValue.toLowerCase().trim()
       results = results.filter(
         key =>
-          key.roomNo.toLowerCase().includes(keyword) ||
-          key.name.toLowerCase().includes(keyword) ||
-          key.description?.toLowerCase().includes(keyword),
+          (key.roomNo || '').toLowerCase().includes(keyword) ||
+          (key.name || '').toLowerCase().includes(keyword) ||
+          (key.description || '').toLowerCase().includes(keyword),
       )
     }
 
     // 状态过滤
-    if (activeFilter === 'AVAILABLE') {
+    if (filterValue === 'AVAILABLE') {
       results = results.filter(key => key.status === KeyStatus.AVAILABLE)
-    } else if (activeFilter === 'BORROWED') {
+    } else if (filterValue === 'BORROWED') {
       results = results.filter(
         key =>
           key.status === KeyStatus.BORROWED || key.status === KeyStatus.OVERDUE,

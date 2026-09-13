@@ -111,4 +111,6 @@
       <text class="chev">›</text>
     </view>
   </view>
+
+  <view class="logout-button" bindtap="logout">退出登录</view>
 </view>

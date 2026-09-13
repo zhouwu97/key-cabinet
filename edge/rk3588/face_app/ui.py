@@ -9,7 +9,8 @@ class TouchscreenKioskUI:
     RK3588 触摸屏交互界面。
     包含人脸取景框、认证状态提示、虚拟数字键盘与出钥状态反馈。
     """
-    def __init__(self, root: tk.Tk, on_room_submit: Callable[[str], None], on_cancel: Callable[[], None]):
+    def __init__(self, root: tk.Tk, on_room_submit: Callable[[str], None], on_cancel: Callable[[], None],
+                 on_pickup: Optional[Callable[[str], None]] = None, on_return: Optional[Callable[[str], None]] = None):
         self.root = root
         self.root.title("智能钥匙柜现场取钥终端 (RK3588)")
         self.root.geometry("800x480")
@@ -17,6 +18,11 @@ class TouchscreenKioskUI:
 
         self.on_room_submit = on_room_submit
         self.on_cancel = on_cancel
+        self.on_pickup = on_pickup
+        self.on_return = on_return
+        self.reservations = []
+        self.borrows = []
+        self.task_dialog = None
         self.current_room = ""
 
         self._build_ui()
@@ -41,13 +47,19 @@ class TouchscreenKioskUI:
 
         # 状态提示
         self.status_label = tk.Label(right_panel, text="等待人脸进入取景框...",
-                                     font=("Helvetica", 12), fg="#4ade80", bg="#27293d")
+                                     font=("Helvetica", 12), fg="#4ade80", bg="#27293d", wraplength=320)
         self.status_label.pack(pady=5)
 
         # 用户信息
         self.user_label = tk.Label(right_panel, text="身份：未认证",
                                    font=("Helvetica", 11), fg="#94a3b8", bg="#27293d")
         self.user_label.pack(pady=2)
+
+        actions = tk.Frame(right_panel, bg="#27293d")
+        actions.pack(pady=4)
+        tk.Button(actions, text="预约取钥", command=lambda: self._choose_task(False)).pack(side=tk.LEFT, padx=3)
+        tk.Button(actions, text="归还钥匙", command=lambda: self._choose_task(True)).pack(side=tk.LEFT, padx=3)
+        tk.Button(actions, text="退出身份", command=self.on_cancel).pack(side=tk.LEFT, padx=3)
 
         # 房间号输入回显
         tk.Label(right_panel, text="请输入房间号:", font=("Helvetica", 10), fg="#cbd5e1", bg="#27293d").pack(anchor="w")
@@ -103,3 +115,47 @@ class TouchscreenKioskUI:
     def clear_room_input(self):
         self.current_room = ""
         self.room_display.config(text="---")
+
+    def set_tasks(self, reservations, borrows):
+        if self.task_dialog is not None:
+            self.task_dialog.destroy()
+            self.task_dialog = None
+        self.reservations = reservations
+        self.borrows = borrows
+
+    def _choose_task(self, is_return):
+        tasks = self.borrows if is_return else self.reservations
+        if not tasks:
+            self.set_status("本柜暂无可归还记录" if is_return else "本柜暂无可取钥预约，请先在小程序预约", "#facc15")
+            return
+        if self.task_dialog is not None:
+            return
+        dialog = tk.Toplevel(self.root)
+        self.task_dialog = dialog
+        dialog.title("选择归还记录" if is_return else "选择取钥预约")
+        dialog.geometry("520x320")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        listing = tk.Listbox(dialog, font=("Helvetica", 15), selectmode=tk.SINGLE)
+        listing.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+        for task in tasks:
+            name = task.get("keyName") or task.get("roomNo") or task.get("keyId")
+            listing.insert(tk.END, f"{name} · {task['id']}")
+        listing.selection_set(0)
+
+        def close():
+            self.task_dialog = None
+            dialog.destroy()
+
+        def confirm():
+            selected = listing.curselection()
+            if not selected:
+                return
+            task_id = tasks[selected[0]]["id"]
+            close()
+            callback = self.on_return if is_return else self.on_pickup
+            if callback:
+                callback(task_id)
+
+        tk.Button(dialog, text="确认归还" if is_return else "确认取钥", command=confirm).pack(pady=8)
+        dialog.protocol("WM_DELETE_WINDOW", close)
